@@ -1,0 +1,8 @@
+.DS_Store
+.godot/
+.home/
+build/*.apk
+build/*.aab
+build/*.idsig
+tools/godot/
+.qa/
