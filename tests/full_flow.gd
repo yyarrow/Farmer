@@ -1,0 +1,117 @@
+extends SceneTree
+
+var failures: Array[String] = []
+var battle_results: Array[Dictionary] = []
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	var state = root.get_node("State")
+	var audio = root.get_node("Audio")
+	var telemetry = root.get_node("Telemetry")
+	state.battle_finished.connect(func(result: Dictionary): battle_results.append(result))
+	state.reset_game()
+	state.tutorial_seen = true
+	_fill_resources(state)
+
+	# Every building reaches every level and remains within its declared maximum.
+	for id in state.BUILDINGS:
+		while int(state.buildings[id]) < int(state.BUILDINGS[id].max):
+			_fill_resources(state)
+			_check(state.upgrade_building(id), "upgrade %s" % id)
+		_check(int(state.buildings[id]) == 5, "%s reaches level 5" % id)
+
+	# All economy actions, unit unlocks and policies execute.
+	_fill_resources(state)
+	for trade in ["sell_grain", "buy_grain", "sell_wood", "buy_stone"]:
+		_check(state.trade(trade), "trade %s" % trade)
+	for unit in state.UNITS:
+		_fill_resources(state)
+		_check(state.recruit(unit), "recruit %s" % unit)
+	for policy in ["irrigate", "tax_relief", "reward_army"]:
+		_fill_resources(state)
+		_check(state.enact_policy(policy), "policy %s" % policy)
+
+	# Each random event branch resolves without leaving a modal event behind.
+	for event_data in state.EVENTS:
+		for choice in [0, 1]:
+			_fill_resources(state)
+			state.current_event = event_data.duplicate(true)
+			state.resolve_event(choice)
+			_check(state.current_event.is_empty(), "event %s choice %d" % [event_data.id, choice])
+
+	# Deterministic strong and weak siege cases.
+	battle_results.clear()
+	state.units = {"militia": 100, "archer": 100, "chariot": 100}
+	state.morale = 100.0
+	state._resolve_siege()
+	_check(not battle_results.is_empty() and bool(battle_results[-1].won), "high defense wins siege")
+	battle_results.clear()
+	state.units = {"militia": 0, "archer": 0, "chariot": 0}
+	state.buildings.wall = 0
+	state.buildings.barracks = 0
+	state.current_day = 40
+	state._resolve_siege()
+	_check(not battle_results.is_empty() and not bool(battle_results[-1].won), "zero defense loses siege")
+
+	# Save slot CRUD and metadata.
+	state.current_day = 42
+	state.chapter = 2
+	_fill_resources(state)
+	_check(state.manual_save(1), "manual save")
+	state.current_day = 3
+	_check(state.load_slot(1), "manual load")
+	_check(state.current_day == 42, "manual save restores day")
+	var slots: Array = state.list_save_slots()
+	_check(bool(slots[0].exists) and int(slots[0].chapter) == 2, "slot metadata")
+	_check(state.delete_slot(1), "manual delete")
+	_check(not bool(state.list_save_slots()[0].exists), "slot deleted")
+
+	# Settings persist and diagnostics export contains a snapshot.
+	audio.set_volume("music", 0.37)
+	audio.load_settings()
+	_check(absf(float(audio.settings.music) - 0.37) < 0.001, "music volume persists")
+	if FileAccess.file_exists(telemetry.EVENT_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(telemetry.EVENT_PATH))
+	telemetry.track("fresh_install_probe", {})
+	_check(FileAccess.file_exists(telemetry.EVENT_PATH), "first diagnostic event creates its file")
+	var report_path: String = telemetry.build_report(state.get_snapshot(), state.list_save_slots())
+	_check(FileAccess.file_exists(report_path), "diagnostic report exported")
+	_check(FileAccess.get_file_as_string(report_path).contains("game_snapshot"), "diagnostic report content")
+
+	# Art sheets are RGBA and contain transparent pixels.
+	for id in state.BUILDINGS:
+		var texture: Texture2D = load("res://assets/art/buildings/%s_stages.png" % id)
+		var image := texture.get_image()
+		_check(not image.is_empty(), "art sheet loads %s" % id)
+		_check(image.detect_alpha() != Image.ALPHA_NONE, "art sheet alpha %s" % id)
+
+	# Long economy soak: 20,000 ticks, manually resolving events as they arise.
+	state.reset_game()
+	state.tutorial_seen = true
+	for i in 20000:
+		state._tick_economy(0.1)
+		if not state.current_event.is_empty():
+			state.resolve_event(i % 2)
+		for key in state.resources:
+			_check(is_finite(float(state.resources[key])), "finite %s at tick %d" % [key, i])
+			_check(float(state.resources[key]) >= 0.0, "nonnegative %s at tick %d" % [key, i])
+
+	state.reset_game()
+	audio.set_volume("music", 0.62)
+	if failures.is_empty():
+		print("FULL_FLOW_OK ticks=20000 buildings=8 events=10 saves=3 diagnostics=ok")
+		quit(0)
+	else:
+		for failure in failures:
+			push_error(failure)
+		quit(1)
+
+func _fill_resources(state) -> void:
+	state.resources = {"grain": 100000.0, "wood": 100000.0, "stone": 100000.0, "coins": 100000.0}
+	state.population = maxi(state.population, 500)
+
+func _check(condition: bool, label: String) -> void:
+	if not condition:
+		failures.append(label)

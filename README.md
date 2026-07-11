@@ -12,6 +12,11 @@
 - 旱灾、流民、商队、斥候、丰收等随机事件
 - 三阶段繁荣目标、离线收益和自动本地存档
 - 原创竖屏国风主场景、轻动效、触觉反馈与短促编钟音色
+- 48 秒原创五声音阶国风循环音乐与 8 类独立操作音效
+- 总音量、背景音乐、操作音效滑杆及静音设置
+- 八类建筑四阶段外观，建造、升级、交易、征兵、政令和战斗场景动效
+- 自动存档、三个手动存档槽及载入、覆盖、删除、重新开始确认
+- 完全本地的操作埋点、异常退出检测、引擎日志与诊断报告复制导出
 
 ## 运行
 
@@ -27,8 +32,17 @@
 
 ```bash
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，最低 Android 7.0。存档只写入应用私有目录，不请求网络或其他敏感权限。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.2.0`，最低 Android 7.0。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
+## 重新生成原创音频
+
+```bash
+python3 tools/generate_audio.py
+```
+
+脚本只使用 Python 标准库，离线合成主题音乐和所有操作音效。

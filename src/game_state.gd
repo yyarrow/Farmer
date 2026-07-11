@@ -4,8 +4,13 @@ signal changed
 signal notice(message: String)
 signal event_started(event: Dictionary)
 signal battle_finished(result: Dictionary)
+signal visual_event(kind: String, payload: Dictionary)
+signal save_slots_changed
 
-const SAVE_PATH := "user://qinghe_save.json"
+const LEGACY_SAVE_PATH := "user://qinghe_save.json"
+const SAVE_DIR := "user://saves"
+const AUTO_SAVE_PATH := "user://saves/autosave.json"
+const SLOT_COUNT := 3
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 
@@ -54,8 +59,11 @@ var _save_accum := 0.0
 
 func _ready() -> void:
 	rng.randomize()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAVE_DIR))
+	_migrate_legacy_save()
 	load_game()
 	set_process(true)
+	Telemetry.track("game_state_ready", {"day": current_day, "chapter": chapter})
 
 func _process(delta: float) -> void:
 	_tick_economy(delta)
@@ -145,6 +153,8 @@ func can_afford(cost: Dictionary) -> bool:
 func spend(cost: Dictionary) -> bool:
 	if not can_afford(cost):
 		notice.emit("资源不足，先经营一会儿吧")
+		Telemetry.track("resource_shortage", {"cost": cost, "resources": resources.duplicate()})
+		visual_event.emit("shortage", {"cost": cost})
 		return false
 	for key in cost:
 		resources[key] -= float(cost[key])
@@ -167,6 +177,10 @@ func upgrade_building(id: String) -> bool:
 		morale = minf(100.0, morale + 5.0)
 	changed.emit()
 	notice.emit(("建成 " if level == 0 else "升级 ") + BUILDINGS[id].name)
+	var event_kind := "build" if level == 0 else "upgrade"
+	visual_event.emit(event_kind, {"building": id, "level": buildings[id]})
+	Audio.play_sfx(event_kind)
+	Telemetry.track("building_%s" % event_kind, {"building": id, "from": level, "to": buildings[id], "cost": cost})
 	save_game()
 	return true
 
@@ -186,6 +200,9 @@ func recruit(id: String) -> bool:
 	morale = maxf(35.0, morale - 0.7)
 	changed.emit()
 	notice.emit("一队%s加入守军" % data.name)
+	visual_event.emit("recruit", {"unit": id, "count": units[id]})
+	Audio.play_sfx("recruit")
+	Telemetry.track("unit_recruited", {"unit": id, "count": units[id], "army_power": get_army_power()})
 	save_game()
 	return true
 
@@ -207,6 +224,9 @@ func trade(kind: String) -> bool:
 	if ok:
 		changed.emit()
 		notice.emit("市易完成")
+		visual_event.emit("trade", {"trade": kind})
+		Audio.play_sfx("trade")
+		Telemetry.track("trade_completed", {"kind": kind, "resources": resources.duplicate()})
 		save_game()
 	return ok
 
@@ -229,6 +249,9 @@ func enact_policy(id: String) -> bool:
 		_:
 			return false
 	changed.emit()
+	visual_event.emit("policy", {"policy": id})
+	Audio.play_sfx("event")
+	Telemetry.track("policy_enacted", {"policy": id, "day": current_day})
 	save_game()
 	return true
 
@@ -245,11 +268,16 @@ func patrol() -> bool:
 		resources.coins = minf(get_capacity("coins"), resources.coins + 35.0)
 		morale = minf(100.0, morale + 5.0)
 		notice.emit("巡剿得胜，缴获铜钱并降低威胁")
+		visual_event.emit("patrol_win", {"power": get_army_power(), "enemy": enemy})
+		Audio.play_sfx("battle_win")
 	else:
 		_apply_casualties(0.10)
 		morale = maxf(20.0, morale - 8.0)
 		notice.emit("巡剿失利，部分士卒负伤")
+		visual_event.emit("patrol_loss", {"power": get_army_power(), "enemy": enemy})
+		Audio.play_sfx("battle_loss")
 	changed.emit()
+	Telemetry.track("patrol_resolved", {"won": roll >= enemy, "roll": roll, "enemy": enemy})
 	save_game()
 	return true
 
@@ -271,6 +299,9 @@ func _advance_day() -> void:
 
 func _start_random_event() -> void:
 	current_event = EVENTS[rng.randi_range(0, EVENTS.size() - 1)].duplicate(true)
+	Audio.play_sfx("event")
+	visual_event.emit("event", {"id": current_event.id})
+	Telemetry.track("random_event_started", {"id": current_event.id, "day": current_day})
 	event_started.emit(current_event)
 
 func resolve_event(choice: int) -> void:
@@ -319,6 +350,8 @@ func resolve_event(choice: int) -> void:
 				notice.emit("与民同乐，举邑欢腾")
 	current_event = {}
 	changed.emit()
+	visual_event.emit("event_choice", {"id": id, "choice": choice})
+	Telemetry.track("random_event_resolved", {"id": id, "choice": choice, "resources": resources.duplicate()})
 	save_game()
 
 func _resolve_siege() -> void:
@@ -343,6 +376,9 @@ func _resolve_siege() -> void:
 		result.loss_text = "城外仓舍受损，损失粮食 %d、铜钱 %d。" % [roundi(lost_grain), roundi(lost_coins)]
 	threat = 18.0
 	next_attack_day = current_day + maxi(4, 7 - chapter)
+	visual_event.emit("siege_win" if won else "siege_loss", result)
+	Audio.play_sfx("battle_win" if won else "battle_loss")
+	Telemetry.track("siege_resolved", result.merged({"day": current_day, "chapter": chapter}))
 	battle_finished.emit(result)
 
 func _apply_casualties(ratio: float) -> void:
@@ -366,18 +402,37 @@ func advance_chapter() -> bool:
 	next_attack_day = mini(next_attack_day, current_day + 4)
 	notice.emit("城邑晋升！新的挑战正在逼近")
 	changed.emit()
+	visual_event.emit("chapter", {"chapter": chapter})
+	Audio.play_sfx("upgrade")
+	Telemetry.track("chapter_advanced", {"chapter": chapter, "prosperity": get_prosperity()})
 	save_game()
 	return true
 
 func mark_tutorial_seen() -> void:
 	tutorial_seen = true
+	Telemetry.track("tutorial_completed", {"day": current_day})
 	save_game()
 
 func save_game() -> void:
-	var data := {
-		"resources": resources,
-		"buildings": buildings,
-		"units": units,
+	if _write_save(AUTO_SAVE_PATH, get_snapshot()):
+		Telemetry.track("autosave", {"day": current_day, "chapter": chapter})
+
+func load_game() -> void:
+	if not FileAccess.file_exists(AUTO_SAVE_PATH):
+		return
+	var data := _read_save(AUTO_SAVE_PATH)
+	if data.is_empty():
+		Telemetry.track_error("autosave_invalid", "自动存档无法解析")
+		return
+	_apply_snapshot(data, true)
+	Telemetry.track("autosave_loaded", {"day": current_day, "chapter": chapter})
+
+func get_snapshot() -> Dictionary:
+	return {
+		"format_version": 2,
+		"resources": resources.duplicate(true),
+		"buildings": buildings.duplicate(true),
+		"units": units.duplicate(true),
 		"population": population,
 		"morale": morale,
 		"threat": threat,
@@ -386,35 +441,35 @@ func save_game() -> void:
 		"day_progress": day_progress,
 		"next_attack_day": next_attack_day,
 		"tutorial_seen": tutorial_seen,
-		"buffs": buffs,
+		"buffs": buffs.duplicate(true),
+		"prosperity": get_prosperity(),
 		"saved_at": Time.get_unix_time_from_system(),
 	}
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(data))
 
-func load_game() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if not file:
-		return
-	var parsed = JSON.parse_string(file.get_as_text())
-	if not parsed is Dictionary:
-		return
-	resources.merge(parsed.get("resources", {}), true)
-	buildings.merge(parsed.get("buildings", {}), true)
-	units.merge(parsed.get("units", {}), true)
-	population = int(parsed.get("population", population))
-	morale = float(parsed.get("morale", morale))
-	threat = float(parsed.get("threat", threat))
-	current_day = int(parsed.get("current_day", current_day))
-	chapter = int(parsed.get("chapter", chapter))
-	day_progress = float(parsed.get("day_progress", day_progress))
-	next_attack_day = int(parsed.get("next_attack_day", next_attack_day))
-	tutorial_seen = bool(parsed.get("tutorial_seen", tutorial_seen))
-	buffs.merge(parsed.get("buffs", {}), true)
-	var elapsed := clampf(Time.get_unix_time_from_system() - float(parsed.get("saved_at", Time.get_unix_time_from_system())), 0.0, MAX_OFFLINE_SECONDS)
+func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
+	resources = {"grain": 180.0, "wood": 125.0, "stone": 82.0, "coins": 150.0}
+	resources.merge(data.get("resources", {}), true)
+	buildings = {"farm": 1, "woodcut": 1, "quarry": 0, "house": 1, "market": 0, "warehouse": 1, "barracks": 0, "wall": 0}
+	buildings.merge(data.get("buildings", {}), true)
+	units = {"militia": 4, "archer": 0, "chariot": 0}
+	units.merge(data.get("units", {}), true)
+	population = int(data.get("population", 22))
+	morale = float(data.get("morale", 70.0))
+	threat = float(data.get("threat", 24.0))
+	current_day = int(data.get("current_day", 1))
+	chapter = int(data.get("chapter", 1))
+	day_progress = float(data.get("day_progress", 0.0))
+	next_attack_day = int(data.get("next_attack_day", 7))
+	tutorial_seen = bool(data.get("tutorial_seen", tutorial_seen))
+	buffs = {"farm_until": 0, "all_until": 0}
+	buffs.merge(data.get("buffs", {}), true)
+	current_event = {}
+	offline_report = ""
+	if apply_offline:
+		_apply_offline_progress(data)
+
+func _apply_offline_progress(data: Dictionary) -> void:
+	var elapsed := clampf(Time.get_unix_time_from_system() - float(data.get("saved_at", Time.get_unix_time_from_system())), 0.0, MAX_OFFLINE_SECONDS)
 	if elapsed >= 30.0:
 		var rates := get_rates()
 		var gains := []
@@ -425,10 +480,90 @@ func load_game() -> void:
 				gains.append("%s +%d" % [_resource_name(key), roundi(gain)])
 		if not gains.is_empty():
 			offline_report = "离城期间：" + "  ".join(gains)
+			Telemetry.track("offline_rewards", {"elapsed": roundi(elapsed), "gains": gains})
+
+func manual_save(slot: int) -> bool:
+	if slot < 1 or slot > SLOT_COUNT:
+		return false
+	var data := get_snapshot()
+	data.slot = slot
+	var ok := _write_save(_slot_path(slot), data)
+	if ok:
+		notice.emit("进度已保存到档位 %d" % slot)
+		Audio.play_sfx("ui_tap")
+		Telemetry.track("manual_save", {"slot": slot, "day": current_day, "chapter": chapter})
+		save_slots_changed.emit()
+	return ok
+
+func load_slot(slot: int) -> bool:
+	var data := _read_save(_slot_path(slot))
+	if data.is_empty():
+		notice.emit("该档位尚无存档")
+		return false
+	_apply_snapshot(data, true)
+	changed.emit()
+	save_game()
+	notice.emit("已载入档位 %d" % slot)
+	visual_event.emit("load", {"slot": slot})
+	Telemetry.track("manual_load", {"slot": slot, "day": current_day, "chapter": chapter})
+	return true
+
+func delete_slot(slot: int) -> bool:
+	var path := _slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return false
+	var error := DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	if error == OK:
+		Telemetry.track("manual_save_deleted", {"slot": slot})
+		save_slots_changed.emit()
+		return true
+	Telemetry.track_error("save_delete_failed", error_string(error), {"slot": slot})
+	return false
+
+func list_save_slots() -> Array:
+	var slots: Array = []
+	for slot in range(1, SLOT_COUNT + 1):
+		var path := _slot_path(slot)
+		var data := _read_save(path)
+		if data.is_empty():
+			slots.append({"slot": slot, "exists": false})
+		else:
+			slots.append({
+				"slot": slot,
+				"exists": true,
+				"day": int(data.get("current_day", 1)),
+				"chapter": int(data.get("chapter", 1)),
+				"prosperity": int(data.get("prosperity", 0)),
+				"saved_at": float(data.get("saved_at", 0.0)),
+			})
+	return slots
+
+func _slot_path(slot: int) -> String:
+	return "%s/slot_%d.json" % [SAVE_DIR, slot]
+
+func _write_save(path: String, data: Dictionary) -> bool:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if not file:
+		Telemetry.track_error("save_open_failed", "无法写入存档", {"path": path, "error": FileAccess.get_open_error()})
+		return false
+	file.store_string(JSON.stringify(data))
+	return true
+
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary else {}
+
+func _migrate_legacy_save() -> void:
+	if FileAccess.file_exists(AUTO_SAVE_PATH) or not FileAccess.file_exists(LEGACY_SAVE_PATH):
+		return
+	var data := _read_save(LEGACY_SAVE_PATH)
+	if not data.is_empty() and _write_save(AUTO_SAVE_PATH, data):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LEGACY_SAVE_PATH))
+		Telemetry.track("legacy_save_migrated", {"format": data.get("format_version", 1)})
 
 func reset_game() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
 	resources = {"grain": 180.0, "wood": 125.0, "stone": 82.0, "coins": 150.0}
 	buildings = {"farm": 1, "woodcut": 1, "quarry": 0, "house": 1, "market": 0, "warehouse": 1, "barracks": 0, "wall": 0}
 	units = {"militia": 4, "archer": 0, "chariot": 0}
@@ -441,9 +576,11 @@ func reset_game() -> void:
 	next_attack_day = 7
 	current_event = {}
 	buffs = {"farm_until": 0, "all_until": 0}
+	offline_report = ""
 	changed.emit()
+	visual_event.emit("new_game", {})
+	Telemetry.track("new_game", {})
 	save_game()
 
 func _resource_name(id: String) -> String:
 	return {"grain": "粮", "wood": "木", "stone": "石", "coins": "钱"}.get(id, id)
-

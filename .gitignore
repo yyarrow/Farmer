@@ -6,3 +6,4 @@ build/*.aab
 build/*.idsig
 tools/godot/
 .qa/
+assets/art/buildings/source/

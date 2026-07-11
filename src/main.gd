@@ -32,7 +32,6 @@ var content_box: VBoxContainer
 var toast_panel: PanelContainer
 var toast_label: Label
 var modal_layer: Control
-var chime_player: AudioStreamPlayer
 var _toast_tween: Tween
 
 func _ready() -> void:
@@ -41,6 +40,7 @@ func _ready() -> void:
 	State.notice.connect(_show_toast)
 	State.event_started.connect(_on_event_started)
 	State.battle_finished.connect(_on_battle_finished)
+	Telemetry.unexpected_exit_detected.connect(_show_toast)
 	_refresh_dynamic()
 	_render_tab()
 	if not State.offline_report.is_empty():
@@ -68,12 +68,17 @@ func _build_scene() -> void:
 	ambient.z_index = 1
 	add_child(ambient)
 
+	var city_visuals := Control.new()
+	city_visuals.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	city_visuals.set_script(load("res://src/city_visuals.gd"))
+	city_visuals.z_index = 2
+	add_child(city_visuals)
+
 	_build_top_panel()
 	_build_map_markers()
 	_build_threat_strip()
 	_build_bottom_panel()
 	_build_toast()
-	_build_sound()
 
 func _build_top_panel() -> void:
 	var panel := PanelContainer.new()
@@ -120,8 +125,22 @@ func _build_top_panel() -> void:
 	population_label.add_theme_color_override("font_color", INK_SOFT)
 	title_stack.add_child(population_label)
 
+	var settings_button := Button.new()
+	settings_button.text = "调"
+	settings_button.tooltip_text = "声音、存档与诊断"
+	settings_button.custom_minimum_size = Vector2(38, 38)
+	settings_button.add_theme_font_size_override("font_size", 16)
+	settings_button.add_theme_color_override("font_color", INK)
+	settings_button.add_theme_stylebox_override("normal", _style(Color(0.33, 0.42, 0.32, 0.12), 10, 1, Color(0.34, 0.36, 0.25, 0.18), 4))
+	settings_button.add_theme_stylebox_override("pressed", _style(JADE, 10, 0, Color.TRANSPARENT, 4))
+	settings_button.pressed.connect(func():
+		_play_chime()
+		_show_settings()
+	)
+	heading.add_child(settings_button)
+
 	var day_stack := VBoxContainer.new()
-	day_stack.custom_minimum_size.x = 110
+	day_stack.custom_minimum_size.x = 92
 	heading.add_child(day_stack)
 	day_label = Label.new()
 	day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -130,7 +149,7 @@ func _build_top_panel() -> void:
 	day_stack.add_child(day_label)
 	day_bar = ProgressBar.new()
 	day_bar.show_percentage = false
-	day_bar.custom_minimum_size = Vector2(100, 6)
+	day_bar.custom_minimum_size = Vector2(86, 6)
 	day_bar.add_theme_stylebox_override("background", _style(Color(0.36, 0.31, 0.22, 0.14), 3))
 	day_bar.add_theme_stylebox_override("fill", _style(GOLD, 3))
 	day_stack.add_child(day_bar)
@@ -165,19 +184,20 @@ func _build_map_markers() -> void:
 	for id in marker_data:
 		var button := Button.new()
 		button.position = marker_data[id]
-		button.size = Vector2(72, 50)
-		button.add_theme_font_size_override("font_size", 13)
+		button.size = Vector2(68, 32)
+		button.add_theme_font_size_override("font_size", 11)
 		button.add_theme_color_override("font_color", Color.WHITE)
 		button.add_theme_color_override("font_hover_color", Color.WHITE)
-		button.add_theme_stylebox_override("normal", _style(Color(0.12, 0.18, 0.13, 0.70), 13, 1, Color(1, 0.91, 0.63, 0.46), 4))
-		button.add_theme_stylebox_override("hover", _style(Color(0.33, 0.45, 0.34, 0.90), 13, 1, PAPER_DARK, 4))
-		button.add_theme_stylebox_override("pressed", _style(CINNABAR, 13, 1, PAPER, 4))
+		button.add_theme_stylebox_override("normal", _style(Color(0.12, 0.18, 0.13, 0.64), 10, 1, Color(1, 0.91, 0.63, 0.38), 2))
+		button.add_theme_stylebox_override("hover", _style(Color(0.33, 0.45, 0.34, 0.90), 10, 1, PAPER_DARK, 2))
+		button.add_theme_stylebox_override("pressed", _style(CINNABAR, 10, 1, PAPER, 2))
 		button.tooltip_text = State.BUILDINGS[id].desc
 		button.z_index = 5
 		var captured_id: String = id
 		button.pressed.connect(func():
 			_play_chime(470.0)
 			current_tab = 0
+			Telemetry.track("building_marker_opened", {"building": captured_id})
 			_update_tab_buttons()
 			_render_tab()
 			_show_toast("%s：%s" % [State.BUILDINGS[captured_id].name, State.BUILDINGS[captured_id].desc])
@@ -271,6 +291,7 @@ func _build_bottom_panel() -> void:
 		tab.pressed.connect(func():
 			_play_chime(520.0 + index * 45.0)
 			current_tab = index
+			Telemetry.track("tab_opened", {"tab": data[0], "index": index})
 			_update_tab_buttons()
 			_render_tab()
 		)
@@ -303,7 +324,7 @@ func _build_toast() -> void:
 	toast_panel.anchor_bottom = 0.485
 	toast_panel.offset_bottom = 48
 	toast_panel.add_theme_stylebox_override("panel", _style(Color(0.10, 0.14, 0.11, 0.94), 15, 1, Color(0.93, 0.80, 0.49, 0.36), 12))
-	toast_panel.z_index = 80
+	toast_panel.z_index = 300
 	toast_panel.visible = false
 	toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast_panel)
@@ -315,33 +336,8 @@ func _build_toast() -> void:
 	toast_label.add_theme_color_override("font_color", Color("#f7e7bb"))
 	toast_panel.add_child(toast_label)
 
-func _build_sound() -> void:
-	chime_player = AudioStreamPlayer.new()
-	chime_player.stream = _make_chime_stream(520.0)
-	chime_player.volume_db = -12.0
-	add_child(chime_player)
-
-func _make_chime_stream(frequency: float) -> AudioStreamWAV:
-	var mix_rate := 22050
-	var duration := 0.22
-	var frames := int(mix_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(frames * 2)
-	for i in frames:
-		var t := float(i) / mix_rate
-		var envelope := pow(1.0 - t / duration, 2.3)
-		var sample := (sin(TAU * frequency * t) * 0.70 + sin(TAU * frequency * 1.5 * t) * 0.22) * envelope
-		bytes.encode_s16(i * 2, clampi(int(sample * 11000.0), -32767, 32767))
-	var wav := AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = mix_rate
-	wav.stereo = false
-	wav.data = bytes
-	return wav
-
-func _play_chime(frequency := 520.0) -> void:
-	chime_player.stream = _make_chime_stream(frequency)
-	chime_player.play()
+func _play_chime(_frequency := 520.0) -> void:
+	Audio.play_sfx("ui_tap")
 	if OS.has_feature("mobile"):
 		Input.vibrate_handheld(18)
 
@@ -358,7 +354,7 @@ func _refresh_dynamic() -> void:
 	power_label.text = "守军 %d队\n守备 %d / 敌势 %d" % [State.get_army_count(), State.get_defense(), State.get_next_enemy_power()]
 	for id in marker_buttons:
 		var level: int = State.buildings[id]
-		marker_buttons[id].text = "%s  %s\n%s" % [State.BUILDINGS[id].glyph, State.BUILDINGS[id].name, ("待建" if level == 0 else "伍" + _cn_number(level))]
+		marker_buttons[id].text = "%s · %s" % [State.BUILDINGS[id].name, ("未" if level == 0 else _cn_number(level))]
 
 func _update_tab_buttons() -> void:
 	for i in tab_buttons.size():
@@ -686,6 +682,251 @@ func _show_toast(message: String) -> void:
 	_toast_tween.tween_interval(2.2)
 	_toast_tween.tween_property(toast_panel, "modulate:a", 0.0, 0.35)
 	_toast_tween.tween_callback(func(): toast_panel.visible = false)
+
+func _show_settings() -> void:
+	State.set_process(false)
+	Telemetry.track("settings_opened", {})
+	if modal_layer and is_instance_valid(modal_layer):
+		modal_layer.queue_free()
+	modal_layer = Control.new()
+	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_layer.z_index = 210
+	add_child(modal_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.055, 0.075, 0.06, 0.78)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	modal_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.045
+	panel.anchor_right = 0.955
+	panel.anchor_top = 0.075
+	panel.anchor_bottom = 0.93
+	panel.add_theme_stylebox_override("panel", _style(PAPER, 24, 2, Color(JADE, 0.62), 16))
+	modal_layer.add_child(panel)
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 10)
+	panel.add_child(layout)
+	var header := HBoxContainer.new()
+	layout.add_child(header)
+	var title := Label.new()
+	title.text = "城邑设置"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 23)
+	title.add_theme_color_override("font_color", INK)
+	header.add_child(title)
+	var close := _action_button("完成")
+	close.custom_minimum_size = Vector2(70, 38)
+	close.pressed.connect(func():
+		_play_chime()
+		_close_settings()
+	)
+	header.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(scroll)
+	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 9)
+	scroll.add_child(content)
+
+	_add_settings_heading(content, "声律", "原创国风音乐与操作音效")
+	_add_volume_row(content, "总音量", "master")
+	_add_volume_row(content, "背景音乐", "music")
+	_add_volume_row(content, "操作音效", "sfx")
+	var mute := CheckButton.new()
+	mute.text = "静音"
+	mute.button_pressed = bool(Audio.settings.muted)
+	mute.add_theme_font_size_override("font_size", 14)
+	mute.add_theme_color_override("font_color", INK)
+	mute.toggled.connect(func(value: bool): Audio.set_muted(value))
+	content.add_child(mute)
+
+	_add_settings_heading(content, "存档管理", "自动存档持续运行，手动档位用于保留关键节点")
+	content.add_child(_info_banner("自动存档", "第 %d 日 · 繁荣 %d · 每十秒与关键操作保存" % [State.current_day, State.get_prosperity()], JADE))
+	for slot_data in State.list_save_slots():
+		_add_save_slot_row(content, slot_data)
+	var new_game := _danger_button("重新开始新城邑")
+	new_game.pressed.connect(func():
+		_confirm_action("重新开始？", "当前自动进度将被新游戏覆盖。三个手动档位不会删除。", "重新开始", func():
+			State.reset_game()
+			_render_tab()
+			_show_settings()
+		)
+	)
+	content.add_child(new_game)
+
+	_add_settings_heading(content, "诊断与埋点", "只在本机滚动记录，不联网、不含个人信息")
+	var diag_toggle := CheckButton.new()
+	diag_toggle.text = "记录本地诊断事件"
+	diag_toggle.button_pressed = bool(Audio.settings.diagnostics_enabled)
+	diag_toggle.add_theme_font_size_override("font_size", 14)
+	diag_toggle.add_theme_color_override("font_color", INK)
+	diag_toggle.toggled.connect(func(value: bool):
+		Audio.set_diagnostics_enabled(value)
+		if value: Telemetry.track("diagnostics_enabled", {})
+	)
+	content.add_child(diag_toggle)
+	var export_button := _action_button("导出诊断报告并复制")
+	export_button.custom_minimum_size.y = 46
+	export_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	export_button.pressed.connect(func():
+		_play_chime()
+		var path := Telemetry.build_report(State.get_snapshot(), State.list_save_slots())
+		_show_toast("诊断报告已复制，可直接粘贴给开发者\n本机备份：" + path)
+	)
+	content.add_child(export_button)
+	var clear_logs := Button.new()
+	clear_logs.text = "清空诊断记录"
+	clear_logs.add_theme_font_size_override("font_size", 13)
+	clear_logs.add_theme_color_override("font_color", CINNABAR)
+	clear_logs.add_theme_stylebox_override("normal", _style(Color(CINNABAR, 0.08), 10, 1, Color(CINNABAR, 0.24), 6))
+	clear_logs.pressed.connect(func():
+		_confirm_action("清空诊断记录？", "历史操作与错误记录将被删除，此操作无法撤销。", "确认清空", func():
+			Telemetry.clear_logs()
+			_show_settings()
+		)
+	)
+	content.add_child(clear_logs)
+
+func _close_settings() -> void:
+	if modal_layer and is_instance_valid(modal_layer):
+		modal_layer.queue_free()
+	State.set_process(true)
+	Telemetry.track("settings_closed", {})
+
+func _add_settings_heading(parent: VBoxContainer, title_text: String, subtitle_text: String) -> void:
+	var spacer := Control.new()
+	spacer.custom_minimum_size.y = 4
+	parent.add_child(spacer)
+	var label := Label.new()
+	label.text = title_text
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", INK)
+	parent.add_child(label)
+	var subtitle := Label.new()
+	subtitle.text = subtitle_text
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle.add_theme_font_size_override("font_size", 11)
+	subtitle.add_theme_color_override("font_color", INK_SOFT)
+	parent.add_child(subtitle)
+
+func _add_volume_row(parent: VBoxContainer, label_text: String, channel: String) -> void:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size.y = 43
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = label_text
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size.x = 82
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", INK)
+	row.add_child(label)
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.value = float(Audio.settings[channel])
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
+	var value_label := Label.new()
+	value_label.text = "%d%%" % roundi(slider.value * 100.0)
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	value_label.custom_minimum_size.x = 48
+	value_label.add_theme_font_size_override("font_size", 12)
+	value_label.add_theme_color_override("font_color", JADE)
+	row.add_child(value_label)
+	slider.value_changed.connect(func(value: float):
+		value_label.text = "%d%%" % roundi(value * 100.0)
+		Audio.set_volume(channel, value)
+	)
+
+func _add_save_slot_row(parent: VBoxContainer, data: Dictionary) -> void:
+	var slot: int = int(data.slot)
+	var card := _card(84)
+	parent.add_child(card)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 7)
+	card.add_child(row)
+	var badge := _glyph_badge(str(slot), JADE if bool(data.exists) else Color("#8e8878"))
+	badge.custom_minimum_size = Vector2(44, 44)
+	row.add_child(badge)
+	var stack := VBoxContainer.new()
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(stack)
+	var title := Label.new()
+	title.text = "手动档位 %d" % slot
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", INK)
+	stack.add_child(title)
+	var detail := Label.new()
+	if bool(data.exists):
+		detail.text = "第 %d 日 · 城邑阶 %d · 繁荣 %d\n%s" % [data.day, data.chapter, data.prosperity, _format_save_time(float(data.saved_at))]
+	else:
+		detail.text = "空档位"
+	detail.add_theme_font_size_override("font_size", 10)
+	detail.add_theme_color_override("font_color", INK_SOFT)
+	stack.add_child(detail)
+	var save_button := _action_button("覆盖" if bool(data.exists) else "保存")
+	save_button.custom_minimum_size = Vector2(58, 38)
+	save_button.pressed.connect(func():
+		if bool(data.exists):
+			_confirm_action("覆盖档位 %d？" % slot, "原有手动存档将被当前进度替换。", "确认覆盖", func():
+				State.manual_save(slot)
+				_show_settings()
+			)
+		else:
+			State.manual_save(slot)
+			_show_settings()
+	)
+	row.add_child(save_button)
+	if bool(data.exists):
+		var load_button := _action_button("载入")
+		load_button.custom_minimum_size = Vector2(54, 38)
+		load_button.pressed.connect(func():
+			_confirm_action("载入档位 %d？" % slot, "当前自动进度会先保存，然后切换到该档位。", "确认载入", func():
+				State.save_game()
+				State.load_slot(slot)
+				_render_tab()
+				_show_settings()
+			)
+		)
+		row.add_child(load_button)
+		var delete_button := Button.new()
+		delete_button.text = "删"
+		delete_button.custom_minimum_size = Vector2(38, 38)
+		delete_button.add_theme_color_override("font_color", CINNABAR)
+		delete_button.add_theme_stylebox_override("normal", _style(Color(CINNABAR, 0.08), 9, 1, Color(CINNABAR, 0.22), 3))
+		delete_button.pressed.connect(func():
+			_confirm_action("删除档位 %d？" % slot, "此手动存档将永久删除。", "确认删除", func():
+				State.delete_slot(slot)
+				_show_settings()
+			)
+		)
+		row.add_child(delete_button)
+
+func _confirm_action(title: String, body: String, confirm_text: String, action: Callable) -> void:
+	_show_modal(title, body, [
+		{"text": "取消", "callback": func(): _show_settings()},
+		{"text": confirm_text, "callback": action},
+	], CINNABAR)
+
+func _danger_button(text_value: String) -> Button:
+	var button := Button.new()
+	button.text = text_value
+	button.custom_minimum_size.y = 44
+	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_color_override("font_color", CINNABAR)
+	button.add_theme_stylebox_override("normal", _style(Color(CINNABAR, 0.08), 11, 1, Color(CINNABAR, 0.28), 6))
+	button.add_theme_stylebox_override("pressed", _style(Color(CINNABAR, 0.20), 11, 1, CINNABAR, 6))
+	return button
+
+func _format_save_time(unix_time: float) -> String:
+	var date := Time.get_datetime_dict_from_unix_time(int(unix_time))
+	return "%04d-%02d-%02d  %02d:%02d" % [date.year, date.month, date.day, date.hour, date.minute]
 
 func _show_tutorial() -> void:
 	_show_modal(
