@@ -6,6 +6,7 @@ signal event_started(event: Dictionary)
 signal battle_finished(result: Dictionary)
 signal visual_event(kind: String, payload: Dictionary)
 signal save_slots_changed
+signal time_state_changed
 
 const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
@@ -53,6 +54,8 @@ var tutorial_seen := false
 var current_event: Dictionary = {}
 var buffs := {"farm_until": 0, "all_until": 0}
 var offline_report := ""
+var time_speed := 0.0
+var modal_paused := false
 var rng := RandomNumberGenerator.new()
 var _change_accum := 0.0
 var _save_accum := 0.0
@@ -66,7 +69,9 @@ func _ready() -> void:
 	Telemetry.track("game_state_ready", {"day": current_day, "chapter": chapter})
 
 func _process(delta: float) -> void:
-	_tick_economy(delta)
+	var simulation_delta := delta * get_effective_time_speed()
+	if simulation_delta > 0.0:
+		_tick_economy(simulation_delta)
 	_change_accum += delta
 	_save_accum += delta
 	if _change_accum >= 0.35:
@@ -81,13 +86,49 @@ func _notification(what: int) -> void:
 		save_game()
 
 func _tick_economy(delta: float) -> void:
-	var rates := get_rates()
-	for key in resources:
-		resources[key] = clampf(resources[key] + rates.get(key, 0.0) * delta, 0.0, get_capacity(key))
+	_produce_resources(delta)
 	day_progress += delta / DAY_SECONDS
 	if day_progress >= 1.0:
 		day_progress -= 1.0
 		_advance_day()
+
+func _produce_resources(delta: float) -> void:
+	var rates := get_rates()
+	for key in resources:
+		resources[key] = clampf(resources[key] + rates.get(key, 0.0) * delta, 0.0, get_capacity(key))
+
+func get_effective_time_speed() -> float:
+	return 0.0 if modal_paused else time_speed
+
+func set_time_speed(value: float, reason := "player") -> void:
+	var normalized := 0.0
+	if value >= 1.5:
+		normalized = 2.0
+	elif value >= 0.5:
+		normalized = 1.0
+	if is_equal_approx(time_speed, normalized):
+		return
+	time_speed = normalized
+	changed.emit()
+	time_state_changed.emit()
+	Telemetry.track("time_speed_changed", {"speed": time_speed, "reason": reason, "day": current_day})
+
+func set_modal_paused(value: bool) -> void:
+	if modal_paused == value:
+		return
+	modal_paused = value
+	time_state_changed.emit()
+
+func advance_one_day() -> bool:
+	if time_speed > 0.0 or modal_paused or not current_event.is_empty():
+		notice.emit("请先暂停时间并处理当前事务")
+		return false
+	var remaining_seconds := maxf(0.0, (1.0 - day_progress) * DAY_SECONDS)
+	_produce_resources(remaining_seconds)
+	day_progress = 0.0
+	Telemetry.track("day_advanced_manually", {"from_day": current_day})
+	_advance_day()
+	return true
 
 func get_rates() -> Dictionary:
 	var all_bonus := 1.22 if current_day <= int(buffs.get("all_until", 0)) else 1.0
@@ -298,6 +339,7 @@ func _advance_day() -> void:
 	save_game()
 
 func _start_random_event() -> void:
+	set_time_speed(0.0, "random_event")
 	current_event = EVENTS[rng.randi_range(0, EVENTS.size() - 1)].duplicate(true)
 	Audio.play_sfx("event")
 	visual_event.emit("event", {"id": current_event.id})
@@ -355,6 +397,7 @@ func resolve_event(choice: int) -> void:
 	save_game()
 
 func _resolve_siege() -> void:
+	set_time_speed(0.0, "siege")
 	var enemy := get_next_enemy_power()
 	var defense := get_defense()
 	var rolled := roundi(defense * rng.randf_range(0.86, 1.15))
@@ -395,6 +438,7 @@ func advance_chapter() -> bool:
 		notice.emit("青禾已成一方强邑")
 		return false
 	chapter += 1
+	set_time_speed(0.0, "chapter_advanced")
 	resources.coins = minf(get_capacity("coins"), resources.coins + 120.0)
 	resources.grain = minf(get_capacity("grain"), resources.grain + 150.0)
 	population = mini(get_population_cap(), population + 5)
@@ -441,6 +485,7 @@ func get_snapshot() -> Dictionary:
 		"day_progress": day_progress,
 		"next_attack_day": next_attack_day,
 		"tutorial_seen": tutorial_seen,
+		"current_event": current_event.duplicate(true),
 		"buffs": buffs.duplicate(true),
 		"prosperity": get_prosperity(),
 		"saved_at": Time.get_unix_time_from_system(),
@@ -461,9 +506,10 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	day_progress = float(data.get("day_progress", 0.0))
 	next_attack_day = int(data.get("next_attack_day", 7))
 	tutorial_seen = bool(data.get("tutorial_seen", tutorial_seen))
+	time_speed = 0.0
 	buffs = {"farm_until": 0, "all_until": 0}
 	buffs.merge(data.get("buffs", {}), true)
-	current_event = {}
+	current_event = data.get("current_event", {}).duplicate(true)
 	offline_report = ""
 	if apply_offline:
 		_apply_offline_progress(data)
@@ -577,6 +623,8 @@ func reset_game() -> void:
 	current_event = {}
 	buffs = {"farm_until": 0, "all_until": 0}
 	offline_report = ""
+	time_speed = 0.0
+	modal_paused = false
 	changed.emit()
 	visual_event.emit("new_game", {})
 	Telemetry.track("new_game", {})

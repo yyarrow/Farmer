@@ -80,6 +80,23 @@ func _run() -> void:
 	_check(FileAccess.file_exists(report_path), "diagnostic report exported")
 	_check(FileAccess.get_file_as_string(report_path).contains("game_snapshot"), "diagnostic report content")
 
+	# Offline progress only grants capped production: it never advances days or triggers danger.
+	state.reset_game()
+	state.current_day = 5
+	state.next_attack_day = 7
+	state.resources = {"grain": 20.0, "wood": 20.0, "stone": 20.0, "coins": 20.0}
+	var offline_data: Dictionary = state.get_snapshot()
+	offline_data.saved_at = Time.get_unix_time_from_system() - 120.0
+	state._apply_snapshot(offline_data, true)
+	_check(state.current_day == 5 and state.next_attack_day == 7, "offline progress does not advance danger")
+	_check(state.current_event.is_empty() and state.resources.grain > 20.0, "offline progress grants safe production")
+	state.current_event = state.EVENTS[0].duplicate(true)
+	var event_snapshot: Dictionary = state.get_snapshot()
+	state.current_event = {}
+	state._apply_snapshot(event_snapshot, false)
+	_check(not state.current_event.is_empty(), "pending event persists in save")
+	state.resolve_event(1)
+
 	# Art sheets are RGBA and contain transparent pixels.
 	for id in state.BUILDINGS:
 		var texture: Texture2D = load("res://assets/art/buildings/%s_stages.png" % id)

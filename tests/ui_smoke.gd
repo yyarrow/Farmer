@@ -15,6 +15,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	_check(ui.content_box != null, "main content built")
+	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
+	state.set_time_speed(1.0)
 	for tab in range(4):
 		ui.current_tab = tab
 		ui._update_tab_buttons()
@@ -26,8 +28,11 @@ func _run() -> void:
 	await process_frame
 	_check(ui.modal_layer != null and is_instance_valid(ui.modal_layer), "settings modal opens")
 	_check(ui.modal_layer.get_child_count() >= 2, "settings modal content")
+	_check(state.time_speed == 1.0 and state.get_effective_time_speed() == 0.0, "settings temporarily pauses time")
 	ui._close_settings()
 	await process_frame
+	_check(state.get_effective_time_speed() == 1.0, "closing settings restores selected speed")
+	state.set_time_speed(0.0)
 	for id in state.BUILDINGS:
 		state.buildings[id] = 5
 	state.changed.emit()
@@ -49,4 +54,3 @@ func _run() -> void:
 func _check(condition: bool, label: String) -> void:
 	if not condition:
 		failures.append(label)
-

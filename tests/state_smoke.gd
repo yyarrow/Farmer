@@ -11,11 +11,32 @@ func _run() -> void:
 	_check(state.get_population_cap() == 34, "initial population cap")
 	_check(state.get_defense() > 0, "initial defense")
 	_check(state.get_rates().grain > 0.0, "initial grain production")
+	var paused_grain: float = state.resources.grain
+	state._process(10.0)
+	_check(state.current_day == 1 and is_equal_approx(state.resources.grain, paused_grain), "new game starts paused")
+	state.set_time_speed(2.0)
+	state._process(12.1)
+	_check(state.current_day == 2, "double speed advances time")
+	state.set_time_speed(1.0)
+	state.set_modal_paused(true)
+	var modal_progress: float = state.day_progress
+	state._process(5.0)
+	_check(is_equal_approx(state.day_progress, modal_progress), "modal pauses simulation")
+	state.set_modal_paused(false)
+	state.set_time_speed(0.0)
+	_check(state.advance_one_day() and state.current_day == 3, "manual day advance")
+	_check(not state.current_event.is_empty() and state.time_speed == 0.0, "event forces pause")
+	state.resolve_event(1)
+	state.reset_game()
 
 	state.resources = {"grain": 5000.0, "wood": 5000.0, "stone": 5000.0, "coins": 5000.0}
 	_check(state.upgrade_building("market"), "build market")
 	_check(state.buildings.market == 1, "market level updated")
+	var grain_before_trade: float = state.resources.grain
+	var coins_before_trade: float = state.resources.coins
 	_check(state.trade("sell_grain"), "market trade")
+	_check(is_equal_approx(state.resources.grain, grain_before_trade - 55.0), "trade spends exact grain")
+	_check(is_equal_approx(state.resources.coins, coins_before_trade + 37.0), "market level improves exact sale price")
 
 	for _i in 3:
 		state.upgrade_building("barracks")

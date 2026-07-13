@@ -20,6 +20,7 @@ const RESOURCE_META := {
 var resource_labels := {}
 var marker_buttons := {}
 var tab_buttons: Array[Button] = []
+var time_buttons := {}
 var current_tab := 0
 var title_label: Label
 var day_label: Label
@@ -28,6 +29,7 @@ var threat_label: Label
 var power_label: Label
 var threat_bar: ProgressBar
 var day_bar: ProgressBar
+var advance_day_button: Button
 var content_box: VBoxContainer
 var toast_panel: PanelContainer
 var toast_label: Label
@@ -40,6 +42,7 @@ func _ready() -> void:
 	State.notice.connect(_show_toast)
 	State.event_started.connect(_on_event_started)
 	State.battle_finished.connect(_on_battle_finished)
+	State.time_state_changed.connect(_refresh_dynamic)
 	Telemetry.unexpected_exit_detected.connect(_show_toast)
 	_refresh_dynamic()
 	_render_tab()
@@ -47,6 +50,8 @@ func _ready() -> void:
 		call_deferred("_show_toast", State.offline_report)
 	if not State.tutorial_seen:
 		call_deferred("_show_tutorial")
+	elif not State.current_event.is_empty():
+		call_deferred("_on_event_started", State.current_event)
 
 func _build_scene() -> void:
 	var background := TextureRect.new()
@@ -86,7 +91,7 @@ func _build_top_panel() -> void:
 	panel.offset_left = 14.0
 	panel.offset_top = 18.0
 	panel.offset_right = -14.0
-	panel.offset_bottom = 148.0
+	panel.offset_bottom = 184.0
 	panel.add_theme_stylebox_override("panel", _style(Color(0.965, 0.91, 0.76, 0.94), 18, 1, Color(0.47, 0.38, 0.23, 0.35), 13))
 	panel.z_index = 10
 	add_child(panel)
@@ -153,6 +158,51 @@ func _build_top_panel() -> void:
 	day_bar.add_theme_stylebox_override("background", _style(Color(0.36, 0.31, 0.22, 0.14), 3))
 	day_bar.add_theme_stylebox_override("fill", _style(GOLD, 3))
 	day_stack.add_child(day_bar)
+
+	var time_row := HBoxContainer.new()
+	time_row.custom_minimum_size.y = 30
+	time_row.add_theme_constant_override("separation", 5)
+	outer.add_child(time_row)
+	var time_caption := Label.new()
+	time_caption.text = "时序"
+	time_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	time_caption.custom_minimum_size.x = 38
+	time_caption.add_theme_font_size_override("font_size", 12)
+	time_caption.add_theme_color_override("font_color", INK_SOFT)
+	time_row.add_child(time_caption)
+	for spec in [[0.0, "停"], [1.0, "1×"], [2.0, "2×"]]:
+		var speed: float = spec[0]
+		var time_button := Button.new()
+		time_button.text = spec[1]
+		time_button.toggle_mode = true
+		time_button.custom_minimum_size = Vector2(46, 30)
+		time_button.add_theme_font_size_override("font_size", 12)
+		time_button.add_theme_color_override("font_color", INK)
+		time_button.add_theme_color_override("font_pressed_color", Color.WHITE)
+		time_button.add_theme_color_override("font_hover_color", INK)
+		time_button.add_theme_stylebox_override("normal", _style(Color(0.36, 0.37, 0.27, 0.11), 8, 0, Color.TRANSPARENT, 3))
+		time_button.add_theme_stylebox_override("pressed", _style(JADE, 8, 0, Color.TRANSPARENT, 3))
+		time_button.pressed.connect(func():
+			_play_chime()
+			State.set_time_speed(speed)
+		)
+		time_row.add_child(time_button)
+		time_buttons[speed] = time_button
+	advance_day_button = Button.new()
+	advance_day_button.text = "推进一日"
+	advance_day_button.tooltip_text = "暂停时结算到下一日"
+	advance_day_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	advance_day_button.add_theme_font_size_override("font_size", 12)
+	advance_day_button.add_theme_color_override("font_color", INK)
+	advance_day_button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	advance_day_button.add_theme_color_override("font_disabled_color", INK_SOFT)
+	advance_day_button.add_theme_stylebox_override("normal", _style(Color(GOLD, 0.16), 8, 1, Color(GOLD, 0.26), 3))
+	advance_day_button.add_theme_stylebox_override("pressed", _style(GOLD, 8, 0, Color.TRANSPARENT, 3))
+	advance_day_button.pressed.connect(func():
+		_play_chime()
+		State.advance_one_day()
+	)
+	time_row.add_child(advance_day_button)
 
 	var resources_grid := GridContainer.new()
 	resources_grid.columns = 4
@@ -347,8 +397,12 @@ func _refresh_dynamic() -> void:
 	var stage_names := ["", "垦荒", "成邑", "一方之城"]
 	title_label.text = "青禾邑 · %s" % stage_names[mini(State.chapter, stage_names.size() - 1)]
 	population_label.text = "户民 %d/%d   民心 %d" % [State.population, State.get_population_cap(), roundi(State.morale)]
-	day_label.text = "春 · 第 %d 日" % State.current_day
+	var time_text := "停" if State.get_effective_time_speed() <= 0.0 else "%d×" % roundi(State.get_effective_time_speed())
+	day_label.text = "春 · 第 %d 日 · %s" % [State.current_day, time_text]
 	day_bar.value = State.day_progress * 100.0
+	for speed in time_buttons:
+		time_buttons[speed].button_pressed = is_equal_approx(float(speed), State.time_speed)
+	advance_day_button.disabled = State.time_speed > 0.0 or State.modal_paused or not State.current_event.is_empty()
 	threat_label.text = "边患 %d · %d 日后敌袭" % [roundi(State.threat), State.days_until_attack()]
 	threat_bar.value = State.threat
 	power_label.text = "守军 %d队\n守备 %d / 敌势 %d" % [State.get_army_count(), State.get_defense(), State.get_next_enemy_power()]
@@ -684,7 +738,7 @@ func _show_toast(message: String) -> void:
 	_toast_tween.tween_callback(func(): toast_panel.visible = false)
 
 func _show_settings() -> void:
-	State.set_process(false)
+	State.set_modal_paused(true)
 	Telemetry.track("settings_opened", {})
 	if modal_layer and is_instance_valid(modal_layer):
 		modal_layer.queue_free()
@@ -793,7 +847,7 @@ func _show_settings() -> void:
 func _close_settings() -> void:
 	if modal_layer and is_instance_valid(modal_layer):
 		modal_layer.queue_free()
-	State.set_process(true)
+	State.set_modal_paused(false)
 	Telemetry.track("settings_closed", {})
 
 func _add_settings_heading(parent: VBoxContainer, title_text: String, subtitle_text: String) -> void:
@@ -931,7 +985,7 @@ func _format_save_time(unix_time: float) -> String:
 func _show_tutorial() -> void:
 	_show_modal(
 		"青禾初托",
-		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n营造农田与工坊，让资源持续增长；招募军队、修筑城垣，抵御周期来袭的敌人；在市易与政令之间权衡，让百姓在乱世中安居。\n\n每一日约二十四秒，离开游戏也会积累部分收益。",
+		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n营造农田与工坊，让资源持续增长；招募军队、修筑城垣，抵御周期来袭的敌人；在市易与政令之间权衡，让百姓在乱世中安居。\n\n使用顶部时序控制暂停、正常或加速经营；暂停时也可精确推进一日。事件与敌袭会自动停时，离开游戏只积累安全生产收益。",
 		[{"text": "接掌城邑", "callback": func(): State.mark_tutorial_seen()}],
 		JADE
 	)
@@ -966,7 +1020,7 @@ func _show_chapter_modal() -> void:
 	_show_modal("邑格晋升", texts[State.chapter], [{"text": "继续经营", "callback": func(): pass}], GOLD)
 
 func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> void:
-	State.set_process(false)
+	State.set_modal_paused(true)
 	if modal_layer and is_instance_valid(modal_layer):
 		modal_layer.queue_free()
 	modal_layer = Control.new()
@@ -1020,7 +1074,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> 
 		button.pressed.connect(func():
 			_play_chime(680.0)
 			modal_layer.queue_free()
-			State.set_process(true)
+			State.set_modal_paused(false)
 			callback.call()
 		)
 		layout.add_child(button)
