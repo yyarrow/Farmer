@@ -5,7 +5,7 @@
 ## 可由当前构建直接确认
 
 - 应用类型：游戏；分类建议：策略。
-- 包名：`com.qinghe.farmer`；版本：`0.4.0`；versionCode：`5`。
+- 包名：`com.qinghe.farmer`；版本：`0.5.0`；versionCode：`6`。
 - 最低 Android 7.0 / API 24；目标 API 36；仅 arm64-v8a。
 - 发布包：`build/Qinghe.aab`；必须先启用 Play App Signing，并妥善保管 `.release/` 中的上传密钥。
 - 登录或受限访问：无；所有玩法离线可用。

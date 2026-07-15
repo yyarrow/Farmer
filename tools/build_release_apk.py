@@ -51,7 +51,7 @@ def verify(apk: Path = APK) -> None:
     launcher_alias = manifest[alias_start : alias_end if alias_end >= 0 else len(manifest)]
     checks = {
         "package": "package: name='com.qinghe.farmer'" in badging,
-        "version": "versionCode='5' versionName='0.4.0'" in badging,
+        "version": "versionCode='6' versionName='0.5.0'" in badging,
         "sdk": "sdkVersion:'24'" in badging and "targetSdkVersion:'36'" in badging,
         "release": "application-debuggable" not in badging,
         "architecture": "native-code: 'arm64-v8a'" in badging and "x86_64" not in badging,

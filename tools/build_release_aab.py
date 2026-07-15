@@ -20,6 +20,7 @@ UNIVERSAL_APK = ROOT / "build" / "Qinghe-from-aab.apk"
 BUNDLETOOL = ROOT / ".home" / "bundletool.jar"
 ANDROID_TEMPLATE = ROOT / ".home" / "Library" / "Application Support" / "Godot" / "export_templates" / "4.7.stable" / "android_source.zip"
 GRADLEW = ROOT / "android" / "build" / "gradlew"
+ANDROID_MANIFEST = ROOT / "android" / "build" / "src" / "main" / "AndroidManifest.xml"
 BUNDLETOOL_SHA256 = "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
 ANDROID_TEMPLATE_SHA256 = "2dcb079f64b6cf9103cce273f42d1d5a4f52bc28d83a215579100fe568d6779c"
 
@@ -37,6 +38,24 @@ def java_tool(name: str) -> str:
     if not tool:
         raise SystemExit(f"Missing Java tool: {name}. Select OpenJDK 17 first.")
     return tool
+
+
+def enable_predictive_back() -> None:
+    """Opt Play builds into Android's back dispatcher used by Godot 4.7."""
+    if not ANDROID_MANIFEST.exists():
+        raise SystemExit(f"Missing Android Gradle manifest: {ANDROID_MANIFEST}")
+    text = ANDROID_MANIFEST.read_text(encoding="utf-8")
+    attribute = 'android:enableOnBackInvokedCallback="true"'
+    if attribute in text:
+        return
+    if "android:enableOnBackInvokedCallback=" in text:
+        text = text.replace('android:enableOnBackInvokedCallback="false"', attribute, 1)
+    else:
+        marker = "    <application\n"
+        if marker not in text:
+            raise SystemExit("Cannot locate <application> in Android Gradle manifest")
+        text = text.replace(marker, marker + f"        {attribute}\n", 1)
+    ANDROID_MANIFEST.write_text(text, encoding="utf-8")
 
 
 def verify() -> None:
@@ -86,12 +105,13 @@ def verify() -> None:
     ).stdout
     manifest_checks = {
         "package": 'package="com.qinghe.farmer"' in manifest,
-        "version": 'android:versionCode="5"' in manifest and 'android:versionName="0.4.0"' in manifest,
+        "version": 'android:versionCode="6"' in manifest and 'android:versionName="0.5.0"' in manifest,
         "sdk": 'android:minSdkVersion="24"' in manifest and 'android:targetSdkVersion="36"' in manifest,
         "permission": 'android.permission.VIBRATE' in manifest and 'android.permission.INTERNET' not in manifest,
         "launcher": "com.godot.game.GodotAppLauncher" in manifest and "android.intent.category.LAUNCHER" in manifest,
         "portrait": 'android:screenOrientation="1"' in manifest or 'android:screenOrientation="portrait"' in manifest,
         "release": "android:debuggable=\"true\"" not in manifest,
+        "predictive_back": 'android:enableOnBackInvokedCallback="true"' in manifest,
     }
     failed = [name for name, passed in manifest_checks.items() if not passed]
     if failed:
@@ -176,13 +196,26 @@ def main() -> None:
     env["HOME"] = str(ROOT / ".home")
     env["GRADLE_USER_HOME"] = str(ROOT / ".home" / ".gradle")
     AAB.parent.mkdir(parents=True, exist_ok=True)
-    command = [str(GODOT), "--headless", "--path", str(ROOT)]
     if not GRADLEW.exists():
         require_sha256(ANDROID_TEMPLATE, ANDROID_TEMPLATE_SHA256, "Godot 4.7 Android source template")
-        command.append("--install-android-build-template")
+        subprocess.run(
+            [str(GODOT), "--headless", "--path", str(ROOT), "--install-android-build-template"],
+            cwd=ROOT,
+            env=env,
+            check=True,
+        )
     elif (ROOT / "android" / ".build_version").read_text(encoding="utf-8").strip() != "4.7.stable":
         raise SystemExit("Installed Android build template does not match Godot 4.7.stable")
-    command.extend(["--export-release", "Android Release AAB", str(AAB)])
+    enable_predictive_back()
+    command = [
+        str(GODOT),
+        "--headless",
+        "--path",
+        str(ROOT),
+        "--export-release",
+        "Android Release AAB",
+        str(AAB),
+    ]
     subprocess.run(command, cwd=ROOT, env=env, check=True)
     verify()
     if args.universal_apk:

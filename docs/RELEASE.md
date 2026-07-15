@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.4.0`（versionCode `5`）  
+当前候选版本：`0.5.0`（versionCode `6`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -66,9 +66,9 @@ python3 tools/build_release_aab.py
 python3 tools/build_release_aab.py --universal-apk
 ```
 
-脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
+脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，幂等启用 Godot 4.7 已接入的 Android 13+ 预测性返回回调，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、预测性返回、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的本地候选验证结果：四季配乐版 AAB 37.8 MiB，SHA-256 `552e23ae678e3276426c4214a90662375c9a98a9c38c827256aa285034909cd9`；独立 APK SHA-256 `d27466cafcd24ca3d7f1d22947f81d87fc06657fc6007fe1fd41f29f5cdac501`，AAB 派生 APK SHA-256 `ae509d78771762a9f1edb79dfd84a2bc027891ce7a4989d833ec8ffbb2ea1974`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。Android 35 清数据冷启动为 209 ms，设置页 PSS 约 158 MiB，`RUNNING_CRITICAL` 内存压力后的热恢复为 36 ms；1080×2400 设置页、音量项和四时换曲说明均无截断。切后台瞬间 SwiftShader 模拟器记录过一次已断开绘图表面的 `EGL_BAD_SURFACE`，恢复稳定后的进程错误级日志为空，未见崩溃、ANR 或 Godot 脚本错误，仍须按下文在实体设备复核后台恢复。
+2026 年 7 月 16 日的 `0.5.0` 本地候选验证结果：AAB 37.8 MiB，SHA-256 `647e99def303399e2b7ccefa98cf633a27c5ffc0edcba6ac3b38aabc94477677`；独立 APK 37.8 MiB，SHA-256 `5fca99d543217eab8525723f681a4a638bab0b2700ed46371567f82a24201558`；AAB 派生通用 APK 84.5 MiB，SHA-256 `b28cd15d7c1bb2e0dc14e040bd8fb37e65dc2deadd6176020ca5e938d7c60bb8`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。Android 35 清数据冷启动为 204 ms，设置页 PSS 约 170 MiB，普通热恢复为 80 ms，`RUNNING_CRITICAL` 内存压力后的热恢复为 127 ms；1080×2400 教程、设置、音量、存档和退出确认均无截断。系统返回键不能跳过教程、可关闭设置、并在主界面打开保存退出确认；启用预测性返回后对应 Android 警告已消失。SwiftShader 模拟器切后台时仍可能记录已断开绘图表面的 `EGL_BAD_SURFACE`，稳定期进程错误日志和 crash buffer 为空，未见崩溃、ANR 或 Godot 脚本错误，仍须按下文在实体设备复核后台恢复。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
