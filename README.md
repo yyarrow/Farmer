@@ -14,8 +14,8 @@
 - 三阶段繁荣目标、离线收益和自动本地存档
 - 暂停、1×、2×、推进一日及事件/敌袭自动停时
 - 原创竖屏国风主场景、轻动效、触觉反馈与短促编钟音色
-- 48 秒原创五声音阶国风循环音乐与 8 类独立操作音效
-- 总音量、背景音乐、操作音效滑杆及静音设置
+- 48 秒原创五声音阶国风音乐，以 2 秒交叉衔接无缝循环；战斗音效会短暂压低背景音乐
+- 总音量、背景音乐、操作音效滑杆及静音设置，设置写入带损坏恢复且拖动时不反复刷盘
 - 八类建筑四阶段外观，建造、升级、交易、征兵、政令和战斗场景动效
 - 自动存档、三个手动存档槽及载入、覆盖、删除、重新开始确认；写入采用临时文件与上一版备份，损坏时自动恢复
 - 完全本地的操作埋点、异常退出检测、引擎日志与诊断报告复制导出
@@ -38,6 +38,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=1000 --days=60
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
+python3 tests/audio_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 

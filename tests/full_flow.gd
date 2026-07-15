@@ -143,6 +143,16 @@ func _run() -> void:
 	audio.set_volume("music", 0.37)
 	audio.load_settings()
 	_check(absf(float(audio.settings.music) - 0.37) < 0.001, "music volume persists")
+	var music_stream: AudioStreamWAV = audio.music_player.stream
+	_check(music_stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "music loops forward")
+	_check(music_stream.loop_begin == int(audio.MUSIC_LOOP_INTRO_SECONDS * music_stream.mix_rate), "music loops after crossfade intro")
+	audio.set_volume("music", 0.42)
+	var corrupt_settings := FileAccess.open(audio.SETTINGS_PATH, FileAccess.WRITE)
+	corrupt_settings.store_string("{truncated")
+	corrupt_settings = null
+	audio.settings.music = 0.99
+	audio.load_settings()
+	_check(absf(float(audio.settings.music) - 0.37) < 0.001, "corrupt audio settings recover previous values")
 	if FileAccess.file_exists(telemetry.EVENT_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(telemetry.EVENT_PATH))
 	telemetry.track("fresh_install_probe", {})

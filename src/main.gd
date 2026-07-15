@@ -881,6 +881,7 @@ func _show_settings() -> void:
 	content.add_child(clear_logs)
 
 func _close_settings() -> void:
+	Audio.save_settings()
 	if modal_layer and is_instance_valid(modal_layer):
 		modal_layer.queue_free()
 	State.set_modal_paused(false)
@@ -931,7 +932,12 @@ func _add_volume_row(parent: VBoxContainer, label_text: String, channel: String)
 	row.add_child(value_label)
 	slider.value_changed.connect(func(value: float):
 		value_label.text = "%d%%" % roundi(value * 100.0)
-		Audio.set_volume(channel, value)
+		Audio.set_volume(channel, value, false)
+	)
+	slider.drag_ended.connect(func(value_changed: bool):
+		if not value_changed: return
+		Audio.save_settings()
+		if channel == "sfx": Audio.play_sfx("ui_tap")
 	)
 
 func _add_save_slot_row(parent: VBoxContainer, data: Dictionary) -> void:
