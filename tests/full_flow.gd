@@ -263,6 +263,13 @@ func _run() -> void:
 	safe_day = state.current_day
 	state._apply_snapshot(spoofed_event_snapshot, false)
 	_check(state.current_day == safe_day and state.current_event.is_empty(), "spoofed event options are rejected")
+	var old_copy_snapshot: Dictionary = state.get_snapshot()
+	old_copy_snapshot.current_event = state.EVENTS[0].duplicate(true)
+	old_copy_snapshot.current_event.title = "旧版事件标题"
+	old_copy_snapshot.current_event.body = "旧版事件说明"
+	state._apply_snapshot(old_copy_snapshot, false)
+	_check(state.current_event.title == state.EVENTS[0].title and state.current_event.body == state.EVENTS[0].body, "old event copy is normalized without losing the save")
+	state.resolve_event(1)
 	_check(state.delete_slot(3), "schema-recovered slot delete removes backup")
 
 	# Settings persist and diagnostics export contains a snapshot.

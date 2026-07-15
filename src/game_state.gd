@@ -1073,7 +1073,8 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	time_speed = 0.0
 	buffs = {"farm_until": 0, "all_until": 0}
 	buffs.merge(snapshot.get("buffs", {}), true)
-	current_event = snapshot.get("current_event", {}).duplicate(true)
+	var saved_event: Dictionary = snapshot.get("current_event", {})
+	current_event = _event_definition(str(saved_event.get("id", ""))).duplicate(true) if not saved_event.is_empty() else {}
 	last_event_id = str(snapshot.get("last_event_id", ""))
 	offline_report = ""
 	last_day_report = ""
@@ -1197,6 +1198,12 @@ func _valid_numeric_map(value: Variant, allowed_keys: Array, minimum: float, max
 			return false
 	return true
 
+func _event_definition(id: String) -> Dictionary:
+	for event in EVENTS:
+		if str(event.id) == id:
+			return event
+	return {}
+
 func _is_consistent_current_save(data: Dictionary) -> bool:
 	var saved_buildings := {"farm": 1, "woodcut": 1, "quarry": 0, "house": 1, "market": 0, "warehouse": 1, "barracks": 0, "wall": 0}
 	saved_buildings.merge(data.get("buildings", {}), true)
@@ -1243,12 +1250,8 @@ func _is_consistent_current_save(data: Dictionary) -> bool:
 
 	var saved_event: Dictionary = data.get("current_event", {})
 	if not saved_event.is_empty():
-		var canonical_event: Dictionary = {}
-		for event in EVENTS:
-			if str(event.id) == str(saved_event.get("id", "")):
-				canonical_event = event
-				break
-		if canonical_event.is_empty() or saved_event.get("title") != canonical_event.title or saved_event.get("body") != canonical_event.body or saved_event.get("options") != canonical_event.options:
+		var canonical_event := _event_definition(str(saved_event.get("id", "")))
+		if canonical_event.is_empty() or saved_event.get("options") != canonical_event.options:
 			return false
 	return true
 
@@ -1317,11 +1320,15 @@ func _is_valid_save_data(data: Dictionary) -> bool:
 		if data.current_event is not Dictionary:
 			return false
 		if not data.current_event.is_empty():
-			var event_ids: Array[String] = []
-			for event in EVENTS:
-				event_ids.append(str(event.id))
-			if str(data.current_event.get("id", "")) not in event_ids or data.current_event.get("options") is not Array:
+			if _event_definition(str(data.current_event.get("id", ""))).is_empty() or data.current_event.get("options") is not Array:
 				return false
+			if data.current_event.get("title") is not String or str(data.current_event.title).length() > 80:
+				return false
+			if data.current_event.get("body") is not String or str(data.current_event.body).length() > 500:
+				return false
+			for option in data.current_event.options:
+				if option is not String or str(option).length() > 100:
+					return false
 	if data.has("last_event_id"):
 		if data.last_event_id is not String:
 			return false
