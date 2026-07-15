@@ -4,11 +4,12 @@
 
 ## 已实现
 
-- 粮食、木材、石料、铜钱四资源实时生产
+- 粮秣（石）、木料（车）、石料（方）、财货（枚）四资源及逐日收支账簿
 - 农田、林场、石场、民居、市集、仓廪、兵营、城垣八类建筑
 - 市场买卖、三项政令、人口与民心系统
-- 乡勇、弓手、战车三类军队及持续维持成本
-- 边患、巡剿、周期守城战与战损
+- 民口转军籍、军籍容量、乡勇/弓手/车士按人计数及可见维持费
+- 持续存在的敌军编成、侦察、巡剿、守城推演与三回合战斗
+- 按兵种结算的阵亡、伤员、2～4 日康复与伤营粮药支出
 - 旱灾、流民、商队、斥候、丰收等随机事件
 - 三阶段繁荣目标、离线收益和自动本地存档
 - 暂停、1×、2×、推进一日及事件/敌袭自动停时
@@ -34,11 +35,12 @@
 ```bash
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，当前版本 `0.2.1`，最低 Android 7.0。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.3.0`，最低 Android 7.0。旧版存档读取时会自动迁移为按人计数的新军籍和新资源制。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 当前经济、建筑、军队和敌袭公式见 [`docs/BALANCE.md`](docs/BALANCE.md)。
 

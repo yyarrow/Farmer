@@ -8,9 +8,12 @@ func _initialize() -> void:
 func _run() -> void:
 	var state := root.get_node("State")
 	state.reset_game()
-	_check(state.get_population_cap() == 34, "initial population cap")
+	_check(state.get_population_cap() == 150, "initial population cap")
 	_check(state.get_defense() > 0, "initial defense")
 	_check(state.get_rates().grain > 0.0, "initial grain production")
+	var ledger: Dictionary = state.get_daily_ledger()
+	_check(absf(float(ledger.grain.net) - 10.6667) < 0.01, "initial grain ledger")
+	_check(absf(float(ledger.coins.expense) - 8.0) < 0.01, "military upkeep is explicit")
 	var paused_grain: float = state.resources.grain
 	state._process(10.0)
 	_check(state.current_day == 1 and is_equal_approx(state.resources.grain, paused_grain), "new game starts paused")
@@ -36,13 +39,16 @@ func _run() -> void:
 	var coins_before_trade: float = state.resources.coins
 	_check(state.trade("sell_grain"), "market trade")
 	_check(is_equal_approx(state.resources.grain, grain_before_trade - 55.0), "trade spends exact grain")
-	_check(is_equal_approx(state.resources.coins, coins_before_trade + 37.0), "market level improves exact sale price")
+	_check(is_equal_approx(state.resources.coins, coins_before_trade + 370.0), "market level improves exact sale price")
 
 	for _i in 3:
 		state.upgrade_building("barracks")
 	_check(state.buildings.barracks == 3, "barracks progression")
+	var civilians_before_recruit: int = state.population
 	_check(state.recruit("archer"), "archer unlock")
 	_check(state.recruit("chariot"), "chariot unlock")
+	_check(state.population == civilians_before_recruit - 10, "recruitment transfers real people")
+	_check(state.units.archer == 5 and state.units.chariot == 5, "recruitment uses five-person squads")
 	_check(state.get_army_power() > 20, "army power calculation")
 
 	state.current_event = state.EVENTS[4].duplicate(true)

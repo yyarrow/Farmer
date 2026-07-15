@@ -47,6 +47,8 @@ func _run() -> void:
 	state.morale = 100.0
 	state._resolve_siege()
 	_check(not battle_results.is_empty() and bool(battle_results[-1].won), "high defense wins siege")
+	_check(int(battle_results[-1].player_losses) == int(battle_results[-1].killed_total) + int(battle_results[-1].wounded_total), "battle losses reconcile")
+	_check(int(battle_results[-1].enemy_losses) > 0, "battle inflicts real enemy casualties")
 	battle_results.clear()
 	state.units = {"militia": 0, "archer": 0, "chariot": 0}
 	state.buildings.wall = 0
@@ -54,6 +56,16 @@ func _run() -> void:
 	state.current_day = 40
 	state._resolve_siege()
 	_check(not battle_results.is_empty() and not bool(battle_results[-1].won), "zero defense loses siege")
+
+	# Enemy intelligence is a persisted roster, not a hidden difficulty score.
+	state.reset_game()
+	_check(state._sum_force(state.enemy_army) == 25, "first enemy roster has real manpower")
+	_check(not bool(state.get_enemy_display().known), "enemy starts unscouted")
+	state.enemy_army.scouted = true
+	var enemy_snapshot: Dictionary = state.get_snapshot()
+	state.enemy_army = {}
+	state._apply_snapshot(enemy_snapshot, false)
+	_check(bool(state.get_enemy_display().known) and state.get_enemy_display().composition.contains("戈卒"), "enemy intelligence persists")
 
 	# Save slot CRUD and metadata.
 	state.current_day = 42
@@ -96,6 +108,12 @@ func _run() -> void:
 	state._apply_snapshot(event_snapshot, false)
 	_check(not state.current_event.is_empty(), "pending event persists in save")
 	state.resolve_event(1)
+
+	# Version 2 saves migrate units to people and currency to visible historical units.
+	var legacy_snapshot := {"format_version": 2, "resources": {"grain": 180.0, "wood": 125.0, "stone": 82.0, "coins": 150.0}, "buildings": {"farm": 1, "woodcut": 1, "house": 1, "warehouse": 1}, "units": {"militia": 4, "archer": 1, "chariot": 0}, "population": 22, "current_day": 2, "chapter": 1}
+	state._apply_snapshot(legacy_snapshot, false)
+	_check(state.resources.grain == 360.0 and state.resources.coins == 1500.0, "legacy resources migrate")
+	_check(state.population == 110 and state.units.militia == 20 and state.units.archer == 5, "legacy population and units migrate")
 
 	# Art sheets are RGBA and contain transparent pixels.
 	for id in state.BUILDINGS:
