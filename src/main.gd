@@ -36,6 +36,7 @@ var toast_label: Label
 var modal_layer: Control
 var _toast_tween: Tween
 var city_background: TextureRect
+var city_visual_layer: Control
 var _displayed_season := ""
 
 func _ready() -> void:
@@ -75,11 +76,12 @@ func _build_scene() -> void:
 	ambient.z_index = 1
 	add_child(ambient)
 
-	var city_visuals := Control.new()
-	city_visuals.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	city_visuals.set_script(load("res://src/city_visuals.gd"))
-	city_visuals.z_index = 2
-	add_child(city_visuals)
+	city_visual_layer = Control.new()
+	city_visual_layer.name = "CityVisuals"
+	city_visual_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	city_visual_layer.set_script(load("res://src/city_visuals.gd"))
+	city_visual_layer.z_index = 2
+	add_child(city_visual_layer)
 
 	_build_top_panel()
 	_build_map_markers()
@@ -391,7 +393,7 @@ func _build_toast() -> void:
 
 func _play_chime(_frequency := 520.0) -> void:
 	Audio.play_sfx("ui_tap")
-	if OS.has_feature("mobile"):
+	if OS.has_feature("mobile") and bool(Audio.settings.get("haptics", true)):
 		Input.vibrate_handheld(18)
 
 func _refresh_dynamic() -> void:
@@ -849,6 +851,13 @@ func _show_settings() -> void:
 	mute.add_theme_color_override("font_color", INK)
 	mute.toggled.connect(func(value: bool): Audio.set_muted(value))
 	content.add_child(mute)
+	var haptics := CheckButton.new()
+	haptics.text = "触觉反馈"
+	haptics.button_pressed = bool(Audio.settings.get("haptics", true))
+	haptics.add_theme_font_size_override("font_size", 14)
+	haptics.add_theme_color_override("font_color", INK)
+	haptics.toggled.connect(func(value: bool): Audio.set_haptics_enabled(value))
+	content.add_child(haptics)
 
 	_add_settings_heading(content, "存档管理", "自动存档持续运行，手动档位用于保留关键节点")
 	content.add_child(_info_banner("自动存档", "第 %d 日 · 繁荣 %d · 每十秒与关键操作保存" % [State.current_day, State.get_prosperity()], JADE))

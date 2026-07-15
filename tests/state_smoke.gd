@@ -6,6 +6,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.get_node("Audio").shutdown()
 	var state := root.get_node("State")
 	state.reset_game()
 	_check(state.get_calendar() == {"year": 1, "season_index": 0, "season": "spring", "season_name": "春", "day": 1}, "calendar starts in spring")

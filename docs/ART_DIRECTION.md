@@ -17,3 +17,7 @@
 > Use case: stylized-concept. Asset type: 2D mobile strategy game building progression sprite sheet. Four clearly different growth stages of an ancient Chinese [BUILDING], ordered as an exact 2 by 2 grid: empty foundation, humble initial building, organized expanded compound, prosperous but historically grounded final compound. One isolated isometric three-quarter top-down sprite centered in each equal quadrant, with identical camera angle, ground footprint, scale, lighting and generous padding. Premium hand-painted 2D game sprite, Chinese mineral-pigment watercolor with delicate ink linework, matching a warm healing Spring and Autumn / Warring States inspired game. Perfectly flat solid #ff00ff chroma-key background with no shadows, gradients, texture, borders, labels or lighting variation. Crisp silhouettes; no readable text, visible people, modern objects, fantasy magic, logos or watermark.
 
 各建筑第四阶段分别加入水车与金色谷物、成规模木料场、多层采石吊架、桃树庭院、市集商车、密封粮瓮、军鼓战车棚、烽火城楼等可辨识细节。所有最终透明素材均保存在工程内，色键源图位于忽略导出的 `assets/art/buildings/source/`。
+
+游戏内六个建筑等级复用四张手绘阶段，但不会出现无反馈升级：0/1/2/4 级切换主体图，3 级增加朱砂旗与占地成长，5 级再增加金旗并达到最大体量。春、夏、秋、冬使用不同的地图色调与花瓣、萤火、落叶、飞雪粒子；不会改变建筑坐标或触控热区。
+
+`tests/visual_capture.gd` 使用真实渲染器输出春、秋、冬三张 540×960 画面到 `.qa/`，用于检查地图构图、建筑遮挡、季节色调和文字布局。

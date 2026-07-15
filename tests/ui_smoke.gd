@@ -6,6 +6,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.get_node("Audio").shutdown()
 	var state = root.get_node("State")
 	state.reset_game()
 	state.tutorial_seen = true
@@ -40,6 +41,13 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	_check(state.get_prosperity() > 100, "city visuals accept max state")
+	var visuals = ui.city_visual_layer
+	_check(visuals.displayed_stages.farm == 3 and visuals.master_banners.farm.visible, "level five building has final art and master banner")
+	state.buildings.farm = 3
+	state.changed.emit()
+	await process_frame
+	_check(visuals.displayed_stages.farm == 2 and visuals.veteran_banners.farm.visible and not visuals.master_banners.farm.visible, "level three has distinct veteran appearance")
+	_check(absf(float(visuals.building_views.farm.scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame

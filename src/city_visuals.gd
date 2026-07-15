@@ -30,6 +30,9 @@ const EFFECT_POSITIONS := {
 
 var building_views := {}
 var displayed_stages := {}
+var displayed_levels := {}
+var veteran_banners := {}
+var master_banners := {}
 var effects: Array[Dictionary] = []
 var _production_accum := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -55,6 +58,29 @@ func _build_views() -> void:
 		view.modulate = Color(1.0, 1.0, 1.0, 0.94)
 		add_child(view)
 		building_views[id] = view
+	for id in POSITIONS:
+		veteran_banners[id] = _make_banner(id, false)
+		master_banners[id] = _make_banner(id, true)
+
+func _make_banner(id: String, is_master: bool) -> Node2D:
+	var root := Node2D.new()
+	var offset_x := 0.82 if not is_master else 0.62
+	root.position = POSITIONS[id] + Vector2(SIZES[id].x * offset_x, SIZES[id].y * 0.30)
+	root.z_index = 4
+	root.visible = false
+	var pole := Line2D.new()
+	pole.points = PackedVector2Array([Vector2.ZERO, Vector2(0, -24 if not is_master else -20)])
+	pole.width = 2.0
+	pole.default_color = Color("#5b4028")
+	pole.antialiased = true
+	root.add_child(pole)
+	var flag := Polygon2D.new()
+	var height := -24.0 if not is_master else -20.0
+	flag.polygon = PackedVector2Array([Vector2(0, height), Vector2(15, height + 5), Vector2(0, height + 11)])
+	flag.color = Color("#a94b3f") if not is_master else Color("#d4aa4f")
+	root.add_child(flag)
+	add_child(root)
+	return root
 
 func _process(delta: float) -> void:
 	_production_accum += delta
@@ -73,10 +99,16 @@ func _process(delta: float) -> void:
 
 func _refresh_buildings() -> void:
 	for id in building_views:
-		var stage := _stage_for_level(int(State.buildings[id]))
+		var level := int(State.buildings[id])
+		var stage := _stage_for_level(level)
 		if displayed_stages.get(id, -1) != stage:
 			displayed_stages[id] = stage
 			building_views[id].texture = _atlas_for(id, stage)
+		if displayed_levels.get(id, -1) != level:
+			displayed_levels[id] = level
+			building_views[id].scale = Vector2.ONE * _scale_for_level(level)
+		veteran_banners[id].visible = level >= 3
+		master_banners[id].visible = level >= 5
 
 func _stage_for_level(level: int) -> int:
 	if level <= 0:
@@ -86,6 +118,9 @@ func _stage_for_level(level: int) -> int:
 	if level <= 3:
 		return 2
 	return 3
+
+func _scale_for_level(level: int) -> float:
+	return [0.82, 0.90, 0.97, 1.02, 1.08, 1.14][clampi(level, 0, 5)]
 
 func _atlas_for(id: String, stage: int) -> AtlasTexture:
 	var texture = load("res://assets/art/buildings/%s_stages.png" % id)
@@ -153,11 +188,12 @@ func _animate_building(id: String, is_new: bool) -> void:
 	if not building_views.has(id):
 		return
 	var view: TextureRect = building_views[id]
+	var target_scale := Vector2.ONE * _scale_for_level(int(State.buildings[id]))
 	view.scale = Vector2(0.48, 0.48) if is_new else Vector2(0.82, 0.82)
 	view.modulate = Color(1.6, 1.35, 0.72, 1.0)
 	var tween := get_tree().create_tween().set_parallel(true)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(view, "scale", Vector2.ONE, 0.72)
+	tween.tween_property(view, "scale", target_scale, 0.72)
 	tween.tween_property(view, "modulate", Color(1, 1, 1, 0.94), 0.72)
 
 func _flash_all_buildings() -> void:
@@ -226,4 +262,3 @@ func _draw() -> void:
 				draw_line(effect.pos + Vector2(3, 6), effect.pos + Vector2(8, -5), color.lightened(0.3), 1.5)
 			"smoke":
 				draw_circle(effect.pos, effect.size * (1.2 - alpha * 0.3), Color(color, alpha * 0.34))
-

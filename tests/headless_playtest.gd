@@ -22,9 +22,7 @@ func _run() -> void:
 	var config := _parse_config()
 	state.persistence_enabled = false
 	audio.settings.diagnostics_enabled = false
-	if audio.music_player:
-		audio.music_player.stop()
-	audio.sfx_players.clear()
+	audio.shutdown()
 	state.battle_finished.connect(_on_battle_finished)
 	var started_ms := Time.get_ticks_msec()
 	var policy_reports := {}

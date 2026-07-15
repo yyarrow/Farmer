@@ -6,6 +6,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.get_node("Audio").shutdown()
 	var state = root.get_node("State")
 	state.reset_game()
 	var cases := [

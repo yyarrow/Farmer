@@ -21,6 +21,7 @@ var settings := {
 	"music": 0.62,
 	"sfx": 0.82,
 	"muted": false,
+	"haptics": true,
 	"diagnostics_enabled": true,
 }
 var music_player: AudioStreamPlayer
@@ -80,6 +81,25 @@ func _notification(what: int) -> void:
 			music_player.volume_db = -12.0
 			_fade_music_to(0.0, 0.9)
 
+func _exit_tree() -> void:
+	shutdown()
+
+func shutdown() -> void:
+	if _music_tween and _music_tween.is_valid():
+		_music_tween.kill()
+	if music_player:
+		music_player.stop()
+		music_player.stream = null
+		music_player.free()
+		music_player = null
+	for player in sfx_players:
+		if is_instance_valid(player):
+			player.stop()
+			player.stream = null
+			player.free()
+	sfx_players.clear()
+	sfx_streams.clear()
+
 func play_sfx(id: String) -> void:
 	if not sfx_streams.has(id) or sfx_players.is_empty():
 		return
@@ -120,6 +140,11 @@ func set_volume(channel: String, value: float, persist := true) -> void:
 func set_muted(value: bool) -> void:
 	settings.muted = value
 	apply_settings()
+	save_settings()
+	settings_changed.emit()
+
+func set_haptics_enabled(value: bool) -> void:
+	settings.haptics = value
 	save_settings()
 	settings_changed.emit()
 
@@ -166,7 +191,7 @@ func load_settings() -> void:
 		var value = parsed.get(channel)
 		if value is int or value is float:
 			settings[channel] = clampf(float(value), 0.0, 1.0)
-	for option in ["muted", "diagnostics_enabled"]:
+	for option in ["muted", "haptics", "diagnostics_enabled"]:
 		if parsed.get(option) is bool:
 			settings[option] = bool(parsed[option])
 

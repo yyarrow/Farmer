@@ -10,6 +10,7 @@ func _run() -> void:
 	var state = root.get_node("State")
 	var audio = root.get_node("Audio")
 	var telemetry = root.get_node("Telemetry")
+	audio.sfx_streams.clear()
 	state.battle_finished.connect(func(result: Dictionary): battle_results.append(result))
 	state.reset_game()
 	state.tutorial_seen = true
@@ -155,6 +156,9 @@ func _run() -> void:
 	audio.settings.music = 0.99
 	audio.load_settings()
 	_check(absf(float(audio.settings.music) - 0.37) < 0.001, "corrupt audio settings recover previous values")
+	audio.set_haptics_enabled(false)
+	audio.load_settings()
+	_check(not bool(audio.settings.haptics), "haptics preference persists")
 	if FileAccess.file_exists(telemetry.EVENT_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(telemetry.EVENT_PATH))
 	telemetry.track("fresh_install_probe", {})
@@ -206,6 +210,10 @@ func _run() -> void:
 
 	state.reset_game()
 	audio.set_volume("music", 0.62)
+	audio.set_haptics_enabled(true)
+	audio.shutdown()
+	await process_frame
+	await process_frame
 	if failures.is_empty():
 		print("FULL_FLOW_OK ticks=20000 buildings=8 events=10 saves=3 diagnostics=ok")
 		quit(0)
