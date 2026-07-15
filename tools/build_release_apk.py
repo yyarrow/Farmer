@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Build and verify a signed, non-debuggable Android release APK."""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CREDENTIALS = ROOT / ".release" / "android-signing.env"
+GODOT = ROOT / "tools" / "godot" / "Godot.app" / "Contents" / "MacOS" / "Godot"
+APK = ROOT / "build" / "Qinghe-release.apk"
+
+
+def load_credentials() -> dict[str, str]:
+    if not CREDENTIALS.exists():
+        raise SystemExit("Missing ignored release credentials. Run tools/create_release_keystore.py first.")
+    values: dict[str, str] = {}
+    for line in CREDENTIALS.read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith("#"):
+            key, value = line.split("=", 1)
+            values[key] = value
+    return values
+
+
+def android_tool(name: str) -> Path:
+    sdk = Path(os.environ.get("ANDROID_HOME", os.environ.get("ANDROID_SDK_ROOT", "")))
+    candidates = sorted((sdk / "build-tools").glob(f"*/{name}"))
+    if not candidates:
+        raise SystemExit(f"Cannot find Android build tool: {name}")
+    return candidates[-1]
+
+
+def verify() -> None:
+    aapt = android_tool("aapt")
+    apksigner = android_tool("apksigner")
+    badging = subprocess.run([aapt, "dump", "badging", APK], check=True, text=True, capture_output=True).stdout
+    manifest = subprocess.run([aapt, "dump", "xmltree", APK, "AndroidManifest.xml"], check=True, text=True, capture_output=True).stdout
+    permissions = subprocess.run([aapt, "dump", "permissions", APK], check=True, text=True, capture_output=True).stdout
+    signature = subprocess.run([apksigner, "verify", "--verbose", "--print-certs", APK], check=True, text=True, capture_output=True).stdout
+    alias_start = manifest.find("E: activity-alias")
+    alias_end = manifest.find("\n      E:", alias_start + 1) if alias_start >= 0 else -1
+    launcher_alias = manifest[alias_start : alias_end if alias_end >= 0 else len(manifest)]
+    checks = {
+        "package": "package: name='com.qinghe.farmer'" in badging,
+        "version": "versionCode='5' versionName='0.4.0'" in badging,
+        "sdk": "sdkVersion:'24'" in badging and "targetSdkVersion:'36'" in badging,
+        "release": "application-debuggable" not in badging,
+        "architecture": "native-code: 'arm64-v8a'" in badging and "x86_64" not in badging,
+        "permissions": permissions.strip().splitlines() == ["package: com.qinghe.farmer", "uses-permission: name='android.permission.VIBRATE'"],
+        "launcher": all(
+            value in launcher_alias
+            for value in ["GodotAppLauncher", "android:exported", "0xffffffff", "android.intent.action.MAIN", "android.intent.category.LAUNCHER"]
+        ),
+        "portrait": "android:screenOrientation" in manifest and "(type 0x10)0x1" in manifest,
+        "game_category": "application-isGame" in badging,
+        "signature": "Verified using v2 scheme (APK Signature Scheme v2): true" in signature,
+        "identity": "CN=Qinghe Game" in signature and "CN=Godot" not in signature,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise SystemExit("ANDROID_RELEASE_FAILED " + ",".join(failed))
+    digest = hashlib.sha256(APK.read_bytes()).hexdigest()
+    cert_match = re.search(r"Signer #1 certificate SHA-256 digest: ([0-9a-f]+)", signature)
+    cert = cert_match.group(1) if cert_match else "unknown"
+    print(f"ANDROID_RELEASE_OK apk={APK} size_mb={APK.stat().st_size / 1048576:.1f}")
+    print(f"APK_SHA256={digest}")
+    print(f"SIGNER_SHA256={cert}")
+
+
+def main() -> None:
+    env = os.environ.copy()
+    env.update(load_credentials())
+    env["HOME"] = str(ROOT / ".home")
+    APK.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [str(GODOT), "--headless", "--path", str(ROOT), "--export-release", "Android Release APK", str(APK)],
+        cwd=ROOT,
+        env=env,
+        check=True,
+    )
+    verify()
+
+
+if __name__ == "__main__":
+    main()

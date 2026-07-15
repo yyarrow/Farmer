@@ -847,15 +847,13 @@ func _show_settings() -> void:
 	var mute := CheckButton.new()
 	mute.text = "静音"
 	mute.button_pressed = bool(Audio.settings.muted)
-	mute.add_theme_font_size_override("font_size", 14)
-	mute.add_theme_color_override("font_color", INK)
+	_style_settings_toggle(mute)
 	mute.toggled.connect(func(value: bool): Audio.set_muted(value))
 	content.add_child(mute)
 	var haptics := CheckButton.new()
 	haptics.text = "触觉反馈"
 	haptics.button_pressed = bool(Audio.settings.get("haptics", true))
-	haptics.add_theme_font_size_override("font_size", 14)
-	haptics.add_theme_color_override("font_color", INK)
+	_style_settings_toggle(haptics)
 	haptics.toggled.connect(func(value: bool): Audio.set_haptics_enabled(value))
 	content.add_child(haptics)
 
@@ -877,8 +875,7 @@ func _show_settings() -> void:
 	var diag_toggle := CheckButton.new()
 	diag_toggle.text = "记录本地诊断事件"
 	diag_toggle.button_pressed = bool(Audio.settings.diagnostics_enabled)
-	diag_toggle.add_theme_font_size_override("font_size", 14)
-	diag_toggle.add_theme_color_override("font_color", INK)
+	_style_settings_toggle(diag_toggle)
 	diag_toggle.toggled.connect(func(value: bool):
 		Audio.set_diagnostics_enabled(value)
 		if value: Telemetry.track("diagnostics_enabled", {})
@@ -905,6 +902,14 @@ func _show_settings() -> void:
 		)
 	)
 	content.add_child(clear_logs)
+
+func _style_settings_toggle(toggle: CheckButton) -> void:
+	toggle.add_theme_font_size_override("font_size", 14)
+	# Android's default pressed CheckButton text is white. Every state needs an
+	# explicit ink color so enabled toggles remain readable on the paper panel.
+	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		toggle.add_theme_color_override(color_name, INK)
+	toggle.add_theme_color_override("font_disabled_color", Color(INK, 0.42))
 
 func _close_settings() -> void:
 	Audio.save_settings()

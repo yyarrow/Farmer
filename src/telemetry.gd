@@ -20,7 +20,7 @@ func _ready() -> void:
 	session_started = Time.get_unix_time_from_system()
 	_write_session_state(false, "running")
 	track("app_start", {
-		"version": ProjectSettings.get_setting("application/config/version", "0.3.0"),
+		"version": ProjectSettings.get_setting("application/config/version", "0.4.0"),
 		"os": OS.get_name(),
 		"model": OS.get_model_name(),
 		"locale": OS.get_locale(),
@@ -50,6 +50,10 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		track("app_close", {})
 		_write_session_state(true, "closed")
+	elif what == NOTIFICATION_PREDELETE and not session_id.is_empty():
+		# Normal SceneTree shutdowns do not always emit WM_CLOSE_REQUEST (notably
+		# automated tests). Mark those clean without weakening real crash detection.
+		_write_session_state(true, "shutdown")
 
 func track(event_name: String, payload: Dictionary = {}) -> void:
 	if not bool(Audio.settings.get("diagnostics_enabled", true)):
@@ -94,6 +98,10 @@ func _detect_previous_exit() -> void:
 		previous_unclean_exit = not bool(parsed.get("clean", true))
 
 func _emit_unclean_warning() -> void:
+	# The warning is deferred so the main UI can connect its signal. Re-check the
+	# flag in case a deterministic test or recovery flow cleared it meanwhile.
+	if not previous_unclean_exit:
+		return
 	track("previous_unexpected_exit", {})
 	unexpected_exit_detected.emit("检测到上次运行可能异常中断，诊断记录已保留")
 
@@ -130,7 +138,7 @@ func build_report(game_snapshot: Dictionary, save_slots: Array) -> String:
 	var report := {
 		"report_version": 1,
 		"generated_at": Time.get_datetime_string_from_system(false, true),
-		"app_version": ProjectSettings.get_setting("application/config/version", "0.3.0"),
+		"app_version": ProjectSettings.get_setting("application/config/version", "0.4.0"),
 		"device": {"os": OS.get_name(), "model": OS.get_model_name(), "locale": OS.get_locale()},
 		"session": session_id,
 		"previous_unclean_exit": previous_unclean_exit,

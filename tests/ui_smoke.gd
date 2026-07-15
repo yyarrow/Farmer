@@ -29,6 +29,10 @@ func _run() -> void:
 	await process_frame
 	_check(ui.modal_layer != null and is_instance_valid(ui.modal_layer), "settings modal opens")
 	_check(ui.modal_layer.get_child_count() >= 2, "settings modal content")
+	var settings_toggles: Array[Node] = ui.modal_layer.find_children("*", "CheckButton", true, false)
+	_check(settings_toggles.size() == 3, "settings exposes mute, haptics and diagnostics toggles")
+	for toggle in settings_toggles:
+		_check(toggle.get_theme_color("font_pressed_color").is_equal_approx(ui.INK), "%s pressed text stays readable" % toggle.text)
 	_check(state.time_speed == 1.0 and state.get_effective_time_speed() == 0.0, "settings temporarily pauses time")
 	ui._close_settings()
 	await process_frame
