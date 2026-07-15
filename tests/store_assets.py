@@ -45,7 +45,7 @@ def main() -> None:
     require_png(STORE / "icon-512.png", (512, 512), 6, 1_048_576)
     require_png(STORE / "feature-graphic.png", (1024, 500), 2, 8_388_608)
     screenshots = sorted((STORE / "screenshots").glob("*.png"))
-    assert len(screenshots) >= 3, "at least three portrait screenshots are required for the release set"
+    assert len(screenshots) >= 5, "the release set must cover seasons, military intelligence and governance"
     for screenshot in screenshots:
         require_png(screenshot, (1080, 1920), 2, 8_388_608)
 

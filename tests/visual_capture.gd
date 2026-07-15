@@ -67,6 +67,8 @@ func _run() -> void:
 	elif active_policy_top_image.save_png("res://.qa/visual_policy_active_top.png") != OK:
 		failures.append("cannot save active policy top frame")
 	ui.content_scroll.scroll_vertical = 10000
+	await process_frame
+	ui.content_scroll.scroll_vertical = maxi(0, ui.content_scroll.scroll_vertical - 18)
 	await create_timer(0.3).timeout
 	var active_policy_bottom_image := root.get_viewport().get_texture().get_image()
 	if active_policy_bottom_image.is_empty() or active_policy_bottom_image.get_width() != 540 or active_policy_bottom_image.get_height() != 960:
@@ -86,6 +88,8 @@ func _run() -> void:
 	elif blocked_policy_top_image.save_png("res://.qa/visual_policy_blocked_top.png") != OK:
 		failures.append("cannot save blocked policy top frame")
 	ui.content_scroll.scroll_vertical = 10000
+	await process_frame
+	ui.content_scroll.scroll_vertical = maxi(0, ui.content_scroll.scroll_vertical - 18)
 	await create_timer(0.3).timeout
 	var blocked_policy_bottom_image := root.get_viewport().get_texture().get_image()
 	if blocked_policy_bottom_image.is_empty() or blocked_policy_bottom_image.get_width() != 540 or blocked_policy_bottom_image.get_height() != 960:

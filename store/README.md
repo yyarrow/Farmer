@@ -11,6 +11,8 @@
 | `screenshots/01-spring-city.png` | 1080×1920，RGB PNG | 春季城邑总览，展示粮木石币、八类建筑、敌军预警和竖屏经营界面。 |
 | `screenshots/02-autumn-city.png` | 1080×1920，RGB PNG | 秋季成熟城邑，建筑已升级，金黄田野中显示经营资源和守城压力。 |
 | `screenshots/03-winter-city.png` | 1080×1920，RGB PNG | 冬季雪景城邑，展示四季色调、完整建筑外观和持续的军政经营。 |
+| `screenshots/04-military-intelligence.png` | 1080×1920，RGB PNG | 军务页展示侦察后的敌我兵力、精确守城胜算、预计伤亡和军队日耗。 |
+| `screenshots/05-governance-policy.png` | 1080×1920，RGB PNG | 政事页展示轻徭薄赋、犒赏三军的资源成本、实际收益与城邑晋升。 |
 
 替代文字均少于 140 个字符，可直接填写到 Play Console 的对应素材项。
 
@@ -22,7 +24,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot \
   --display-driver macos --rendering-driver opengl3
 ```
 
-脚本以 `assets/icon.svg` 和 `.qa/visual_*_max.png` 为来源；先运行 `tests/visual_capture.gd` 可更新三张实际游戏截图。所有商店素材都被 Android 导出预设排除，不会增大安装包。
+脚本以 `assets/icon.svg` 和 `.qa/visual_*.png` 为来源；先运行 `tests/visual_capture.gd` 可更新五张实际游戏截图。所有商店素材都被 Android 导出预设排除，不会增大安装包。
 
 ## 文案与合规
 
