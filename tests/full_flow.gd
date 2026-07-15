@@ -4,6 +4,7 @@ var failures: Array[String] = []
 var battle_results: Array[Dictionary] = []
 var day_visual_events := 0
 var last_day_visual := {}
+var notices: Array[String] = []
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -14,6 +15,7 @@ func _run() -> void:
 	var telemetry = root.get_node("Telemetry")
 	audio.sfx_streams.clear()
 	state.battle_finished.connect(func(result: Dictionary): battle_results.append(result))
+	state.notice.connect(func(message: String): notices.append(message))
 	state.visual_event.connect(func(kind: String, payload: Dictionary):
 		if kind == "day":
 			day_visual_events += 1
@@ -277,6 +279,13 @@ func _run() -> void:
 	_check(state.current_event.title == state.EVENTS[0].title and state.current_event.body == state.EVENTS[0].body, "old event copy is normalized without losing the save")
 	state.resolve_event(1)
 	_check(state.delete_slot(3), "schema-recovered slot delete removes backup")
+	state.delete_slot(1)
+	var unrecoverable := FileAccess.open(state._slot_path(1), FileAccess.WRITE)
+	unrecoverable.store_string("{broken")
+	unrecoverable = null
+	notices.clear()
+	_check(not state.load_slot(1) and not notices.is_empty() and notices[-1] == "该档位存档损坏且无可用备份", "unrecoverable slot is not mislabeled as empty")
+	_check(state.delete_slot(1), "unrecoverable slot can still be deleted")
 
 	# Settings persist and diagnostics export contains a snapshot.
 	audio.set_volume("music", 0.37)

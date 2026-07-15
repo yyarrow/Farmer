@@ -1110,12 +1110,16 @@ func manual_save(slot: int) -> bool:
 		Audio.play_sfx("ui_tap")
 		Telemetry.track("manual_save", {"slot": slot, "day": current_day, "chapter": chapter})
 		save_slots_changed.emit()
+	else:
+		notice.emit("档位 %d 保存失败，诊断记录已保留" % slot)
 	return ok
 
 func load_slot(slot: int) -> bool:
-	var data := _read_save(_slot_path(slot))
+	var path := _slot_path(slot)
+	var had_save_file := FileAccess.file_exists(path) or FileAccess.file_exists(path + ".bak")
+	var data := _read_save(path)
 	if data.is_empty():
-		notice.emit("该档位尚无存档")
+		notice.emit("该档位存档损坏且无可用备份" if had_save_file else "该档位尚无存档")
 		return false
 	_apply_snapshot(data, true)
 	changed.emit()
@@ -1135,8 +1139,10 @@ func delete_slot(slot: int) -> bool:
 		var error := DirAccess.remove_absolute(ProjectSettings.globalize_path(candidate))
 		if error != OK:
 			Telemetry.track_error("save_delete_failed", error_string(error), {"slot": slot, "path": candidate})
+			notice.emit("档位 %d 删除失败，诊断记录已保留" % slot)
 			return false
 	if not found:
+		notice.emit("该档位尚无存档")
 		return false
 	Telemetry.track("manual_save_deleted", {"slot": slot})
 	save_slots_changed.emit()
