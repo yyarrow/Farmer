@@ -102,14 +102,14 @@ def add_drum(left: list[float], right: list[float], start: float, volume: float)
         right[i] += s
 
 
-def add_ambience(left: list[float], right: list[float]) -> None:
-    rng = random.Random(20260711)
+def add_ambience(left: list[float], right: list[float], seed: int, level: float) -> None:
+    rng = random.Random(seed)
     slow_l = slow_r = 0.0
     for i in range(len(left)):
         # Soft filtered air/water bed, intentionally very quiet.
         slow_l = slow_l * 0.996 + rng.uniform(-1.0, 1.0) * 0.004
         slow_r = slow_r * 0.996 + rng.uniform(-1.0, 1.0) * 0.004
-        breath = 0.006 + 0.003 * math.sin(TAU * i / RATE / 9.0)
+        breath = level * (0.006 + 0.003 * math.sin(TAU * i / RATE / 9.0))
         left[i] += slow_l * breath
         right[i] += slow_r * breath
 
@@ -142,32 +142,73 @@ def write_wav(path: Path, left: list[float], right: list[float] | None = None) -
         wav.writeframes(frames)
 
 
-def generate_music() -> None:
+def generate_music_track(path: Path, score: dict) -> None:
     duration = 48.0
     samples = int(duration * RATE)
     left = [0.0] * samples
     right = [0.0] * samples
-    # D major pentatonic. Two 24-second phrases form a calm, non-obtrusive loop.
-    melody = [62, 64, 66, 69, 66, 64, 62, 57, 59, 62, 64, 62, 59, 57, 54, 57]
-    answer = [57, 59, 62, 64, 69, 66, 64, 62, 64, 66, 69, 71, 69, 66, 64, 62]
-    for phrase, start in [(melody, 0.0), (answer, 24.0)]:
+    for phrase, start in [(score["melody"], 0.0), (score["answer"], 24.0)]:
         for index, midi in enumerate(phrase):
             t = start + index * 1.5
-            add_tone(left, right, t, 2.0, note(midi), 0.13, -0.28 + (index % 3) * 0.26, "pluck")
-            if index in (2, 6, 10, 14):
-                add_bell(left, right, t + 0.75, note(midi - 12), 0.035, 0.45)
+            add_tone(left, right, t, score["note_length"], note(midi), score["pluck"], -0.28 + (index % 3) * 0.26, "pluck")
+            if index in score["bell_steps"]:
+                add_bell(left, right, t + 0.75, note(midi + score["bell_shift"]), score["bell"], 0.45)
         for bar in range(6):
             t = start + bar * 4.0
-            bass = [38, 35, 33, 35, 38, 33][bar]
-            add_tone(left, right, t, 4.2, note(bass), 0.055, 0.0, "pad")
-            add_drum(left, right, t, 0.055)
-            add_drum(left, right, t + 2.0, 0.028)
-    flute_line = [(6.0, 69, 5.0), (13.0, 66, 4.5), (28.0, 64, 5.0), (36.0, 69, 5.5), (43.0, 66, 4.2)]
-    for start, midi, length in flute_line:
-        add_tone(left, right, start, length, note(midi), 0.045, 0.18, "flute")
-    add_ambience(left, right)
+            bass = score["bass"][bar]
+            add_tone(left, right, t, 4.2, note(bass), score["pad"], 0.0, "pad")
+            add_drum(left, right, t, score["drum"])
+            if score["offbeat_drum"] > 0.0:
+                add_drum(left, right, t + 2.0, score["offbeat_drum"])
+    for start, midi, length in score["flute"]:
+        add_tone(left, right, start, length, note(midi), score["flute_volume"], 0.18, "flute")
+    add_ambience(left, right, score["seed"], score["ambience"])
     crossfade_loop(left, right)
-    write_wav(OUT / "qinghe_theme.wav", left, right)
+    write_wav(path, left, right)
+
+
+def generate_music() -> None:
+    # Four related pentatonic pieces: lively in summer, warm in autumn and sparse in winter.
+    scores = {
+        "qinghe_theme.wav": {
+            "melody": [62, 64, 66, 69, 66, 64, 62, 57, 59, 62, 64, 62, 59, 57, 54, 57],
+            "answer": [57, 59, 62, 64, 69, 66, 64, 62, 64, 66, 69, 71, 69, 66, 64, 62],
+            "bass": [38, 35, 33, 35, 38, 33],
+            "flute": [(6.0, 69, 5.0), (13.0, 66, 4.5), (28.0, 64, 5.0), (36.0, 69, 5.5), (43.0, 66, 4.2)],
+            "note_length": 2.0, "pluck": 0.13, "bell_steps": (2, 6, 10, 14), "bell_shift": -12,
+            "bell": 0.035, "pad": 0.055, "drum": 0.055, "offbeat_drum": 0.028,
+            "flute_volume": 0.045, "seed": 20260711, "ambience": 1.0,
+        },
+        "qinghe_summer.wav": {
+            "melody": [67, 69, 71, 74, 71, 69, 67, 64, 67, 71, 74, 76, 74, 71, 69, 67],
+            "answer": [62, 67, 69, 71, 74, 71, 69, 67, 71, 74, 76, 79, 76, 74, 71, 67],
+            "bass": [43, 38, 40, 38, 43, 40],
+            "flute": [(4.5, 74, 4.0), (12.0, 79, 4.5), (26.0, 76, 4.0), (34.5, 79, 5.0), (42.0, 74, 4.5)],
+            "note_length": 1.75, "pluck": 0.12, "bell_steps": (1, 5, 9, 13), "bell_shift": -12,
+            "bell": 0.04, "pad": 0.052, "drum": 0.07, "offbeat_drum": 0.04,
+            "flute_volume": 0.041, "seed": 20260712, "ambience": 1.2,
+        },
+        "qinghe_autumn.wav": {
+            "melody": [59, 62, 64, 67, 64, 62, 59, 55, 57, 59, 62, 64, 62, 59, 57, 55],
+            "answer": [55, 57, 59, 62, 67, 64, 62, 59, 57, 62, 64, 67, 64, 62, 59, 55],
+            "bass": [35, 31, 33, 31, 35, 33],
+            "flute": [(7.5, 67, 5.5), (16.0, 64, 5.0), (29.5, 62, 5.5), (38.0, 67, 5.0)],
+            "note_length": 2.25, "pluck": 0.115, "bell_steps": (3, 7, 11, 15), "bell_shift": 0,
+            "bell": 0.028, "pad": 0.062, "drum": 0.045, "offbeat_drum": 0.018,
+            "flute_volume": 0.043, "seed": 20260713, "ambience": 0.9,
+        },
+        "qinghe_winter.wav": {
+            "melody": [57, 59, 62, 64, 62, 59, 57, 54, 52, 54, 57, 59, 57, 54, 52, 50],
+            "answer": [50, 52, 54, 57, 62, 59, 57, 54, 57, 59, 62, 64, 62, 59, 54, 52],
+            "bass": [33, 29, 31, 29, 33, 31],
+            "flute": [(8.0, 64, 6.0), (18.0, 59, 4.5), (30.0, 57, 6.0), (40.0, 62, 5.5)],
+            "note_length": 2.5, "pluck": 0.095, "bell_steps": (4, 12), "bell_shift": 0,
+            "bell": 0.022, "pad": 0.07, "drum": 0.022, "offbeat_drum": 0.0,
+            "flute_volume": 0.038, "seed": 20260714, "ambience": 0.75,
+        },
+    }
+    for filename, score in scores.items():
+        generate_music_track(OUT / filename, score)
 
 
 def effect(kind: str, seconds: float, builder) -> None:

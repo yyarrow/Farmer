@@ -187,6 +187,27 @@ func _run() -> void:
 	var music_stream: AudioStreamWAV = audio.music_player.stream
 	_check(music_stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "music loops forward")
 	_check(music_stream.loop_begin == int(audio.MUSIC_LOOP_INTRO_SECONDS * music_stream.mix_rate), "music loops after crossfade intro")
+	audio.set_music_season("spring", true)
+	var old_music_index: int = audio._active_music_index
+	audio.set_music_season("summer")
+	var new_music_index: int = audio._active_music_index
+	_check(audio.music_players[old_music_index].playing and audio.music_players[new_music_index].playing, "seasonal music crossfade overlaps both tracks")
+	audio._set_season_crossfade(0.5, old_music_index, new_music_index)
+	_check(absf(float(audio._music_gains[old_music_index]) - sqrt(0.5)) < 0.001, "seasonal music uses equal-power crossfade")
+	audio._duck_music()
+	_check(audio._duck_gain < 0.5, "battle duck is independent during seasonal crossfade")
+	audio._season_tween.set_speed_scale(30.0)
+	audio._duck_tween.set_speed_scale(30.0)
+	await create_timer(0.15).timeout
+	_check(not audio.music_players[old_music_index].playing and audio.music_players[old_music_index].stream == null, "crossfade releases previous seasonal track")
+	_check(audio.music_player.playing and absf(audio._duck_gain - 1.0) < 0.001, "seasonal track and battle duck finish cleanly")
+	for season in ["autumn", "winter", "spring"]:
+		audio.set_music_season(season, true)
+		_check(audio.current_music_id == season and audio.music_player.playing, "seasonal music selects " + season)
+		music_stream = audio.music_player.stream
+		_check(music_stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "seasonal music keeps loop mode " + season)
+	audio.set_music_season("unknown")
+	_check(audio.current_music_id == "spring", "unknown music season is ignored")
 	audio.set_volume("music", 0.42)
 	var corrupt_settings := FileAccess.open(audio.SETTINGS_PATH, FileAccess.WRITE)
 	corrupt_settings.store_string("{truncated")
@@ -250,9 +271,13 @@ func _run() -> void:
 	state.reset_game()
 	audio.set_volume("music", 0.62)
 	audio.set_haptics_enabled(true)
+	music_stream = null
+	for player in audio.music_players:
+		player.stop()
+		player.stream = null
+	await create_timer(0.1).timeout
 	audio.shutdown()
-	await process_frame
-	await process_frame
+	await create_timer(0.1).timeout
 	if failures.is_empty():
 		print("FULL_FLOW_OK ticks=20000 buildings=8 event_types=%d event_branches=%d saves=3 diagnostics=ok" % [state.EVENTS.size(), event_branch_count])
 		quit(0)

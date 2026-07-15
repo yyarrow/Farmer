@@ -463,6 +463,7 @@ func _apply_season_tone(season: String) -> void:
 	if season == _displayed_season or not city_background:
 		return
 	_displayed_season = season
+	Audio.set_music_season(season)
 	var tones := {
 		"spring": Color(1.0, 1.0, 1.0),
 		"summer": Color(0.90, 1.0, 0.88),
@@ -880,7 +881,7 @@ func _show_settings() -> void:
 	content.add_theme_constant_override("separation", 9)
 	scroll.add_child(content)
 
-	_add_settings_heading(content, "声律", "原创国风音乐与操作音效")
+	_add_settings_heading(content, "声律", "四时原创曲目随季节平滑切换")
 	_add_volume_row(content, "总音量", "master")
 	_add_volume_row(content, "背景音乐", "music")
 	_add_volume_row(content, "操作音效", "sfx")

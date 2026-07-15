@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 import struct
 import wave
 from pathlib import Path
@@ -13,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 AUDIO = ROOT / "assets" / "audio"
 EXPECTED_DURATIONS = {
     "qinghe_theme.wav": 48.0,
+    "qinghe_summer.wav": 48.0,
+    "qinghe_autumn.wav": 48.0,
+    "qinghe_winter.wav": 48.0,
     "ui_tap.wav": 0.16,
     "build.wav": 0.85,
     "upgrade.wav": 1.15,
@@ -23,6 +27,7 @@ EXPECTED_DURATIONS = {
     "event.wav": 1.1,
 }
 LOOP_INTRO_SECONDS = 2.0
+MUSIC_FILES = {name for name in EXPECTED_DURATIONS if name.startswith("qinghe_")}
 
 
 def read_samples(path: Path) -> tuple[wave.Wave_read, tuple[int, ...]]:
@@ -34,7 +39,8 @@ def read_samples(path: Path) -> tuple[wave.Wave_read, tuple[int, ...]]:
 
 def main() -> None:
     failures: list[str] = []
-    music_seam = 1.0
+    music_seams: list[float] = []
+    music_hashes: set[str] = set()
     for name, expected_duration in EXPECTED_DURATIONS.items():
         path = AUDIO / name
         if not path.exists():
@@ -52,18 +58,25 @@ def main() -> None:
             failures.append(f"unsafe peak {name}={peak:.3f}")
         if rms < 0.015:
             failures.append(f"near-silent asset {name}={rms:.4f}")
-        if name == "qinghe_theme.wav":
+        if name in MUSIC_FILES:
+            music_hashes.add(hashlib.sha256(path.read_bytes()).hexdigest())
             channels = wav.getnchannels()
             loop_frame = int(LOOP_INTRO_SECONDS * wav.getframerate())
             last = samples[-channels:]
             first_loop = samples[loop_frame * channels : (loop_frame + 1) * channels]
             music_seam = max(abs(a - b) for a, b in zip(last, first_loop)) / 32767.0
+            music_seams.append(music_seam)
             if music_seam > 0.01:
-                failures.append(f"music loop seam too large={music_seam:.4f}")
+                failures.append(f"music loop seam too large {name}={music_seam:.4f}")
         wav.close()
+    if len(music_hashes) != len(MUSIC_FILES):
+        failures.append("seasonal music files are not distinct")
     if failures:
         raise SystemExit("AUDIO_ASSETS_FAILED\n" + "\n".join(failures))
-    print(f"AUDIO_ASSETS_OK files={len(EXPECTED_DURATIONS)} music=48.00s loop_seam={music_seam:.4f}")
+    print(
+        f"AUDIO_ASSETS_OK files={len(EXPECTED_DURATIONS)} "
+        f"music_tracks={len(MUSIC_FILES)} music_total=192.00s loop_seam_max={max(music_seams):.4f}"
+    )
 
 
 if __name__ == "__main__":
