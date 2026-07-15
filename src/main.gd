@@ -49,6 +49,7 @@ func _ready() -> void:
 	State.notice.connect(_show_toast)
 	State.event_started.connect(_on_event_started)
 	State.battle_finished.connect(_on_battle_finished)
+	State.visual_event.connect(_on_state_visual_event)
 	State.time_state_changed.connect(_refresh_dynamic)
 	Telemetry.unexpected_exit_detected.connect(_show_toast)
 	_refresh_dynamic()
@@ -490,6 +491,12 @@ func _render_tab() -> void:
 		1: _render_market()
 		2: _render_military()
 		3: _render_governance()
+
+func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
+	# Page cards contain day-sensitive forecasts, wounded counts and policy gains.
+	# Rebuild only at settlement boundaries; the ScrollContainer keeps its position.
+	if kind == "day" and content_box:
+		_render_tab()
 
 func _render_buildings() -> void:
 	_add_section_heading("营造城邑", "升级建筑，建立稳定的生产循环")

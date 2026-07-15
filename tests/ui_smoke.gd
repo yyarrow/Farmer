@@ -60,6 +60,16 @@ func _run() -> void:
 	ui._render_tab()
 	await process_frame
 	_check(_has_label_containing(ui.content_box, "民口+5 · 民心+3"), "policy card exposes the actual capped civil gains")
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count()
+	state.morale = 100.0
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "民口与民心均已满"), "policy card exposes its blocked day state")
+	state.population -= 5
+	state.morale = 97.0
+	state.visual_event.emit("day", {"ledger": state.get_daily_ledger(), "recovered": 0})
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "民口+5 · 民心+3"), "day settlement refreshes the open policy page")
 	state.population = 110
 	state.morale = 70.0
 	ui._show_settings()
