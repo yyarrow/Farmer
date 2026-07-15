@@ -52,6 +52,46 @@ func _run() -> void:
 		failures.append("invalid scouted intelligence frame")
 	elif scouted_intel_image.save_png("res://.qa/visual_military_scouted.png") != OK:
 		failures.append("cannot save scouted intelligence frame")
+	ui.current_tab = 3
+	ui._update_tab_buttons()
+	state.current_day = 5
+	state.buffs.farm_until = 5
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count() - 5
+	state.morale = 97.0
+	state.recovery_queue = [{"unit": "militia", "count": 7, "return_day": 8}]
+	ui._render_tab()
+	await create_timer(0.3).timeout
+	var active_policy_top_image := root.get_viewport().get_texture().get_image()
+	if active_policy_top_image.is_empty() or active_policy_top_image.get_width() != 540 or active_policy_top_image.get_height() != 960:
+		failures.append("invalid active policy top frame")
+	elif active_policy_top_image.save_png("res://.qa/visual_policy_active_top.png") != OK:
+		failures.append("cannot save active policy top frame")
+	ui.content_scroll.scroll_vertical = 10000
+	await create_timer(0.3).timeout
+	var active_policy_bottom_image := root.get_viewport().get_texture().get_image()
+	if active_policy_bottom_image.is_empty() or active_policy_bottom_image.get_width() != 540 or active_policy_bottom_image.get_height() != 960:
+		failures.append("invalid active policy bottom frame")
+	elif active_policy_bottom_image.save_png("res://.qa/visual_policy_active_bottom.png") != OK:
+		failures.append("cannot save active policy bottom frame")
+	state.buffs.farm_until = state.current_day + 3
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count()
+	state.morale = 100.0
+	state.recovery_queue = []
+	ui._render_tab()
+	ui.content_scroll.scroll_vertical = 0
+	await create_timer(0.3).timeout
+	var blocked_policy_top_image := root.get_viewport().get_texture().get_image()
+	if blocked_policy_top_image.is_empty() or blocked_policy_top_image.get_width() != 540 or blocked_policy_top_image.get_height() != 960:
+		failures.append("invalid blocked policy top frame")
+	elif blocked_policy_top_image.save_png("res://.qa/visual_policy_blocked_top.png") != OK:
+		failures.append("cannot save blocked policy top frame")
+	ui.content_scroll.scroll_vertical = 10000
+	await create_timer(0.3).timeout
+	var blocked_policy_bottom_image := root.get_viewport().get_texture().get_image()
+	if blocked_policy_bottom_image.is_empty() or blocked_policy_bottom_image.get_width() != 540 or blocked_policy_bottom_image.get_height() != 960:
+		failures.append("invalid blocked policy bottom frame")
+	elif blocked_policy_bottom_image.save_png("res://.qa/visual_policy_blocked_bottom.png") != OK:
+		failures.append("cannot save blocked policy bottom frame")
 	ui.current_tab = 0
 	ui._update_tab_buttons()
 	ui._render_tab()
@@ -89,7 +129,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 feedback=1 modals=2 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 policies=4 feedback=1 modals=2 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

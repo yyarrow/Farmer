@@ -390,29 +390,68 @@ func trade(kind: String) -> bool:
 	save_game()
 	return true
 
-func enact_policy(id: String) -> bool:
+func get_policy_cost(id: String) -> Dictionary:
+	match id:
+		"irrigate": return {"wood": 35, "stone": 24, "coins": 280}
+		"tax_relief": return {"coins": 650, "grain": 35}
+		"reward_army": return {"grain": 60, "coins": 450}
+	return {}
+
+func get_policy_preview(id: String) -> Dictionary:
 	match id:
 		"irrigate":
-			if not spend({"wood": 35, "stone": 24, "coins": 280}): return false
+			return {"active_days": maxi(0, current_day + 3 - int(buffs.farm_until))}
+		"tax_relief":
+			var civilian_room := maxi(0, get_population_cap() - get_army_count() - get_wounded_count() - population)
+			return {"population_gain": mini(15, civilian_room), "morale_gain": minf(12.0, 100.0 - morale)}
+		"reward_army":
+			var expedited_wounded := 0
+			for entry in recovery_queue:
+				if int(entry.return_day) > current_day + 1:
+					expedited_wounded += int(entry.count)
+			return {"morale_gain": minf(18.0, 100.0 - morale), "expedited_wounded": expedited_wounded}
+	return {}
+
+func get_policy_block_reason(id: String) -> String:
+	if get_policy_cost(id).is_empty():
+		return "未知政令"
+	var preview := get_policy_preview(id)
+	if id == "irrigate" and int(preview.active_days) <= 0:
+		return "水利增产已达三日"
+	if id == "tax_relief":
+		if int(preview.population_gain) <= 0 and float(preview.morale_gain) <= 0.001:
+			return "民口与民心均已满"
+	if id == "reward_army":
+		if float(preview.morale_gain) <= 0.001 and int(preview.expedited_wounded) <= 0:
+			return "士气已满且伤员无法再提早归队"
+	return ""
+
+func enact_policy(id: String) -> bool:
+	var block_reason := get_policy_block_reason(id)
+	if not block_reason.is_empty():
+		notice.emit(block_reason + "，本次不扣物资")
+		Telemetry.track("policy_blocked", {"policy": id, "reason": block_reason, "day": current_day})
+		return false
+	var cost := get_policy_cost(id)
+	if not spend(cost):
+		return false
+	match id:
+		"irrigate":
 			buffs.farm_until = current_day + 3
 			notice.emit("水利修成：三日内粮秣增产")
 		"tax_relief":
-			if not spend({"coins": 650, "grain": 35}): return false
 			population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 15)
 			morale = minf(100.0, morale + 12.0)
 			notice.emit("轻徭薄赋：民心与民口上升")
 		"reward_army":
-			if not spend({"grain": 60, "coins": 450}): return false
 			morale = minf(100.0, morale + 18.0)
 			for entry in recovery_queue:
 				entry.return_day = maxi(current_day + 1, int(entry.return_day) - 1)
 			notice.emit("犒赏三军：士气大振，伤员恢复加快")
-		_:
-			return false
 	changed.emit()
 	visual_event.emit("policy", {"policy": id})
 	Audio.play_sfx("event")
-	Telemetry.track("policy_enacted", {"policy": id, "day": current_day})
+	Telemetry.track("policy_enacted", {"policy": id, "day": current_day, "cost": cost})
 	save_game()
 	return true
 

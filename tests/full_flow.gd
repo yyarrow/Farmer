@@ -51,7 +51,25 @@ func _run() -> void:
 		_check(state.recruit(unit), "recruit %s" % unit)
 	for policy in ["irrigate", "tax_relief", "reward_army"]:
 		_fill_resources(state)
+		if policy == "reward_army":
+			state.morale = 70.0
 		_check(state.enact_policy(policy), "policy %s" % policy)
+	_check(int(state.get_policy_cost("irrigate").wood) == 35 and int(state.get_policy_cost("reward_army").coins) == 450, "policy UI and settlement share one cost")
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count() - 5
+	state.morale = 97.0
+	var relief_preview: Dictionary = state.get_policy_preview("tax_relief")
+	_check(int(relief_preview.population_gain) == 5 and is_equal_approx(float(relief_preview.morale_gain), 3.0), "policy preview reports exact capped gains")
+	var wood_before_blocked_policy: float = state.resources.wood
+	_check(state.get_policy_block_reason("irrigate") == "水利增产已达三日", "active irrigation explains why it cannot be repurchased")
+	_check(not state.enact_policy("irrigate") and state.resources.wood == wood_before_blocked_policy, "duplicate irrigation is rejected without charging")
+	_fill_resources(state)
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count()
+	state.morale = 100.0
+	var coins_before_blocked_relief: float = state.resources.coins
+	_check(not state.enact_policy("tax_relief") and state.resources.coins == coins_before_blocked_relief, "maxed civil relief is rejected without charging")
+	state.recovery_queue = []
+	var grain_before_blocked_reward: float = state.resources.grain
+	_check(not state.enact_policy("reward_army") and state.resources.grain == grain_before_blocked_reward, "effectless army reward is rejected without charging")
 
 	# Each random event branch resolves without leaving a modal event behind.
 	var event_branch_count := 0

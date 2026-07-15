@@ -31,6 +31,7 @@ var power_label: Label
 var threat_bar: ProgressBar
 var day_bar: ProgressBar
 var advance_day_button: Button
+var content_scroll: ScrollContainer
 var content_box: VBoxContainer
 var toast_panel: PanelContainer
 var toast_label: Label
@@ -387,20 +388,21 @@ func _build_bottom_panel() -> void:
 			current_tab = index
 			Telemetry.track("tab_opened", {"tab": data[0], "index": index})
 			_update_tab_buttons()
+			content_scroll.scroll_vertical = 0
 			_render_tab()
 		)
 		tabs.add_child(tab)
 		tab_buttons.append(tab)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	layout.add_child(scroll)
+	content_scroll = ScrollContainer.new()
+	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	layout.add_child(content_scroll)
 	content_box = VBoxContainer.new()
 	content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_box.add_theme_constant_override("separation", 8)
-	scroll.add_child(content_box)
+	content_scroll.add_child(content_box)
 
 	var footer := Label.new()
 	footer.text = "离线收益已开启  ·  每十秒自动存档"
@@ -670,9 +672,11 @@ func _render_governance() -> void:
 	var prosperity := State.get_prosperity()
 	var target := State.get_chapter_target()
 	content_box.add_child(_progress_card("城邑繁荣", prosperity, target, "建筑、人口与军队共同提升繁荣度"))
-	_add_policy_card("兴修水利", "木35车 石24方 财280枚", "三日粮秣增产 35%", "irrigate", "渠")
-	_add_policy_card("轻徭薄赋", "财650枚 粮35石", "吸引民口并提升民心", "tax_relief", "民")
-	_add_policy_card("犒赏三军", "粮60石 财450枚", "提升士气并加快伤员恢复", "reward_army", "赏")
+	_add_policy_card("兴修水利", "三日粮秣增产35%", "irrigate", "渠")
+	var relief_preview := State.get_policy_preview("tax_relief")
+	_add_policy_card("轻徭薄赋", "民口+%d · 民心+%.0f" % [relief_preview.population_gain, relief_preview.morale_gain], "tax_relief", "民")
+	var reward_preview := State.get_policy_preview("reward_army")
+	_add_policy_card("犒赏三军", "民心+%.0f · %d名伤员可提前归队" % [reward_preview.morale_gain, reward_preview.expedited_wounded], "reward_army", "赏")
 	var advance := _card(82)
 	content_box.add_child(advance)
 	var row := HBoxContainer.new()
@@ -700,7 +704,9 @@ func _render_governance() -> void:
 	)
 	row.add_child(action)
 
-func _add_policy_card(title: String, cost: String, effect: String, id: String, glyph: String) -> void:
+func _add_policy_card(title: String, effect: String, id: String, glyph: String) -> void:
+	var cost := State.get_policy_cost(id)
+	var block_reason := State.get_policy_block_reason(id)
 	var card := _card(82)
 	content_box.add_child(card)
 	var row := HBoxContainer.new()
@@ -716,11 +722,12 @@ func _add_policy_card(title: String, cost: String, effect: String, id: String, g
 	title_label.add_theme_color_override("font_color", INK)
 	stack.add_child(title_label)
 	var desc := Label.new()
-	desc.text = "%s · %s" % [cost, effect]
+	desc.text = "%s · %s" % [_format_cost(cost), effect if block_reason.is_empty() else block_reason]
 	desc.add_theme_font_size_override("font_size", 11)
-	desc.add_theme_color_override("font_color", INK_SOFT)
+	desc.add_theme_color_override("font_color", CINNABAR if not block_reason.is_empty() else INK_SOFT)
 	stack.add_child(desc)
 	var action := _action_button("施行")
+	action.disabled = not block_reason.is_empty()
 	action.pressed.connect(func():
 		_play_chime(570.0)
 		if State.enact_policy(id): _render_tab()

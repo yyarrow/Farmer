@@ -172,12 +172,8 @@ func _try_advance_chapter() -> bool:
 func _try_policy(id: String) -> bool:
 	if int(policy_used_day.get(id, 0)) == int(state.current_day):
 		return false
-	var costs := {
-		"irrigate": {"wood": 35, "stone": 24, "coins": 280},
-		"tax_relief": {"coins": 650, "grain": 35},
-		"reward_army": {"grain": 60, "coins": 450},
-	}
-	if not costs.has(id) or not state.can_afford(costs[id]):
+	var cost: Dictionary = state.get_policy_cost(id)
+	if cost.is_empty() or not state.get_policy_block_reason(id).is_empty() or not state.can_afford(cost):
 		return false
 	if state.enact_policy(id):
 		policy_used_day[id] = int(state.current_day)

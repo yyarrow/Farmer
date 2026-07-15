@@ -37,6 +37,11 @@ func _run() -> void:
 		ui._render_tab()
 		await process_frame
 		_check(ui.content_box.get_child_count() > 0, "tab %d renders" % tab)
+	ui.content_scroll.scroll_vertical = 10000
+	await process_frame
+	ui.tab_buttons[0].pressed.emit()
+	await process_frame
+	_check(ui.content_scroll.scroll_vertical == 0, "opening another tab starts at its first action")
 	ui.current_tab = 2
 	state.enemy_army.scouted = false
 	ui._render_tab()
@@ -49,6 +54,14 @@ func _run() -> void:
 	state.enemy_army.scouted = false
 	state.resources.grain = 12.0
 	_check(ui._event_option_caption("drought", 1, "赈济").contains("粮-12石 民心-4"), "event button exposes stock-limited disaster outcome")
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count() - 5
+	state.morale = 97.0
+	ui.current_tab = 3
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "民口+5 · 民心+3"), "policy card exposes the actual capped civil gains")
+	state.population = 110
+	state.morale = 70.0
 	ui._show_settings()
 	await process_frame
 	await process_frame
