@@ -474,13 +474,30 @@ func _start_random_event() -> void:
 	Telemetry.track("random_event_started", {"id": current_event.id, "day": current_day})
 	event_started.emit(current_event)
 
-func resolve_event(choice: int) -> void:
-	if current_event.is_empty():
-		return
+func is_event_choice_available(choice: int) -> bool:
+	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
+		return false
+	if choice != 0:
+		return true
+	match str(current_event.get("id", "")):
+		"drought": return can_afford({"wood": 28, "stone": 18})
+		"refugees": return can_afford({"grain": 58})
+		"merchant": return can_afford({"coins": 720})
+		"scouts": return can_afford({"coins": 320})
+	return true
+
+func resolve_event(choice: int) -> bool:
+	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
+		return false
+	if not is_event_choice_available(choice):
+		notice.emit("物资不足，无法执行这项处置")
+		Telemetry.track("event_choice_unavailable", {"id": current_event.get("id", ""), "choice": choice, "resources": resources.duplicate()})
+		return false
 	var id: String = current_event.id
 	match id:
 		"drought":
-			if choice == 0 and spend({"wood": 28, "stone": 18}):
+			if choice == 0:
+				if not spend({"wood": 28, "stone": 18}): return false
 				buffs.farm_until = current_day + 3
 				notice.emit("旧渠复通，农田转危为安")
 			else:
@@ -488,7 +505,8 @@ func resolve_event(choice: int) -> void:
 				morale = minf(100.0, morale + 4.0)
 				notice.emit("开仓赈济，百姓得以安心")
 		"refugees":
-			if choice == 0 and spend({"grain": 58}):
+			if choice == 0:
+				if not spend({"grain": 58}): return false
 				population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 20)
 				morale = minf(100.0, morale + 6.0)
 				notice.emit("新民入籍，田野更添生气")
@@ -496,15 +514,19 @@ func resolve_event(choice: int) -> void:
 				resources.grain = maxf(0.0, resources.grain - 28.0)
 				morale = minf(100.0, morale + 2.0)
 		"merchant":
-			if choice == 0 and spend({"coins": 720}):
+			if choice == 0:
+				if not spend({"coins": 720}): return false
 				buffs.all_until = current_day + 3
 				notice.emit("新农具使全邑生产加快")
 			else:
-				resources.grain = maxf(0.0, resources.grain - 75.0)
-				resources.coins = minf(get_capacity("coins"), resources.coins + 620.0)
-				notice.emit("商队满载而归，财货入库")
+				var sold_grain := minf(75.0, resources.grain)
+				var proceeds := 620.0 * sold_grain / 75.0
+				resources.grain -= sold_grain
+				resources.coins = minf(get_capacity("coins"), resources.coins + proceeds)
+				notice.emit("商队购粮%d石，财货入库%d枚" % [roundi(sold_grain), roundi(proceeds)])
 		"scouts":
-			if choice == 0 and spend({"coins": 320}):
+			if choice == 0:
+				if not spend({"coins": 320}): return false
 				enemy_army.scouted = true
 				var losses := _deal_losses(enemy_army, 3, rng)
 				notice.emit("反侦得手：探明敌军并使其折损%d人" % _sum_force(losses))
@@ -525,6 +547,7 @@ func resolve_event(choice: int) -> void:
 	visual_event.emit("event_choice", {"id": id, "choice": choice})
 	Telemetry.track("random_event_resolved", {"id": id, "choice": choice, "resources": resources.duplicate()})
 	save_game()
+	return true
 
 func _make_enemy_army(wave: int) -> Dictionary:
 	var index := mini(wave - 1, ENEMY_WAVES.size() - 1)
@@ -884,15 +907,20 @@ func load_slot(slot: int) -> bool:
 
 func delete_slot(slot: int) -> bool:
 	var path := _slot_path(slot)
-	if not FileAccess.file_exists(path):
+	var found := false
+	for candidate in [path, path + ".bak", path + ".tmp"]:
+		if not FileAccess.file_exists(candidate):
+			continue
+		found = true
+		var error := DirAccess.remove_absolute(ProjectSettings.globalize_path(candidate))
+		if error != OK:
+			Telemetry.track_error("save_delete_failed", error_string(error), {"slot": slot, "path": candidate})
+			return false
+	if not found:
 		return false
-	var error := DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	if error == OK:
-		Telemetry.track("manual_save_deleted", {"slot": slot})
-		save_slots_changed.emit()
-		return true
-	Telemetry.track_error("save_delete_failed", error_string(error), {"slot": slot})
-	return false
+	Telemetry.track("manual_save_deleted", {"slot": slot})
+	save_slots_changed.emit()
+	return true
 
 func list_save_slots() -> Array:
 	var slots: Array = []
@@ -909,18 +937,56 @@ func _slot_path(slot: int) -> String:
 	return "%s/slot_%d.json" % [SAVE_DIR, slot]
 
 func _write_save(path: String, data: Dictionary) -> bool:
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	var temp_path := path + ".tmp"
+	var backup_path := path + ".bak"
+	var file := FileAccess.open(temp_path, FileAccess.WRITE)
 	if not file:
-		Telemetry.track_error("save_open_failed", "无法写入存档", {"path": path, "error": FileAccess.get_open_error()})
+		Telemetry.track_error("save_open_failed", "无法写入存档临时文件", {"path": temp_path, "error": FileAccess.get_open_error()})
 		return false
 	file.store_string(JSON.stringify(data))
-	return true
+	file.flush()
+	file = null
+	if not _read_save_file(temp_path).is_empty():
+		var had_primary := FileAccess.file_exists(path)
+		if had_primary:
+			if FileAccess.file_exists(backup_path):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+			var backup_error := DirAccess.rename_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(backup_path))
+			if backup_error != OK:
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
+				Telemetry.track_error("save_backup_failed", error_string(backup_error), {"path": path})
+				return false
+		var commit_error := DirAccess.rename_absolute(ProjectSettings.globalize_path(temp_path), ProjectSettings.globalize_path(path))
+		if commit_error == OK:
+			return true
+		if had_primary and FileAccess.file_exists(backup_path):
+			DirAccess.rename_absolute(ProjectSettings.globalize_path(backup_path), ProjectSettings.globalize_path(path))
+		Telemetry.track_error("save_commit_failed", error_string(commit_error), {"path": path})
+		return false
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
+	Telemetry.track_error("save_verify_failed", "存档临时文件校验失败", {"path": path})
+	return false
 
-func _read_save(path: String) -> Dictionary:
+func _read_save_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
-	return parsed if parsed is Dictionary else {}
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(path)) != OK:
+		return {}
+	return json.data if json.data is Dictionary and not json.data.is_empty() else {}
+
+func _read_save(path: String) -> Dictionary:
+	var primary := _read_save_file(path)
+	if not primary.is_empty():
+		return primary
+	var backup_path := path + ".bak"
+	var backup := _read_save_file(backup_path)
+	if not backup.is_empty():
+		Telemetry.track("save_backup_recovered", {"path": path})
+		return backup
+	if FileAccess.file_exists(path):
+		Telemetry.track_error("save_parse_failed", "存档与备份均无法解析", {"path": path})
+	return {}
 
 func _migrate_legacy_save() -> void:
 	if FileAccess.file_exists(AUTO_SAVE_PATH) or not FileAccess.file_exists(LEGACY_SAVE_PATH):

@@ -1030,7 +1030,9 @@ func _on_event_started(event: Dictionary) -> void:
 	var options: Array = []
 	for i in event.options.size():
 		var choice: int = i
-		options.append({"text": _event_option_caption(event.id, i, event.options[i]), "callback": func():
+		var available := State.is_event_choice_available(choice)
+		var caption := _event_option_caption(event.id, i, event.options[i])
+		options.append({"text": caption if available else caption + " · 物资不足", "disabled": not available, "callback": func():
 			State.resolve_event(choice)
 			_render_tab()
 		})
@@ -1110,6 +1112,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> 
 	for spec in buttons:
 		var callback: Callable = spec.callback
 		var button := _action_button(spec.text)
+		button.disabled = bool(spec.get("disabled", false))
 		button.custom_minimum_size.y = 48
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(func():

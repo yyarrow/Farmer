@@ -38,8 +38,16 @@ func _run() -> void:
 		for choice in [0, 1]:
 			_fill_resources(state)
 			state.current_event = event_data.duplicate(true)
-			state.resolve_event(choice)
+			_check(state.resolve_event(choice), "event %s choice %d resolves" % [event_data.id, choice])
 			_check(state.current_event.is_empty(), "event %s choice %d" % [event_data.id, choice])
+
+	# Unaffordable event investments stay pending instead of silently executing another option.
+	state.current_event = state.EVENTS[2].duplicate(true)
+	state.resources.grain = 0.0
+	state.resources.coins = 0.0
+	_check(not state.is_event_choice_available(0), "unaffordable merchant investment is disabled")
+	_check(not state.resolve_event(0) and not state.current_event.is_empty(), "unaffordable event choice remains pending")
+	_check(state.resources.coins == 0.0 and state.resolve_event(1), "empty merchant sale grants no free proceeds")
 
 	# Deterministic strong and weak siege cases.
 	battle_results.clear()
@@ -101,6 +109,19 @@ func _run() -> void:
 	_check(bool(slots[0].exists) and int(slots[0].chapter) == 2, "slot metadata")
 	_check(state.delete_slot(1), "manual delete")
 	_check(not bool(state.list_save_slots()[0].exists), "slot deleted")
+
+	# A truncated primary save falls back to the previous atomic backup.
+	state.delete_slot(2)
+	state.current_day = 51
+	_check(state.manual_save(2), "backup fixture first save")
+	state.current_day = 52
+	_check(state.manual_save(2), "backup fixture second save")
+	var corrupt := FileAccess.open(state._slot_path(2), FileAccess.WRITE)
+	corrupt.store_string("{truncated")
+	corrupt = null
+	state.current_day = 1
+	_check(state.load_slot(2) and state.current_day == 51, "corrupt primary recovers previous save")
+	_check(state.delete_slot(2), "recovered slot delete removes backup")
 
 	# Settings persist and diagnostics export contains a snapshot.
 	audio.set_volume("music", 0.37)
