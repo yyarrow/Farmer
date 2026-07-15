@@ -8,6 +8,7 @@ func _initialize() -> void:
 func _run() -> void:
 	root.get_node("Audio").shutdown()
 	var state = root.get_node("State")
+	_check(not ProjectSettings.get_setting("application/config/quit_on_go_back", true), "Android back is handled in game")
 	state.reset_game()
 	state.tutorial_seen = true
 	var scene: PackedScene = load("res://main.tscn")
@@ -49,6 +50,36 @@ func _run() -> void:
 	ui._close_settings()
 	await process_frame
 	_check(state.get_effective_time_speed() == 1.0, "closing settings restores selected speed")
+	ui._show_settings()
+	await process_frame
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer == null, "back closes settings")
+	_check(state.get_effective_time_speed() == 1.0, "back from settings restores selected speed")
+	ui._show_settings()
+	await process_frame
+	ui._confirm_action("测试确认", "测试危险操作返回。", "确认", func(): pass)
+	await process_frame
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer != null and _has_label(ui.modal_layer, "城邑设置"), "back cancels nested confirmation to settings")
+	ui._close_settings()
+	await process_frame
+	ui._show_modal("强制决策", "需要明确选择。", [{"text": "处理", "callback": func(): pass}], ui.GOLD)
+	await process_frame
+	var compulsory_modal = ui.modal_layer
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer == compulsory_modal and is_instance_valid(compulsory_modal), "back cannot bypass compulsory decisions")
+	ui._dismiss_modal()
+	await process_frame
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer != null and _has_label(ui.modal_layer, "暂离青禾？"), "back on main opens save-and-exit confirmation")
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer == null, "back cancels exit confirmation")
+	_check(state.get_effective_time_speed() == 1.0, "canceling exit restores selected speed")
 	state.set_time_speed(0.0)
 	for id in state.BUILDINGS:
 		state.buildings[id] = 5
@@ -78,3 +109,9 @@ func _run() -> void:
 func _check(condition: bool, label: String) -> void:
 	if not condition:
 		failures.append(label)
+
+func _has_label(parent: Node, text_value: String) -> bool:
+	for node in parent.find_children("*", "Label", true, false):
+		if node.text == text_value:
+			return true
+	return false

@@ -19,7 +19,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
 
 长期平衡复核：
 
@@ -68,7 +68,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的本地候选验证结果：AAB 40.7 MiB，SHA-256 `be5f498b0ec043501d85a6ff810403b3950fdcb4491271c6c9c99eeab055da84`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 派生 APK 已在 Android 35 arm64 模拟器完成冷启动和同签名覆盖安装；封板冷启动约 100 ms，字体子集候选 PSS 约 157 MiB，教程完成状态可跨覆盖安装保留，错误级进程日志为空，未见崩溃、ANR 或 Godot 脚本错误。
+2026 年 7 月 16 日的本地候选验证结果：AAB 40.7 MiB，SHA-256 `970060a9d63b1329a6fc00b65df4c4b0bd6cf536f59ebf67add6cfa5a6691cac`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 派生 APK 已在 Android 35 arm64 模拟器完成冷启动和同签名覆盖安装；两次封板冷启动为 115—352 ms，PSS 约 180 MiB。系统返回键已覆盖教程拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程完成状态可跨重启保留，错误级进程日志为空，未见崩溃、ANR 或 Godot 脚本错误。
 
 本地 AAB 工程闸门已经通过；正式公开发布仍必须先上传 Play Console 内部测试轨道，并用 Play 实际分发的安装包完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
 
@@ -80,6 +80,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 - 首次启动、无存档启动、旧存档迁移、三个存档槽切换、覆盖和删除；
 - 应用切后台再恢复、锁屏恢复、强杀后恢复、离线启动；
+- 系统返回键不能跳过教程、事件或战报；设置和二次确认可安全返回，主界面需先确认再保存退出；
 - 停时状态不推进日期，主动推进后经济、季节、事件与敌袭只结算一次；
 - 建造和每级升级的外观、粒子、数值与账本同步变化；
 - 背景音乐无明显循环爆音，音乐/音效/振动开关重启后保留；

@@ -34,11 +34,18 @@ func _run() -> void:
 		var path := "res://.qa/visual_%s_max.png" % capture[1]
 		if image.save_png(path) != OK:
 			failures.append("cannot save %s" % path)
+	ui._handle_back_request()
+	await create_timer(0.5).timeout
+	var modal_image := root.get_viewport().get_texture().get_image()
+	if modal_image.is_empty() or modal_image.get_width() != 540 or modal_image.get_height() != 960:
+		failures.append("invalid exit confirmation frame")
+	elif modal_image.save_png("res://.qa/visual_exit_confirm.png") != OK:
+		failures.append("cannot save exit confirmation frame")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 modals=1 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

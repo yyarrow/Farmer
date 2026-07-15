@@ -35,6 +35,7 @@ var content_box: VBoxContainer
 var toast_panel: PanelContainer
 var toast_label: Label
 var modal_layer: Control
+var _modal_back_action: Callable
 var _toast_tween: Tween
 var city_background: TextureRect
 var city_visual_layer: Control
@@ -57,6 +58,42 @@ func _ready() -> void:
 		call_deferred("_show_tutorial")
 	elif not State.current_event.is_empty():
 		call_deferred("_on_event_started", State.current_event)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_handle_back_request()
+
+func _handle_back_request() -> void:
+	if modal_layer and is_instance_valid(modal_layer):
+		if _modal_back_action.is_valid():
+			_modal_back_action.call()
+		else:
+			# Tutorial, event and battle decisions must be resolved explicitly.
+			_play_chime(440.0)
+		return
+	_show_exit_confirmation()
+
+func _dismiss_modal() -> void:
+	if modal_layer and is_instance_valid(modal_layer):
+		modal_layer.queue_free()
+	modal_layer = null
+	_modal_back_action = Callable()
+	State.set_modal_paused(false)
+
+func _show_exit_confirmation() -> void:
+	var exit_game := func():
+		State.save_game()
+		get_tree().quit()
+	_show_modal(
+		"暂离青禾？",
+		"当前进度会在退出前立即保存，下次仍从此刻继续。",
+		[
+			{"text": "继续经营", "callback": func(): pass},
+			{"text": "保存并退出", "callback": exit_game},
+		],
+		JADE,
+		_dismiss_modal
+	)
 
 func _build_scene() -> void:
 	city_background = TextureRect.new()
@@ -803,6 +840,7 @@ func _show_settings() -> void:
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal_layer.z_index = 210
 	add_child(modal_layer)
+	_modal_back_action = _close_settings
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.color = Color(0.055, 0.075, 0.06, 0.78)
@@ -915,9 +953,7 @@ func _style_settings_toggle(toggle: CheckButton) -> void:
 
 func _close_settings() -> void:
 	Audio.save_settings()
-	if modal_layer and is_instance_valid(modal_layer):
-		modal_layer.queue_free()
-	State.set_modal_paused(false)
+	_dismiss_modal()
 	Telemetry.track("settings_closed", {})
 
 func _add_settings_heading(parent: VBoxContainer, title_text: String, subtitle_text: String) -> void:
@@ -1041,7 +1077,7 @@ func _confirm_action(title: String, body: String, confirm_text: String, action: 
 	_show_modal(title, body, [
 		{"text": "取消", "callback": func(): _show_settings()},
 		{"text": confirm_text, "callback": action},
-	], CINNABAR)
+	], CINNABAR, _show_settings)
 
 func _danger_button(text_value: String) -> Button:
 	var button := Button.new()
@@ -1103,7 +1139,7 @@ func _show_chapter_modal() -> void:
 	var texts := ["", "", "青禾已由村聚成长为真正的城邑。商旅渐多，邻国也开始注视这里。", "城垣坚固，仓廪充实。你在乱世中守住了一方生民。"]
 	_show_modal("邑格晋升", texts[State.chapter], [{"text": "继续经营", "callback": func(): pass}], GOLD)
 
-func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> void:
+func _show_modal(title: String, body: String, buttons: Array, accent: Color, back_action: Callable = Callable()) -> void:
 	State.set_modal_paused(true)
 	if modal_layer and is_instance_valid(modal_layer):
 		modal_layer.queue_free()
@@ -1111,6 +1147,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> 
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal_layer.z_index = 200
 	add_child(modal_layer)
+	_modal_back_action = back_action
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.color = Color(0.055, 0.075, 0.06, 0.70)
@@ -1158,8 +1195,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color) -> 
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(func():
 			_play_chime(680.0)
-			modal_layer.queue_free()
-			State.set_modal_paused(false)
+			_dismiss_modal()
 			callback.call()
 		)
 		layout.add_child(button)
