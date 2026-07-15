@@ -263,6 +263,12 @@ func _run() -> void:
 	safe_day = state.current_day
 	state._apply_snapshot(spoofed_event_snapshot, false)
 	_check(state.current_day == safe_day and state.current_event.is_empty(), "spoofed event options are rejected")
+	var empty_enemy_snapshot: Dictionary = state.get_snapshot()
+	empty_enemy_snapshot.enemy_army.militia = 0
+	empty_enemy_snapshot.enemy_army.archer = 0
+	empty_enemy_snapshot.enemy_army.chariot = 0
+	state._apply_snapshot(empty_enemy_snapshot, false)
+	_check(state.current_day == safe_day and state._sum_force(state.enemy_army) > 0, "zero-strength saved enemy is rejected")
 	var old_copy_snapshot: Dictionary = state.get_snapshot()
 	old_copy_snapshot.current_event = state.EVENTS[0].duplicate(true)
 	old_copy_snapshot.current_event.title = "旧版事件标题"

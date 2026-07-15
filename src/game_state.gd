@@ -1247,6 +1247,14 @@ func _is_consistent_current_save(data: Dictionary) -> bool:
 		return false
 	if int(data.get("patrol_delay_wave", 0)) > int(data.get("attack_wave", 1)):
 		return false
+	var saved_enemy: Dictionary = data.get("enemy_army", {})
+	if not saved_enemy.is_empty():
+		if _sum_force(saved_enemy) <= 0:
+			return false
+		if int(saved_enemy.get("wave", data.get("attack_wave", 1))) != int(data.get("attack_wave", 1)):
+			return false
+		if not _valid_number(saved_enemy.get("tier", 1), 1.0, MAX_ENEMY_TIER):
+			return false
 
 	var saved_event: Dictionary = data.get("current_event", {})
 	if not saved_event.is_empty():
