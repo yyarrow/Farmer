@@ -85,6 +85,7 @@ func _run() -> void:
 	# and the repeat guard survives save/load.
 	state.reset_game()
 	state.current_day = 37
+	state.next_attack_day = 43
 	var previous_event := ""
 	for event_index in 30:
 		state._start_random_event()
@@ -205,9 +206,12 @@ func _run() -> void:
 	_check(state.attack_wave == state.FINAL_ENEMY_WAVE + 1 and state.next_attack_day == 87, "late war victory enters slower border-raid cadence")
 
 	# Save slot CRUD and metadata.
+	state.reset_game()
 	state.current_day = 42
+	state.next_attack_day = 47
 	state.chapter = 2
-	_fill_resources(state)
+	for resource in state.resources:
+		state.resources[resource] = state.get_capacity(resource) * 0.40
 	_check(state.manual_save(1), "manual save")
 	state.current_day = 3
 	_check(state.load_slot(1), "manual load")
@@ -220,6 +224,7 @@ func _run() -> void:
 	# A truncated primary save falls back to the previous atomic backup.
 	state.delete_slot(2)
 	state.current_day = 51
+	state.next_attack_day = 56
 	_check(state.manual_save(2), "backup fixture first save")
 	state.current_day = 52
 	_check(state.manual_save(2), "backup fixture second save")
@@ -233,6 +238,7 @@ func _run() -> void:
 	# Parseable JSON with damaged field types is invalid and also falls back.
 	state.delete_slot(3)
 	state.current_day = 61
+	state.next_attack_day = 66
 	_check(state.manual_save(3), "schema backup fixture first save")
 	state.current_day = 62
 	_check(state.manual_save(3), "schema backup fixture second save")
@@ -244,6 +250,19 @@ func _run() -> void:
 	var safe_day: int = state.current_day
 	state._apply_snapshot({"format_version": 3, "recovery_queue": [{"unit": "unknown", "count": 1, "return_day": 2}]}, false)
 	_check(state.current_day == safe_day, "direct invalid snapshot leaves live state untouched")
+	var inconsistent_snapshot: Dictionary = state.get_snapshot()
+	inconsistent_snapshot.population = state.get_population_cap() + 1
+	var inconsistent := FileAccess.open(state._slot_path(3), FileAccess.WRITE)
+	inconsistent.store_string(JSON.stringify(inconsistent_snapshot))
+	inconsistent = null
+	state.current_day = 1
+	_check(state.load_slot(3) and state.current_day == 61, "cross-field invalid primary recovers previous save")
+	var spoofed_event_snapshot: Dictionary = state.get_snapshot()
+	spoofed_event_snapshot.current_event = state.EVENTS[0].duplicate(true)
+	spoofed_event_snapshot.current_event.options = ["免费领取物资"]
+	safe_day = state.current_day
+	state._apply_snapshot(spoofed_event_snapshot, false)
+	_check(state.current_day == safe_day and state.current_event.is_empty(), "spoofed event options are rejected")
 	_check(state.delete_slot(3), "schema-recovered slot delete removes backup")
 
 	# Settings persist and diagnostics export contains a snapshot.

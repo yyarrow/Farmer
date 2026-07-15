@@ -1047,6 +1047,9 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 		Telemetry.track_error("save_snapshot_rejected", "存档结构或数值范围无效")
 		return
 	var snapshot := _upgrade_snapshot(data)
+	if not _is_valid_save_data(snapshot):
+		Telemetry.track_error("save_migration_rejected", "迁移后的存档状态不一致")
+		return
 	resources = {"grain": 360.0, "wood": 125.0, "stone": 82.0, "coins": 1500.0}
 	resources.merge(snapshot.get("resources", {}), true)
 	buildings = {"farm": 1, "woodcut": 1, "quarry": 0, "house": 1, "market": 0, "warehouse": 1, "barracks": 0, "wall": 0}
@@ -1194,6 +1197,61 @@ func _valid_numeric_map(value: Variant, allowed_keys: Array, minimum: float, max
 			return false
 	return true
 
+func _is_consistent_current_save(data: Dictionary) -> bool:
+	var saved_buildings := {"farm": 1, "woodcut": 1, "quarry": 0, "house": 1, "market": 0, "warehouse": 1, "barracks": 0, "wall": 0}
+	saved_buildings.merge(data.get("buildings", {}), true)
+	var warehouse_level := float(saved_buildings.warehouse)
+	var capacities := {
+		"grain": 1200.0 + warehouse_level * 800.0,
+		"wood": 350.0 + warehouse_level * 250.0,
+		"stone": 350.0 + warehouse_level * 250.0,
+		"coins": 5000.0 + warehouse_level * 2500.0,
+	}
+	var saved_resources := {"grain": 360.0, "wood": 125.0, "stone": 82.0, "coins": 1500.0}
+	saved_resources.merge(data.get("resources", {}), true)
+	for id in saved_resources:
+		if float(saved_resources[id]) > float(capacities[id]) + 0.001:
+			return false
+
+	var saved_units := {"militia": 20, "archer": 0, "chariot": 0}
+	saved_units.merge(data.get("units", {}), true)
+	var saved_wounded := {"militia": 0, "archer": 0, "chariot": 0}
+	saved_wounded.merge(data.get("wounded", {}), true)
+	var army_total := _sum_force(saved_units)
+	var wounded_total := _sum_force(saved_wounded)
+	var saved_population := int(data.get("population", 110))
+	if saved_population < 40 or saved_population + army_total + wounded_total > 90 + int(saved_buildings.house) * 60:
+		return false
+	if army_total + wounded_total > 25 + int(saved_buildings.barracks) * 20:
+		return false
+
+	var queued_wounded := {"militia": 0, "archer": 0, "chariot": 0}
+	var saved_day := int(data.get("current_day", 1))
+	for entry in data.get("recovery_queue", []):
+		if int(entry.return_day) <= saved_day:
+			return false
+		queued_wounded[entry.unit] += int(entry.count)
+	for id in UNITS:
+		if int(queued_wounded[id]) != int(saved_wounded[id]):
+			return false
+	if int(data.get("next_attack_day", 7)) <= saved_day:
+		return false
+	if int(data.get("last_patrol_day", 0)) > saved_day:
+		return false
+	if int(data.get("patrol_delay_wave", 0)) > int(data.get("attack_wave", 1)):
+		return false
+
+	var saved_event: Dictionary = data.get("current_event", {})
+	if not saved_event.is_empty():
+		var canonical_event: Dictionary = {}
+		for event in EVENTS:
+			if str(event.id) == str(saved_event.get("id", "")):
+				canonical_event = event
+				break
+		if canonical_event.is_empty() or saved_event.get("title") != canonical_event.title or saved_event.get("body") != canonical_event.body or saved_event.get("options") != canonical_event.options:
+			return false
+	return true
+
 func _is_valid_save_data(data: Dictionary) -> bool:
 	if data.is_empty() or not _valid_number(data.get("format_version", 1), 1.0, FORMAT_VERSION):
 		return false
@@ -1272,6 +1330,8 @@ func _is_valid_save_data(data: Dictionary) -> bool:
 			valid_last_ids.append(str(event.id))
 		if str(data.last_event_id) not in valid_last_ids:
 			return false
+	if format_version >= FORMAT_VERSION and not _is_consistent_current_save(data):
+		return false
 	return true
 
 func _read_save_file(path: String) -> Dictionary:
