@@ -896,6 +896,9 @@ func _upgrade_snapshot(data: Dictionary) -> Dictionary:
 	return upgraded
 
 func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
+	if not _is_valid_save_data(data):
+		Telemetry.track_error("save_snapshot_rejected", "存档结构或数值范围无效")
+		return
 	var snapshot := _upgrade_snapshot(data)
 	resources = {"grain": 360.0, "wood": 125.0, "stone": 82.0, "coins": 1500.0}
 	resources.merge(snapshot.get("resources", {}), true)
@@ -1030,13 +1033,96 @@ func _write_save(path: String, data: Dictionary) -> bool:
 	Telemetry.track_error("save_verify_failed", "存档临时文件校验失败", {"path": path})
 	return false
 
+func _valid_number(value: Variant, minimum: float, maximum: float) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and float(value) >= minimum and float(value) <= maximum
+
+func _valid_numeric_map(value: Variant, allowed_keys: Array, minimum: float, maximum: float) -> bool:
+	if value is not Dictionary:
+		return false
+	for key in value:
+		if key not in allowed_keys or not _valid_number(value[key], minimum, maximum):
+			return false
+	return true
+
+func _is_valid_save_data(data: Dictionary) -> bool:
+	if data.is_empty() or not _valid_number(data.get("format_version", 1), 1.0, FORMAT_VERSION):
+		return false
+	var format_version := int(data.get("format_version", 1))
+	if data.has("resources") and not _valid_numeric_map(data.resources, RESOURCE_UNITS.keys(), 0.0, 1000000000.0):
+		return false
+	if data.has("buildings"):
+		if data.buildings is not Dictionary:
+			return false
+		for id in data.buildings:
+			if not BUILDINGS.has(id) or not _valid_number(data.buildings[id], 0.0, float(BUILDINGS[id].max)):
+				return false
+	for roster_key in ["units", "wounded"]:
+		if data.has(roster_key) and not _valid_numeric_map(data[roster_key], UNITS.keys(), 0.0, 10000.0):
+			return false
+	var numeric_ranges := {
+		"population": [0.0, 1000000.0],
+		"morale": [0.0, 100.0],
+		"current_day": [1.0, 10000000.0],
+		"chapter": [1.0, 3.0],
+		"day_progress": [0.0, 1.0],
+		"next_attack_day": [1.0, 10000000.0],
+		"attack_wave": [1.0, 10000000.0],
+		"last_patrol_day": [0.0, 10000000.0],
+		"patrol_delay_wave": [0.0, 10000000.0],
+		"saved_at": [0.0, 100000000000.0],
+	}
+	for key in numeric_ranges:
+		if data.has(key) and not _valid_number(data[key], numeric_ranges[key][0], numeric_ranges[key][1]):
+			return false
+	if data.has("tutorial_seen") and data.tutorial_seen is not bool:
+		return false
+	if data.has("buffs") and not _valid_numeric_map(data.buffs, ["farm_until", "all_until"], 0.0, 10000000.0):
+		return false
+	if data.has("recovery_queue"):
+		if data.recovery_queue is not Array or data.recovery_queue.size() > 1000:
+			return false
+		for entry in data.recovery_queue:
+			if entry is not Dictionary or str(entry.get("unit", "")) not in UNITS:
+				return false
+			if not _valid_number(entry.get("count"), 1.0, 10000.0) or not _valid_number(entry.get("return_day"), 1.0, 10000000.0):
+				return false
+	if data.has("enemy_army"):
+		if data.enemy_army is not Dictionary or (format_version >= FORMAT_VERSION and data.enemy_army.is_empty()):
+			return false
+		if not data.enemy_army.is_empty():
+			if data.enemy_army.get("name") is not String or str(data.enemy_army.name).length() > 80:
+				return false
+			if not _valid_numeric_map(
+				{
+					"militia": data.enemy_army.get("militia"),
+					"archer": data.enemy_army.get("archer"),
+					"chariot": data.enemy_army.get("chariot"),
+				},
+				["militia", "archer", "chariot"], 0.0, 10000.0
+			):
+				return false
+			if not _valid_number(data.enemy_army.get("morale"), 0.0, 100.0) or not _valid_number(data.enemy_army.get("training"), 0.1, 3.0):
+				return false
+			if data.enemy_army.get("scouted") is not bool:
+				return false
+	if data.has("current_event"):
+		if data.current_event is not Dictionary:
+			return false
+		if not data.current_event.is_empty():
+			var event_ids: Array[String] = []
+			for event in EVENTS:
+				event_ids.append(str(event.id))
+			if str(data.current_event.get("id", "")) not in event_ids or data.current_event.get("options") is not Array:
+				return false
+	return true
+
 func _read_save_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var json := JSON.new()
 	if json.parse(FileAccess.get_file_as_string(path)) != OK:
 		return {}
-	return json.data if json.data is Dictionary and not json.data.is_empty() else {}
+	return json.data if json.data is Dictionary and _is_valid_save_data(json.data) else {}
 
 func _read_save(path: String) -> Dictionary:
 	var primary := _read_save_file(path)
@@ -1048,7 +1134,7 @@ func _read_save(path: String) -> Dictionary:
 		Telemetry.track("save_backup_recovered", {"path": path})
 		return backup
 	if FileAccess.file_exists(path):
-		Telemetry.track_error("save_parse_failed", "存档与备份均无法解析", {"path": path})
+		Telemetry.track_error("save_invalid", "存档与备份均无法解析或未通过结构校验", {"path": path})
 	return {}
 
 func _migrate_legacy_save() -> void:

@@ -142,6 +142,22 @@ func _run() -> void:
 	_check(state.load_slot(2) and state.current_day == 51, "corrupt primary recovers previous save")
 	_check(state.delete_slot(2), "recovered slot delete removes backup")
 
+	# Parseable JSON with damaged field types is invalid and also falls back.
+	state.delete_slot(3)
+	state.current_day = 61
+	_check(state.manual_save(3), "schema backup fixture first save")
+	state.current_day = 62
+	_check(state.manual_save(3), "schema backup fixture second save")
+	var malformed := FileAccess.open(state._slot_path(3), FileAccess.WRITE)
+	malformed.store_string('{"format_version":3,"resources":"broken"}')
+	malformed = null
+	state.current_day = 1
+	_check(state.load_slot(3) and state.current_day == 61, "schema-invalid primary recovers previous save")
+	var safe_day: int = state.current_day
+	state._apply_snapshot({"format_version": 3, "recovery_queue": [{"unit": "unknown", "count": 1, "return_day": 2}]}, false)
+	_check(state.current_day == safe_day, "direct invalid snapshot leaves live state untouched")
+	_check(state.delete_slot(3), "schema-recovered slot delete removes backup")
+
 	# Settings persist and diagnostics export contains a snapshot.
 	audio.set_volume("music", 0.37)
 	audio.load_settings()
