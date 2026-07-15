@@ -55,6 +55,7 @@ func _run() -> void:
 	ui.current_tab = 3
 	ui._update_tab_buttons()
 	state.current_day = 5
+	state.next_attack_day = state.current_day + 6
 	state.buffs.farm_until = 5
 	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count() - 5
 	state.morale = 97.0
