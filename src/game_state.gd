@@ -16,6 +16,7 @@ const FORMAT_VERSION := 3
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
+const MAX_ENEMY_TIER := 8
 
 const RESOURCE_UNITS := {
 	"grain": {"name": "粮秣", "short": "粮", "unit": "石", "glyph": "粟"},
@@ -409,7 +410,7 @@ func patrol() -> bool:
 		if _sum_force(enemy_army) <= 0:
 			field_victory = true
 			attack_wave += 1
-			next_attack_day = current_day + maxi(5, 8 - chapter)
+			next_attack_day = current_day + _next_attack_interval(true)
 			enemy_army = _make_enemy_army(attack_wave)
 			notice.emit("巡剿大捷：歼敌%d人，下一支敌军已在集结" % enemy_losses)
 		else:
@@ -550,18 +551,40 @@ func resolve_event(choice: int) -> bool:
 	return true
 
 func _make_enemy_army(wave: int) -> Dictionary:
-	var index := mini(wave - 1, ENEMY_WAVES.size() - 1)
+	var tier := mini(wave, MAX_ENEMY_TIER)
+	var index := mini(tier - 1, ENEMY_WAVES.size() - 1)
 	var army: Dictionary = ENEMY_WAVES[index].duplicate(true)
-	if wave > ENEMY_WAVES.size():
-		var extra := wave - ENEMY_WAVES.size()
+	if tier > ENEMY_WAVES.size():
+		var extra := tier - ENEMY_WAVES.size()
 		army.militia += extra * 8
 		army.archer += extra * 4
 		army.chariot += extra * 5 if extra % 2 == 0 else 0
 		army.morale = minf(88.0, float(army.morale) + extra * 2.0)
 		army.training = minf(1.30, float(army.training) + extra * 0.03)
+	if wave > MAX_ENEMY_TIER:
+		var late_names := ["列国游军", "边军会师", "诸侯征粮师"]
+		army.name = late_names[(wave - MAX_ENEMY_TIER - 1) % late_names.size()]
+		match wave % 3:
+			0:
+				army.militia += 8
+				army.archer -= 4
+				army.chariot -= 1
+			1:
+				army.militia -= 8
+				army.archer += 4
+				army.chariot += 1
+	army.tier = tier
 	army.wave = wave
 	army.scouted = false
 	return army
+
+func _next_attack_interval(won: bool) -> int:
+	var interval := maxi(5, 8 - chapter)
+	if attack_wave > MAX_ENEMY_TIER:
+		interval += 2
+	if not won:
+		interval += 2
+	return interval
 
 func get_enemy_display() -> Dictionary:
 	var total := _sum_force(enemy_army)
@@ -674,6 +697,8 @@ func _resolve_siege() -> void:
 		resources.coins = minf(get_capacity("coins"), resources.coins + spoils)
 		morale = minf(100.0, morale + 7.0)
 		loss_text += " 守军得胜，缴获财货%d枚。" % roundi(spoils)
+		if resolved_wave == MAX_ENEMY_TIER:
+			loss_text += " 列国主力受挫，此后边患转为间歇游军。"
 	else:
 		var protection := 1.0 - minf(0.66, buildings.warehouse * 0.10 + buildings.wall * 0.06)
 		var lost_grain := minf(resources.grain, (45.0 + attack_wave * 8.0) * protection)
@@ -687,7 +712,7 @@ func _resolve_siege() -> void:
 	result.enemy_total = _sum_force(enemy_before)
 	if bool(result.won):
 		attack_wave += 1
-	next_attack_day = current_day + maxi(5, 8 - chapter) + (0 if bool(result.won) else 2)
+	next_attack_day = current_day + _next_attack_interval(bool(result.won))
 	patrol_delay_wave = 0
 	enemy_army = _make_enemy_army(attack_wave)
 	visual_event.emit("siege_win" if result.won else "siege_loss", result)

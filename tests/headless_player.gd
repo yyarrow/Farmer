@@ -91,8 +91,8 @@ func _act_agrarian() -> bool:
 	var army_target := mini(state.get_army_capacity(), 25 + (wave - 1) * 5)
 	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.58
 	if shortfall:
-		wall_target = mini(4, wall_target + 1)
-		barracks_target = mini(4, barracks_target + 1)
+		wall_target = mini(5, wall_target + 1)
+		barracks_target = mini(5, barracks_target + 1)
 	if _try_upgrade("wall", wall_target):
 		return true
 	if _try_upgrade("barracks", barracks_target):

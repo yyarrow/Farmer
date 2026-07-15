@@ -97,6 +97,22 @@ func _run() -> void:
 	_seed_successful_patrol(state)
 	_check(state.patrol() and state.attack_wave == 2 and state._sum_force(state.enemy_army) > 0, "field victory replaces a destroyed enemy roster")
 
+	# Late war remains challenging but bounded after the final enemy tier.
+	var tier_eight: Dictionary = state._make_enemy_army(state.MAX_ENEMY_TIER)
+	var tier_thirty: Dictionary = state._make_enemy_army(30)
+	var tier_eight_power: int = state._force_power(tier_eight, tier_eight.morale, tier_eight.training)
+	var tier_thirty_power: int = state._force_power(tier_thirty, tier_thirty.morale, tier_thirty.training)
+	_check(abs(tier_thirty_power - tier_eight_power) <= 8, "late enemy power stops growing beyond player capacity")
+	state.reset_game()
+	state.current_day = 80
+	state.chapter = 3
+	state.attack_wave = state.MAX_ENEMY_TIER
+	state.enemy_army = state._make_enemy_army(state.attack_wave)
+	state.units = {"militia": 100, "archer": 100, "chariot": 100}
+	state.morale = 100.0
+	state._resolve_siege()
+	_check(state.attack_wave == state.MAX_ENEMY_TIER + 1 and state.next_attack_day == 87, "late war victory enters slower border-raid cadence")
+
 	# Save slot CRUD and metadata.
 	state.current_day = 42
 	state.chapter = 2
