@@ -68,7 +68,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的本地候选验证结果：AAB 40.7 MiB，SHA-256 `970060a9d63b1329a6fc00b65df4c4b0bd6cf536f59ebf67add6cfa5a6691cac`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 派生 APK 已在 Android 35 arm64 模拟器完成冷启动和同签名覆盖安装；两次封板冷启动为 115—352 ms，PSS 约 180 MiB。系统返回键已覆盖教程拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程完成状态可跨重启保留，错误级进程日志为空，未见崩溃、ANR 或 Godot 脚本错误。
+2026 年 7 月 16 日的本地候选验证结果：AAB 34.8 MiB，SHA-256 `0abb057951a4627e9f80297793373dbabc93a0ac8cd10bd9bf032698a6184f9e`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。八张建筑图仍保留约三倍屏幕采样精度，导入资源合计由约 11 MiB 降至 4.5 MiB；Android 35 封板冷启动为 93—149 ms，独立 APK 与通用 Play 派生 APK 的 PSS 约 173—180 MiB。AAB 派生 APK 已完成同签名覆盖安装、720×1280 小屏布局和 `RUNNING_CRITICAL` 内存压力恢复。系统返回键已覆盖教程拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程完成状态可跨重启保留，错误级进程日志为空，未见崩溃、ANR 或 Godot 脚本错误。
 
 本地 AAB 工程闸门已经通过；正式公开发布仍必须先上传 Play Console 内部测试轨道，并用 Play 实际分发的安装包完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
 

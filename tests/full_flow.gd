@@ -196,6 +196,7 @@ func _run() -> void:
 		var image := texture.get_image()
 		_check(not image.is_empty(), "art sheet loads %s" % id)
 		_check(image.detect_alpha() != Image.ALPHA_NONE, "art sheet alpha %s" % id)
+		_check(texture.get_width() <= 768 and texture.get_width() >= 512, "art sheet keeps display detail without excess memory %s" % id)
 
 	# Long economy soak: 20,000 ticks, manually resolving events as they arise.
 	state.reset_game()
