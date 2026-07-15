@@ -259,6 +259,11 @@ func _try_liquidity_trade(grain_reserve: float, wood_reserve: float) -> bool:
 func _resolve_event() -> void:
 	var id := str(state.current_event.get("id", ""))
 	var choice := _event_choice(id)
+	if not state.is_event_choice_available(choice):
+		for candidate in state.current_event.options.size():
+			if state.is_event_choice_available(candidate):
+				choice = candidate
+				break
 	state.resolve_event(choice)
 	_record("event_%s_%d" % [id, choice])
 
@@ -280,6 +285,16 @@ func _event_choice(id: String) -> int:
 			return 1
 		"harvest":
 			return 1 if float(state.morale) < 62.0 else 0
+		"flood":
+			return 0 if state.can_afford({"wood": 30, "stone": 18}) else 1
+		"winter_relief":
+			return 0 if float(state.resources.grain) >= 96.0 else 1
+		"craftsmen":
+			return 0 if policy in ["agrarian", "greedy"] and state.can_afford({"coins": 480, "wood": 16}) else 1
+		"rumors":
+			return 0 if policy in ["balanced", "militarist"] and float(state.resources.coins) >= 320.0 else 1
+		"levy":
+			return 0 if state.can_afford({"grain": 45, "coins": 220}) else 1
 	return 0
 
 func _record(action: String) -> void:

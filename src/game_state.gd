@@ -65,6 +65,11 @@ const EVENTS := [
 	{"id": "merchant", "title": "齐商来访", "body": "远来的商队带着铁制农具，愿以高价换取本地粮草。", "options": ["购置农具", "出售粮草", "婉拒交易"]},
 	{"id": "scouts", "title": "烽燧疑云", "body": "斥候发现陌生骑手窥探城防，边境气氛骤然紧张。", "options": ["派斥候反侦", "封关戒严"]},
 	{"id": "harvest", "title": "嘉禾同穗", "body": "田中生出双穗嘉禾，百姓认为是丰年的吉兆。", "options": ["入仓备荒", "设宴庆贺"], "seasons": ["spring", "autumn"]},
+	{"id": "flood", "title": "河涨侵畴", "body": "连日骤雨，河水漫过低畦。若能及时分洪，来日或可借水肥田。", "options": ["筑堤分洪", "弃畦保仓"], "seasons": ["summer"]},
+	{"id": "winter_relief", "title": "朔雪封途", "body": "大雪封住山路，贫户柴米渐绝。仓门外已有乡老冒雪等候。", "options": ["开仓设粥", "闭户自守"], "seasons": ["winter"]},
+	{"id": "craftsmen", "title": "百工过邑", "body": "一队失去旧主的匠人路过青禾，精于木石器械，正在寻觅安身之所。", "options": ["厚礼延请", "征作城工"], "seasons": ["spring", "summer"]},
+	{"id": "rumors", "title": "市井流言", "body": "市中忽传敌军已破邻邑，真假难辨，人心却先乱了起来。", "options": ["遣吏澄清", "听其自息"]},
+	{"id": "levy", "title": "邻侯索粮", "body": "邻侯使者持节入邑，索要粮财助战；若拒绝，边境军情恐会骤紧。", "options": ["备礼周旋", "闭门拒命"], "seasons": ["autumn", "winter"]},
 ]
 
 var resources := {"grain": 360.0, "wood": 125.0, "stone": 82.0, "coins": 1500.0}
@@ -84,6 +89,7 @@ var last_patrol_day := 0
 var patrol_delay_wave := 0
 var tutorial_seen := false
 var current_event: Dictionary = {}
+var last_event_id := ""
 var buffs := {"farm_until": 0, "all_until": 0}
 var offline_report := ""
 var last_day_report := ""
@@ -494,7 +500,11 @@ func _start_random_event() -> void:
 	set_time_speed(0.0, "random_event")
 	var season_id := str(get_calendar().season)
 	var available := _events_for_current_season()
-	current_event = available[rng.randi_range(0, available.size() - 1)].duplicate(true)
+	var candidates := available.filter(func(event: Dictionary): return str(event.id) != last_event_id)
+	if candidates.is_empty():
+		candidates = available
+	current_event = candidates[rng.randi_range(0, candidates.size() - 1)].duplicate(true)
+	last_event_id = str(current_event.id)
 	Audio.play_sfx("event")
 	visual_event.emit("event", {"id": current_event.id})
 	Telemetry.track("random_event_started", {"id": current_event.id, "day": current_day, "season": season_id})
@@ -518,6 +528,11 @@ func is_event_choice_available(choice: int) -> bool:
 			if choice == 0: return can_afford({"coins": 720})
 			if choice == 1: return can_afford({"grain": 75})
 		"scouts": return choice != 0 or can_afford({"coins": 320})
+		"flood": return choice != 0 or can_afford({"wood": 30, "stone": 18})
+		"winter_relief": return choice != 0 or can_afford({"grain": 42})
+		"craftsmen": return choice != 0 or can_afford({"coins": 480, "wood": 16})
+		"rumors": return choice != 0 or can_afford({"coins": 200})
+		"levy": return choice != 0 or can_afford({"grain": 45, "coins": 220})
 	return true
 
 func resolve_event(choice: int) -> bool:
@@ -576,6 +591,51 @@ func resolve_event(choice: int) -> bool:
 				resources.grain = minf(get_capacity("grain"), resources.grain + 42.0)
 				morale = minf(100.0, morale + 15.0)
 				notice.emit("与民同乐，举邑欢腾")
+		"flood":
+			if choice == 0:
+				if not spend({"wood": 30, "stone": 18}): return false
+				buffs.farm_until = maxi(int(buffs.farm_until), current_day + 3)
+				morale = minf(100.0, morale + 2.0)
+				notice.emit("堤渠相济，三日内农田增产")
+			else:
+				resources.grain = maxf(0.0, resources.grain - 60.0)
+				morale = maxf(10.0, morale - 4.0)
+				notice.emit("低田受淹，粮秣与民心受损")
+		"winter_relief":
+			if choice == 0:
+				if not spend({"grain": 42}): return false
+				morale = minf(100.0, morale + 10.0)
+				notice.emit("粥棚炊烟不绝，民心得安")
+			else:
+				morale = maxf(10.0, morale - 5.0)
+				notice.emit("仓门紧闭，乡里颇有怨言")
+		"craftsmen":
+			if choice == 0:
+				if not spend({"coins": 480, "wood": 16}): return false
+				buffs.all_until = maxi(int(buffs.all_until), current_day + 3)
+				notice.emit("百工安居，三日内全邑增产")
+			else:
+				resources.stone = minf(get_capacity("stone"), resources.stone + 28.0)
+				morale = maxf(10.0, morale - 3.0)
+				notice.emit("城工告成，却留下役使怨言")
+		"rumors":
+			if choice == 0:
+				if not spend({"coins": 200}): return false
+				enemy_army.scouted = true
+				morale = minf(100.0, morale + 5.0)
+				notice.emit("吏卒查明军情，流言渐息")
+			else:
+				morale = maxf(10.0, morale - 6.0)
+				notice.emit("流言蔓延，民心浮动")
+		"levy":
+			if choice == 0:
+				if not spend({"grain": 45, "coins": 220}): return false
+				morale = minf(100.0, morale + 3.0)
+				notice.emit("使者受礼而去，边境暂安")
+			else:
+				next_attack_day = maxi(current_day + 1, next_attack_day - 1)
+				morale = maxf(10.0, morale - 4.0)
+				notice.emit("邻侯震怒，敌军行程提前一日")
 	current_event = {}
 	changed.emit()
 	visual_event.emit("event_choice", {"id": id, "choice": choice})
@@ -868,6 +928,7 @@ func get_snapshot() -> Dictionary:
 		"patrol_delay_wave": patrol_delay_wave,
 		"tutorial_seen": tutorial_seen,
 		"current_event": current_event.duplicate(true),
+		"last_event_id": last_event_id,
 		"buffs": buffs.duplicate(true),
 		"prosperity": get_prosperity(),
 		"saved_at": Time.get_unix_time_from_system(),
@@ -924,6 +985,7 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	buffs = {"farm_until": 0, "all_until": 0}
 	buffs.merge(snapshot.get("buffs", {}), true)
 	current_event = snapshot.get("current_event", {}).duplicate(true)
+	last_event_id = str(snapshot.get("last_event_id", ""))
 	offline_report = ""
 	last_day_report = ""
 	if apply_offline:
@@ -1114,6 +1176,14 @@ func _is_valid_save_data(data: Dictionary) -> bool:
 				event_ids.append(str(event.id))
 			if str(data.current_event.get("id", "")) not in event_ids or data.current_event.get("options") is not Array:
 				return false
+	if data.has("last_event_id"):
+		if data.last_event_id is not String:
+			return false
+		var valid_last_ids: Array[String] = [""]
+		for event in EVENTS:
+			valid_last_ids.append(str(event.id))
+		if str(data.last_event_id) not in valid_last_ids:
+			return false
 	return true
 
 func _read_save_file(path: String) -> Dictionary:
@@ -1162,6 +1232,7 @@ func reset_game() -> void:
 	last_patrol_day = 0
 	patrol_delay_wave = 0
 	current_event = {}
+	last_event_id = ""
 	buffs = {"farm_until": 0, "all_until": 0}
 	offline_report = ""
 	last_day_report = ""

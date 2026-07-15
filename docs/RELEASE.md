@@ -19,7 +19,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认与最长事件选项弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
 
 长期平衡复核：
 

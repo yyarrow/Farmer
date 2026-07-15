@@ -35,12 +35,34 @@ func _run() -> void:
 		_check(state.enact_policy(policy), "policy %s" % policy)
 
 	# Each random event branch resolves without leaving a modal event behind.
+	var event_branch_count := 0
 	for event_data in state.EVENTS:
 		for choice in event_data.options.size():
 			_fill_resources(state)
 			state.current_event = event_data.duplicate(true)
 			_check(state.resolve_event(choice), "event %s choice %d resolves" % [event_data.id, choice])
 			_check(state.current_event.is_empty(), "event %s choice %d" % [event_data.id, choice])
+			event_branch_count += 1
+
+	# Seasonal random selection never repeats the immediately previous event,
+	# and the repeat guard survives save/load.
+	state.reset_game()
+	state.current_day = 37
+	var previous_event := ""
+	for event_index in 30:
+		state._start_random_event()
+		var selected_event := str(state.current_event.id)
+		_check(previous_event.is_empty() or selected_event != previous_event, "random events do not repeat consecutively")
+		if event_index == 0:
+			var repeat_snapshot: Dictionary = state.get_snapshot()
+			state.last_event_id = ""
+			state._apply_snapshot(repeat_snapshot, false)
+			_check(state.last_event_id == selected_event, "last random event persists")
+		var available_choice := 0
+		while not state.is_event_choice_available(available_choice):
+			available_choice += 1
+		_check(state.resolve_event(available_choice), "selected event resolves")
+		previous_event = selected_event
 
 	# Unaffordable event investments stay pending instead of silently executing another option.
 	state.current_event = state.EVENTS[2].duplicate(true)
@@ -232,7 +254,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	if failures.is_empty():
-		print("FULL_FLOW_OK ticks=20000 buildings=8 events=10 saves=3 diagnostics=ok")
+		print("FULL_FLOW_OK ticks=20000 buildings=8 event_types=%d event_branches=%d saves=3 diagnostics=ok" % [state.EVENTS.size(), event_branch_count])
 		quit(0)
 	else:
 		for failure in failures:

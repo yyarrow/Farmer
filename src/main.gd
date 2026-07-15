@@ -1123,6 +1123,11 @@ func _event_option_caption(id: String, index: int, base: String) -> String:
 			elif index == 1: suffix = " · 粮-75石 财+620枚"
 		"scouts": suffix = " · 财320枚，探明并袭扰敌军" if index == 0 else " · 敌军延误一日"
 		"harvest": suffix = " · 粮+105石" if index == 0 else " · 粮+42石 民心+15"
+		"flood": suffix = " · 木30车 石18方，农田增产3日" if index == 0 else " · 粮-60石 民心-4"
+		"winter_relief": suffix = " · 粮42石 民心+10" if index == 0 else " · 民心-5"
+		"craftsmen": suffix = " · 财480枚 木16车，全邑增产3日" if index == 0 else " · 石+28方 民心-3"
+		"rumors": suffix = " · 财200枚，探明敌军 民心+5" if index == 0 else " · 民心-6"
+		"levy": suffix = " · 粮45石 财220枚 民心+3" if index == 0 else " · 敌军提前1日 民心-4"
 	return base + suffix
 
 func _on_battle_finished(result: Dictionary) -> void:

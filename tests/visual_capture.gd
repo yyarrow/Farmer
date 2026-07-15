@@ -41,11 +41,20 @@ func _run() -> void:
 		failures.append("invalid exit confirmation frame")
 	elif modal_image.save_png("res://.qa/visual_exit_confirm.png") != OK:
 		failures.append("cannot save exit confirmation frame")
+	ui._dismiss_modal()
+	state.current_event = state.EVENTS[7].duplicate(true)
+	ui._on_event_started(state.current_event)
+	await create_timer(0.5).timeout
+	var event_image := root.get_viewport().get_texture().get_image()
+	if event_image.is_empty() or event_image.get_width() != 540 or event_image.get_height() != 960:
+		failures.append("invalid long event frame")
+	elif event_image.save_png("res://.qa/visual_event_longest.png") != OK:
+		failures.append("cannot save long event frame")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 modals=1 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 modals=2 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:
