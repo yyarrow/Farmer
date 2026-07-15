@@ -532,7 +532,7 @@ func _render_military() -> void:
 	var forecast_text := "我军力%d / 敌军力%s · 胜算约%d%% · 预计伤亡%d～%d人" % [State.get_army_power(), str(State.get_enemy_power()) if enemy.known else "未明", roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
 	content_box.add_child(_info_banner("守城推演", forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
 	var ledger := State.get_daily_ledger()
-	content_box.add_child(_info_banner("军籍与伤营", "%d/%d人 · 伤员%d人 · 日耗粮%.1f石、军饷%.0f枚" % [State.get_army_count(), State.get_army_capacity(), State.get_wounded_count(), _army_ledger_cost(ledger.grain.details), _army_ledger_cost(ledger.coins.details)], GOLD))
+	content_box.add_child(_info_banner("军籍与伤营", "%d/%d人 · 其中伤员%d人 · 日耗粮%.1f石、军饷%.0f枚" % [State.get_army_count() + State.get_wounded_count(), State.get_army_capacity(), State.get_wounded_count(), _army_ledger_cost(ledger.grain.details), _army_ledger_cost(ledger.coins.details)], GOLD))
 	for id in State.UNITS:
 		_add_unit_card(id)
 	var patrol_card := _card(82)

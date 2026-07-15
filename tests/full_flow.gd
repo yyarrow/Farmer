@@ -56,6 +56,7 @@ func _run() -> void:
 	state.current_day = 40
 	state._resolve_siege()
 	_check(not battle_results.is_empty() and not bool(battle_results[-1].won), "zero defense loses siege")
+	_check(state.attack_wave == 2 and state.next_attack_day == 49, "defeat retries the current tier with two recovery days")
 
 	# Enemy intelligence is a persisted roster, not a hidden difficulty score.
 	state.reset_game()
@@ -66,6 +67,27 @@ func _run() -> void:
 	state.enemy_army = {}
 	state._apply_snapshot(enemy_snapshot, false)
 	_check(bool(state.get_enemy_display().known) and state.get_enemy_display().composition.contains("戈卒"), "enemy intelligence persists")
+
+	# Patrol can delay each enemy roster only once, and destroying it advances the wave.
+	state.reset_game()
+	_fill_resources(state)
+	state.units = {"militia": 100, "archer": 0, "chariot": 0}
+	state.enemy_army = state._make_enemy_army(1)
+	_seed_successful_patrol(state)
+	_check(state.patrol(), "first patrol resolves")
+	var once_delayed_until: int = state.next_attack_day
+	state.current_day += 1
+	_seed_successful_patrol(state)
+	_check(state.patrol(), "second patrol resolves")
+	_check(state.next_attack_day == once_delayed_until, "same enemy roster is delayed at most once")
+	state.enemy_army = state._make_enemy_army(1)
+	state.enemy_army.militia = 1
+	state.enemy_army.archer = 0
+	state.enemy_army.chariot = 0
+	state.last_patrol_day = 0
+	state.current_day += 1
+	_seed_successful_patrol(state)
+	_check(state.patrol() and state.attack_wave == 2 and state._sum_force(state.enemy_army) > 0, "field victory replaces a destroyed enemy roster")
 
 	# Save slot CRUD and metadata.
 	state.current_day = 42
@@ -150,3 +172,10 @@ func _fill_resources(state) -> void:
 func _check(condition: bool, label: String) -> void:
 	if not condition:
 		failures.append(label)
+
+func _seed_successful_patrol(state) -> void:
+	for candidate in range(1, 1000):
+		state.rng.seed = candidate
+		if state.rng.randf() < 0.80:
+			state.rng.seed = candidate
+			return

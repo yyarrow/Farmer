@@ -36,6 +36,7 @@
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=1000 --days=60
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
@@ -43,6 +44,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 安卓包名为 `com.qinghe.farmer`，当前版本 `0.3.0`，最低 Android 7.0。旧版存档读取时会自动迁移为按人计数的新军籍和新资源制。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 当前经济、建筑、军队和敌袭公式见 [`docs/BALANCE.md`](docs/BALANCE.md)。
+无界面自动玩家的策略、指标和最近一次 4000 局结果见 [`docs/HEADLESS_PLAYTEST.md`](docs/HEADLESS_PLAYTEST.md)。批量测试支持 runs、days、seed、policy、report 和 strict 参数，默认在 .qa/ 生成 JSON 与 Markdown 完整报告。
 
 ## 重新生成原创音频
 

@@ -72,6 +72,7 @@ var next_attack_day := 7
 var attack_wave := 1
 var enemy_army: Dictionary = {}
 var last_patrol_day := 0
+var patrol_delay_wave := 0
 var tutorial_seen := false
 var current_event: Dictionary = {}
 var buffs := {"farm_until": 0, "all_until": 0}
@@ -79,6 +80,7 @@ var offline_report := ""
 var last_day_report := ""
 var time_speed := 0.0
 var modal_paused := false
+var persistence_enabled := true
 var rng := RandomNumberGenerator.new()
 var _change_accum := 0.0
 var _save_accum := 0.0
@@ -308,7 +310,7 @@ func recruit(id: String) -> bool:
 		notice.emit("兵营需要达到 %d 级" % int(data.need))
 		return false
 	var batch := int(data.batch)
-	if get_army_count() + batch > get_army_capacity():
+	if get_army_count() + get_wounded_count() + batch > get_army_capacity():
 		notice.emit("军籍已满，请升级兵营")
 		return false
 	if population - batch < 40:
@@ -393,15 +395,26 @@ func patrol() -> bool:
 	enemy_army.scouted = true
 	var player_losses := 0
 	var enemy_losses := 0
+	var delayed := false
+	var field_victory := false
 	if won:
 		enemy_losses = rng.randi_range(2, 5)
 		var lost := _deal_losses(enemy_army, enemy_losses, rng)
 		enemy_losses = _sum_force(lost)
-		next_attack_day += 1
-		resources.coins = minf(get_capacity("coins"), resources.coins + 80.0)
+		if patrol_delay_wave != attack_wave:
+			next_attack_day += 1
+			patrol_delay_wave = attack_wave
+			delayed = true
 		morale = minf(100.0, morale + 3.0)
-		notice.emit("巡剿得胜：敌军折损%d人，行军延误一日" % enemy_losses)
-		visual_event.emit("patrol_win", {"enemy_losses": enemy_losses})
+		if _sum_force(enemy_army) <= 0:
+			field_victory = true
+			attack_wave += 1
+			next_attack_day = current_day + maxi(5, 8 - chapter)
+			enemy_army = _make_enemy_army(attack_wave)
+			notice.emit("巡剿大捷：歼敌%d人，下一支敌军已在集结" % enemy_losses)
+		else:
+			notice.emit("巡剿得胜：敌军折损%d人%s" % [enemy_losses, "，行军延误一日" if delayed else ""])
+		visual_event.emit("patrol_win", {"enemy_losses": enemy_losses, "delayed": delayed, "field_victory": field_victory})
 		Audio.play_sfx("battle_win")
 	else:
 		player_losses = rng.randi_range(1, 3)
@@ -411,7 +424,7 @@ func patrol() -> bool:
 		visual_event.emit("patrol_loss", {"player_losses": player_losses})
 		Audio.play_sfx("battle_loss")
 	changed.emit()
-	Telemetry.track("patrol_resolved", {"won": won, "chance": chance, "player_losses": player_losses, "enemy_losses": enemy_losses, "enemy": enemy_army.duplicate(true)})
+	Telemetry.track("patrol_resolved", {"won": won, "chance": chance, "player_losses": player_losses, "enemy_losses": enemy_losses, "delayed": delayed, "field_victory": field_victory, "enemy": enemy_army.duplicate(true)})
 	save_game()
 	return true
 
@@ -626,6 +639,7 @@ func _simulate_battle(player_force: Dictionary, player_morale: float, enemy_forc
 
 func _resolve_siege() -> void:
 	set_time_speed(0.0, "siege")
+	var resolved_wave := attack_wave
 	var enemy_before := enemy_army.duplicate(true)
 	var result := _simulate_battle(units, morale, enemy_army, rng)
 	units = result.player_survivors.duplicate(true)
@@ -648,12 +662,14 @@ func _resolve_siege() -> void:
 	result.loss_text = loss_text
 	result.enemy_name = enemy_before.name
 	result.enemy_total = _sum_force(enemy_before)
-	attack_wave += 1
-	next_attack_day = current_day + maxi(5, 8 - chapter)
+	if bool(result.won):
+		attack_wave += 1
+	next_attack_day = current_day + maxi(5, 8 - chapter) + (0 if bool(result.won) else 2)
+	patrol_delay_wave = 0
 	enemy_army = _make_enemy_army(attack_wave)
 	visual_event.emit("siege_win" if result.won else "siege_loss", result)
 	Audio.play_sfx("battle_win" if result.won else "battle_loss")
-	Telemetry.track("siege_resolved", result.merged({"day": current_day, "chapter": chapter, "wave": attack_wave - 1}))
+	Telemetry.track("siege_resolved", result.merged({"day": current_day, "chapter": chapter, "wave": resolved_wave}))
 	battle_finished.emit(result)
 
 func _add_wounded(injured: Dictionary) -> void:
@@ -715,6 +731,7 @@ func advance_chapter() -> bool:
 	resources.grain = minf(get_capacity("grain"), resources.grain + 150.0)
 	population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 10)
 	next_attack_day = mini(next_attack_day, current_day + 4)
+	patrol_delay_wave = 0
 	enemy_army = _make_enemy_army(attack_wave)
 	notice.emit("城邑晋升：邻国开始派出更完整的军队")
 	changed.emit()
@@ -730,6 +747,8 @@ func mark_tutorial_seen() -> void:
 	save_game()
 
 func save_game() -> void:
+	if not persistence_enabled:
+		return
 	if _write_save(AUTO_SAVE_PATH, get_snapshot()):
 		Telemetry.track("autosave", {"day": current_day, "chapter": chapter})
 
@@ -760,6 +779,7 @@ func get_snapshot() -> Dictionary:
 		"attack_wave": attack_wave,
 		"enemy_army": enemy_army.duplicate(true),
 		"last_patrol_day": last_patrol_day,
+		"patrol_delay_wave": patrol_delay_wave,
 		"tutorial_seen": tutorial_seen,
 		"current_event": current_event.duplicate(true),
 		"buffs": buffs.duplicate(true),
@@ -784,6 +804,7 @@ func _upgrade_snapshot(data: Dictionary) -> Dictionary:
 		upgraded.attack_wave = maxi(1, int(upgraded.get("chapter", 1)))
 		upgraded.enemy_army = _make_enemy_army(int(upgraded.attack_wave))
 		upgraded.last_patrol_day = 0
+		upgraded.patrol_delay_wave = 0
 		upgraded.format_version = FORMAT_VERSION
 		Telemetry.track("save_format_migrated", {"from": data.get("format_version", 1), "to": FORMAT_VERSION})
 	return upgraded
@@ -808,6 +829,7 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	attack_wave = int(snapshot.get("attack_wave", 1))
 	enemy_army = snapshot.get("enemy_army", _make_enemy_army(attack_wave)).duplicate(true)
 	last_patrol_day = int(snapshot.get("last_patrol_day", 0))
+	patrol_delay_wave = int(snapshot.get("patrol_delay_wave", 0))
 	tutorial_seen = bool(snapshot.get("tutorial_seen", tutorial_seen))
 	time_speed = 0.0
 	buffs = {"farm_until": 0, "all_until": 0}
@@ -923,6 +945,7 @@ func reset_game() -> void:
 	attack_wave = 1
 	enemy_army = _make_enemy_army(attack_wave)
 	last_patrol_day = 0
+	patrol_delay_wave = 0
 	current_event = {}
 	buffs = {"farm_until": 0, "all_until": 0}
 	offline_report = ""

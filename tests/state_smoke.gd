@@ -14,6 +14,9 @@ func _run() -> void:
 	var ledger: Dictionary = state.get_daily_ledger()
 	_check(absf(float(ledger.grain.net) - 10.6667) < 0.01, "initial grain ledger")
 	_check(absf(float(ledger.coins.expense) - 8.0) < 0.01, "military upkeep is explicit")
+	state.wounded.militia = 5
+	_check(not state.recruit("militia"), "wounded soldiers continue to occupy roster capacity")
+	state.reset_game()
 	var paused_grain: float = state.resources.grain
 	state._process(10.0)
 	_check(state.current_day == 1 and is_equal_approx(state.resources.grain, paused_grain), "new game starts paused")
