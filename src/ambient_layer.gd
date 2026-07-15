@@ -27,8 +27,20 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	var season := str(State.get_calendar().season)
 	for mote in motes:
-		var color := Color(0.96, 0.66, 0.67, mote.alpha)
-		draw_circle(mote.p, mote.s * 0.42, color)
-		draw_line(mote.p, mote.p + Vector2(mote.s * 0.7, mote.s * 0.18), Color(color, mote.alpha * 0.7), 1.2, true)
-
+		match season:
+			"summer":
+				var glow := Color(0.98, 0.88, 0.38, mote.alpha * 0.72)
+				draw_circle(mote.p, mote.s * 0.32, glow)
+				draw_circle(mote.p, mote.s * 0.12, Color(1.0, 0.98, 0.72, mote.alpha))
+			"autumn":
+				var leaf := Color(0.84, 0.43, 0.16, mote.alpha)
+				draw_line(mote.p, mote.p + Vector2(mote.s * 0.8, mote.s * 0.28), leaf, 2.0, true)
+			"winter":
+				var snow := Color(0.96, 0.98, 1.0, mote.alpha * 0.9)
+				draw_circle(mote.p, mote.s * 0.34, snow)
+			"spring", _:
+				var petal := Color(0.96, 0.66, 0.67, mote.alpha)
+				draw_circle(mote.p, mote.s * 0.42, petal)
+				draw_line(mote.p, mote.p + Vector2(mote.s * 0.7, mote.s * 0.18), Color(petal, mote.alpha * 0.7), 1.2, true)

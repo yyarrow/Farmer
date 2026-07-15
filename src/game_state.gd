@@ -17,6 +17,14 @@ const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
 const MAX_ENEMY_TIER := 8
+const FINAL_ENEMY_WAVE := 13
+const DAYS_PER_SEASON := 12
+const SEASONS := [
+	{"id": "spring", "name": "春", "grain": 1.00, "wood": 1.00, "stone": 0.90, "coins": 1.00, "food": 1.00},
+	{"id": "summer", "name": "夏", "grain": 1.00, "wood": 1.15, "stone": 1.00, "coins": 1.05, "food": 1.00},
+	{"id": "autumn", "name": "秋", "grain": 1.25, "wood": 1.00, "stone": 1.10, "coins": 1.15, "food": 1.00},
+	{"id": "winter", "name": "冬", "grain": 0.85, "wood": 0.85, "stone": 1.15, "coins": 0.95, "food": 1.05},
+]
 
 const RESOURCE_UNITS := {
 	"grain": {"name": "粮秣", "short": "粮", "unit": "石", "glyph": "粟"},
@@ -52,11 +60,11 @@ const ENEMY_WAVES := [
 ]
 
 const EVENTS := [
-	{"id": "drought", "title": "旱意初显", "body": "东渠水位骤降，田间已有龟裂。若不处置，今岁收成恐受影响。", "options": ["疏浚旧渠", "开仓稳民"]},
+	{"id": "drought", "title": "旱意初显", "body": "东渠水位骤降，田间已有龟裂。若不处置，今岁收成恐受影响。", "options": ["疏浚旧渠", "开仓稳民"], "seasons": ["summer", "autumn"]},
 	{"id": "refugees", "title": "流民叩关", "body": "邻邑战乱，一队流民携农具来到城下，请求在此安家。", "options": ["接纳入籍", "赈粮送行"]},
-	{"id": "merchant", "title": "齐商来访", "body": "远来的商队带着铁制农具，愿以高价换取本地粮草。", "options": ["购置农具", "出售粮草"]},
+	{"id": "merchant", "title": "齐商来访", "body": "远来的商队带着铁制农具，愿以高价换取本地粮草。", "options": ["购置农具", "出售粮草", "婉拒交易"]},
 	{"id": "scouts", "title": "烽燧疑云", "body": "斥候发现陌生骑手窥探城防，边境气氛骤然紧张。", "options": ["派斥候反侦", "封关戒严"]},
-	{"id": "harvest", "title": "嘉禾同穗", "body": "田中生出双穗嘉禾，百姓认为是丰年的吉兆。", "options": ["入仓备荒", "设宴庆贺"]},
+	{"id": "harvest", "title": "嘉禾同穗", "body": "田中生出双穗嘉禾，百姓认为是丰年的吉兆。", "options": ["入仓备荒", "设宴庆贺"], "seasons": ["spring", "autumn"]},
 ]
 
 var resources := {"grain": 360.0, "wood": 125.0, "stone": 82.0, "coins": 1500.0}
@@ -126,14 +134,15 @@ func _produce_resources(delta: float) -> void:
 		resources[key] = clampf(resources[key] + float(rates.get(key, 0.0)) * delta, 0.0, get_capacity(key))
 
 func get_daily_ledger() -> Dictionary:
+	var season := get_season_data()
 	var all_bonus := 1.22 if current_day <= int(buffs.get("all_until", 0)) else 1.0
 	var farm_bonus := 1.35 if current_day <= int(buffs.get("farm_until", 0)) else 1.0
 	var market_bonus := 1.0 + float(buildings.market) * 0.08
-	var grain_income: float = 20.0 * buildings.farm * farm_bonus * all_bonus
-	var wood_income: float = 9.0 * buildings.woodcut * all_bonus
-	var stone_income: float = 6.0 * buildings.quarry * all_bonus
-	var tax_income: float = (35.0 * buildings.house + 55.0 * buildings.market + population * 0.25) * market_bonus * all_bonus
-	var civilian_food := population / 15.0
+	var grain_income: float = 20.0 * buildings.farm * farm_bonus * all_bonus * float(season.grain)
+	var wood_income: float = 9.0 * buildings.woodcut * all_bonus * float(season.wood)
+	var stone_income: float = 6.0 * buildings.quarry * all_bonus * float(season.stone)
+	var tax_income: float = (35.0 * buildings.house + 55.0 * buildings.market + population * 0.25) * market_bonus * all_bonus * float(season.coins)
+	var civilian_food := population / 15.0 * float(season.food)
 	var army_food := 0.0
 	var army_pay := 0.0
 	for id in UNITS:
@@ -143,11 +152,25 @@ func get_daily_ledger() -> Dictionary:
 	var wounded_food := wounded_count * 0.08
 	var wounded_care := wounded_count * 0.30
 	return {
-		"grain": {"income": grain_income, "expense": civilian_food + army_food + wounded_food, "net": grain_income - civilian_food - army_food - wounded_food, "details": [["农田收获", grain_income], ["百姓口粮", -civilian_food], ["军籍粮秣", -army_food], ["伤员养护", -wounded_food]]},
-		"wood": {"income": wood_income, "expense": 0.0, "net": wood_income, "details": [["林场轮伐", wood_income]]},
-		"stone": {"income": stone_income, "expense": 0.0, "net": stone_income, "details": [["石场开采", stone_income]]},
-		"coins": {"income": tax_income, "expense": army_pay + wounded_care, "net": tax_income - army_pay - wounded_care, "details": [["民居与市税", tax_income], ["军饷", -army_pay], ["伤员医药", -wounded_care]]},
+		"grain": {"income": grain_income, "expense": civilian_food + army_food + wounded_food, "net": grain_income - civilian_food - army_food - wounded_food, "details": [["%s季农收 ×%.2f" % [season.name, season.grain], grain_income], ["百姓口粮 ×%.2f" % season.food, -civilian_food], ["军籍粮秣", -army_food], ["伤员养护", -wounded_food]]},
+		"wood": {"income": wood_income, "expense": 0.0, "net": wood_income, "details": [["%s季轮伐 ×%.2f" % [season.name, season.wood], wood_income]]},
+		"stone": {"income": stone_income, "expense": 0.0, "net": stone_income, "details": [["%s季开采 ×%.2f" % [season.name, season.stone], stone_income]]},
+		"coins": {"income": tax_income, "expense": army_pay + wounded_care, "net": tax_income - army_pay - wounded_care, "details": [["%s季赋税 ×%.2f" % [season.name, season.coins], tax_income], ["军饷", -army_pay], ["伤员医药", -wounded_care]]},
 	}
+
+func get_calendar() -> Dictionary:
+	var absolute_day := maxi(0, current_day - 1)
+	var season_index := int(absolute_day / DAYS_PER_SEASON) % SEASONS.size()
+	return {
+		"year": int(absolute_day / (DAYS_PER_SEASON * SEASONS.size())) + 1,
+		"season_index": season_index,
+		"season": SEASONS[season_index].id,
+		"season_name": SEASONS[season_index].name,
+		"day": absolute_day % DAYS_PER_SEASON + 1,
+	}
+
+func get_season_data() -> Dictionary:
+	return SEASONS[int(get_calendar().season_index)]
 
 func get_rates() -> Dictionary:
 	var ledger := get_daily_ledger()
@@ -469,22 +492,32 @@ func _recover_wounded() -> void:
 
 func _start_random_event() -> void:
 	set_time_speed(0.0, "random_event")
-	current_event = EVENTS[rng.randi_range(0, EVENTS.size() - 1)].duplicate(true)
+	var season_id := str(get_calendar().season)
+	var available := _events_for_current_season()
+	current_event = available[rng.randi_range(0, available.size() - 1)].duplicate(true)
 	Audio.play_sfx("event")
 	visual_event.emit("event", {"id": current_event.id})
-	Telemetry.track("random_event_started", {"id": current_event.id, "day": current_day})
+	Telemetry.track("random_event_started", {"id": current_event.id, "day": current_day, "season": season_id})
 	event_started.emit(current_event)
+
+func _events_for_current_season() -> Array:
+	var season_id := str(get_calendar().season)
+	var available: Array = []
+	for event in EVENTS:
+		if not event.has("seasons") or season_id in event.seasons:
+			available.append(event)
+	return available
 
 func is_event_choice_available(choice: int) -> bool:
 	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
 		return false
-	if choice != 0:
-		return true
 	match str(current_event.get("id", "")):
-		"drought": return can_afford({"wood": 28, "stone": 18})
-		"refugees": return can_afford({"grain": 58})
-		"merchant": return can_afford({"coins": 720})
-		"scouts": return can_afford({"coins": 320})
+		"drought": return choice != 0 or can_afford({"wood": 28, "stone": 18})
+		"refugees": return choice != 0 or can_afford({"grain": 58})
+		"merchant":
+			if choice == 0: return can_afford({"coins": 720})
+			if choice == 1: return can_afford({"grain": 75})
+		"scouts": return choice != 0 or can_afford({"coins": 320})
 	return true
 
 func resolve_event(choice: int) -> bool:
@@ -519,12 +552,12 @@ func resolve_event(choice: int) -> bool:
 				if not spend({"coins": 720}): return false
 				buffs.all_until = current_day + 3
 				notice.emit("新农具使全邑生产加快")
+			elif choice == 1:
+				if not spend({"grain": 75}): return false
+				resources.coins = minf(get_capacity("coins"), resources.coins + 620.0)
+				notice.emit("商队购粮75石，财货入库620枚")
 			else:
-				var sold_grain := minf(75.0, resources.grain)
-				var proceeds := 620.0 * sold_grain / 75.0
-				resources.grain -= sold_grain
-				resources.coins = minf(get_capacity("coins"), resources.coins + proceeds)
-				notice.emit("商队购粮%d石，财货入库%d枚" % [roundi(sold_grain), roundi(proceeds)])
+				notice.emit("商队另赴他邑，青禾物资未有变动")
 		"scouts":
 			if choice == 0:
 				if not spend({"coins": 320}): return false
@@ -551,7 +584,7 @@ func resolve_event(choice: int) -> bool:
 	return true
 
 func _make_enemy_army(wave: int) -> Dictionary:
-	var tier := mini(wave, MAX_ENEMY_TIER)
+	var tier := _enemy_tier_for_wave(wave)
 	var index := mini(tier - 1, ENEMY_WAVES.size() - 1)
 	var army: Dictionary = ENEMY_WAVES[index].duplicate(true)
 	if tier > ENEMY_WAVES.size():
@@ -561,9 +594,9 @@ func _make_enemy_army(wave: int) -> Dictionary:
 		army.chariot += extra * 5 if extra % 2 == 0 else 0
 		army.morale = minf(88.0, float(army.morale) + extra * 2.0)
 		army.training = minf(1.30, float(army.training) + extra * 0.03)
-	if wave > MAX_ENEMY_TIER:
+	if wave > FINAL_ENEMY_WAVE:
 		var late_names := ["列国游军", "边军会师", "诸侯征粮师"]
-		army.name = late_names[(wave - MAX_ENEMY_TIER - 1) % late_names.size()]
+		army.name = late_names[(wave - FINAL_ENEMY_WAVE - 1) % late_names.size()]
 		match wave % 3:
 			0:
 				army.militia += 8
@@ -578,9 +611,14 @@ func _make_enemy_army(wave: int) -> Dictionary:
 	army.scouted = false
 	return army
 
+func _enemy_tier_for_wave(wave: int) -> int:
+	if wave <= 3:
+		return clampi(wave, 1, MAX_ENEMY_TIER)
+	return mini(MAX_ENEMY_TIER, 3 + int((wave - 3) / 2))
+
 func _next_attack_interval(won: bool) -> int:
 	var interval := maxi(5, 8 - chapter)
-	if attack_wave > MAX_ENEMY_TIER:
+	if attack_wave > FINAL_ENEMY_WAVE:
 		interval += 2
 	if not won:
 		interval += 2
@@ -697,7 +735,7 @@ func _resolve_siege() -> void:
 		resources.coins = minf(get_capacity("coins"), resources.coins + spoils)
 		morale = minf(100.0, morale + 7.0)
 		loss_text += " 守军得胜，缴获财货%d枚。" % roundi(spoils)
-		if resolved_wave == MAX_ENEMY_TIER:
+		if resolved_wave == FINAL_ENEMY_WAVE:
 			loss_text += " 列国主力受挫，此后边患转为间歇游军。"
 	else:
 		var protection := 1.0 - minf(0.66, buildings.warehouse * 0.10 + buildings.wall * 0.06)

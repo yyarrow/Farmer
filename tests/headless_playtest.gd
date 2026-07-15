@@ -379,7 +379,9 @@ func _analyze_balance(reports: Dictionary, probes: Dictionary, target_day: int) 
 		if float(balanced.stable_run_rate) < 0.55:
 			warnings.append("均衡策略第%d日稳定率仅 %.1f%%" % [target_day, float(balanced.stable_run_rate) * 100.0])
 	if reports.has("militarist") and reports.has("balanced"):
-		if float(reports.militarist.first_siege_win_rate) + 0.02 < float(reports.balanced.first_siege_win_rate) or float(reports.militarist.stable_run_rate) + 0.05 < float(reports.balanced.stable_run_rate):
+		var first_battle_worse: bool = float(reports.militarist.first_siege_win_rate) + 0.02 < float(reports.balanced.first_siege_win_rate)
+		var sustained_return_worse: bool = float(reports.militarist.stable_run_rate) + 0.05 < float(reports.balanced.stable_run_rate) and float(reports.militarist.siege_win_rate) + 0.02 < float(reports.balanced.siege_win_rate)
+		if first_battle_worse or sustained_return_worse:
 			warnings.append("重军策略的首战或长期稳定性明显低于均衡策略，额外军备投入回报不足")
 		if float(reports.militarist.averages.negative_grain_days) > target_day * 0.20 or float(reports.militarist.averages.negative_coin_days) > target_day * 0.20:
 			warnings.append("重军策略长期净产出为负，军备维持成本可能过重")

@@ -35,7 +35,7 @@ func _run() -> void:
 
 	# Each random event branch resolves without leaving a modal event behind.
 	for event_data in state.EVENTS:
-		for choice in [0, 1]:
+		for choice in event_data.options.size():
 			_fill_resources(state)
 			state.current_event = event_data.duplicate(true)
 			_check(state.resolve_event(choice), "event %s choice %d resolves" % [event_data.id, choice])
@@ -47,7 +47,8 @@ func _run() -> void:
 	state.resources.coins = 0.0
 	_check(not state.is_event_choice_available(0), "unaffordable merchant investment is disabled")
 	_check(not state.resolve_event(0) and not state.current_event.is_empty(), "unaffordable event choice remains pending")
-	_check(state.resources.coins == 0.0 and state.resolve_event(1), "empty merchant sale grants no free proceeds")
+	_check(not state.is_event_choice_available(1) and not state.resolve_event(1), "merchant cannot buy nonexistent grain")
+	_check(state.resources.coins == 0.0 and state.resolve_event(2), "declining merchant grants no free proceeds")
 
 	# Deterministic strong and weak siege cases.
 	battle_results.clear()
@@ -98,7 +99,8 @@ func _run() -> void:
 	_check(state.patrol() and state.attack_wave == 2 and state._sum_force(state.enemy_army) > 0, "field victory replaces a destroyed enemy roster")
 
 	# Late war remains challenging but bounded after the final enemy tier.
-	var tier_eight: Dictionary = state._make_enemy_army(state.MAX_ENEMY_TIER)
+	_check(int(state._make_enemy_army(4).tier) == 3 and int(state._make_enemy_army(5).tier) == 4, "mid-campaign enemy tiers hold for recovery")
+	var tier_eight: Dictionary = state._make_enemy_army(state.FINAL_ENEMY_WAVE)
 	var tier_thirty: Dictionary = state._make_enemy_army(30)
 	var tier_eight_power: int = state._force_power(tier_eight, tier_eight.morale, tier_eight.training)
 	var tier_thirty_power: int = state._force_power(tier_thirty, tier_thirty.morale, tier_thirty.training)
@@ -106,12 +108,12 @@ func _run() -> void:
 	state.reset_game()
 	state.current_day = 80
 	state.chapter = 3
-	state.attack_wave = state.MAX_ENEMY_TIER
+	state.attack_wave = state.FINAL_ENEMY_WAVE
 	state.enemy_army = state._make_enemy_army(state.attack_wave)
 	state.units = {"militia": 100, "archer": 100, "chariot": 100}
 	state.morale = 100.0
 	state._resolve_siege()
-	_check(state.attack_wave == state.MAX_ENEMY_TIER + 1 and state.next_attack_day == 87, "late war victory enters slower border-raid cadence")
+	_check(state.attack_wave == state.FINAL_ENEMY_WAVE + 1 and state.next_attack_day == 87, "late war victory enters slower border-raid cadence")
 
 	# Save slot CRUD and metadata.
 	state.current_day = 42

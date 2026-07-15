@@ -35,6 +35,8 @@ var toast_panel: PanelContainer
 var toast_label: Label
 var modal_layer: Control
 var _toast_tween: Tween
+var city_background: TextureRect
+var _displayed_season := ""
 
 func _ready() -> void:
 	_build_scene()
@@ -54,13 +56,13 @@ func _ready() -> void:
 		call_deferred("_on_event_started", State.current_event)
 
 func _build_scene() -> void:
-	var background := TextureRect.new()
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.texture = load("res://assets/art/city_spring.png")
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
+	city_background = TextureRect.new()
+	city_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	city_background.texture = load("res://assets/art/city_spring.png")
+	city_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	city_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	city_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(city_background)
 
 	var warm_wash := ColorRect.new()
 	warm_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -400,7 +402,9 @@ func _refresh_dynamic() -> void:
 	title_label.text = "青禾邑 · %s" % stage_names[mini(State.chapter, stage_names.size() - 1)]
 	population_label.text = "%d户 · 民%d · 军%d · 心%d" % [State.get_households(), State.population, State.get_army_count(), roundi(State.morale)]
 	var time_text := "停" if State.get_effective_time_speed() <= 0.0 else "%d×" % roundi(State.get_effective_time_speed())
-	day_label.text = "春 · 第 %d 日 · %s" % [State.current_day, time_text]
+	var calendar := State.get_calendar()
+	day_label.text = "%d年·%s%d日·%s" % [calendar.year, calendar.season_name, calendar.day, time_text]
+	_apply_season_tone(str(calendar.season))
 	day_bar.value = State.day_progress * 100.0
 	for speed in time_buttons:
 		time_buttons[speed].button_pressed = is_equal_approx(float(speed), State.time_speed)
@@ -413,6 +417,19 @@ func _refresh_dynamic() -> void:
 	for id in marker_buttons:
 		var level: int = State.buildings[id]
 		marker_buttons[id].text = "%s · %s" % [State.BUILDINGS[id].name, ("未" if level == 0 else _cn_number(level))]
+
+func _apply_season_tone(season: String) -> void:
+	if season == _displayed_season or not city_background:
+		return
+	_displayed_season = season
+	var tones := {
+		"spring": Color(1.0, 1.0, 1.0),
+		"summer": Color(0.90, 1.0, 0.88),
+		"autumn": Color(1.0, 0.88, 0.72),
+		"winter": Color(0.82, 0.91, 1.0),
+	}
+	var tween := get_tree().create_tween()
+	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE), 0.8)
 
 func _update_tab_buttons() -> void:
 	for i in tab_buttons.size():
@@ -1027,7 +1044,7 @@ func _format_save_time(unix_time: float) -> String:
 func _show_tutorial() -> void:
 	_show_modal(
 		"青禾初托",
-		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n粮以石计、木以车计、石料以方计、财货以枚计。生产、民食、军粮和军饷都会列入每日账本。\n\n军队按真实人数征募，来敌也有实际编成；城墙降低伤亡而不凭空增加军力。使用顶部时序控制暂停、正常、加速或精确推进一日。",
+		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n粮以石计、木以车计、石料以方计、财货以枚计。四时会改变收成、采集、赋税与冬日口粮，所有变化都会列入每日账本。\n\n军队按真实人数征募，来敌也有实际编成；城墙降低伤亡而不凭空增加军力。使用顶部时序控制暂停、正常、加速或精确推进一日。",
 		[{"text": "接掌城邑", "callback": func(): State.mark_tutorial_seen()}],
 		JADE
 	)
@@ -1049,7 +1066,9 @@ func _event_option_caption(id: String, index: int, base: String) -> String:
 	match id:
 		"drought": suffix = " · 木28车 石18方" if index == 0 else " · 粮-45石"
 		"refugees": suffix = " · 粮58石，民口+20" if index == 0 else " · 粮-28石"
-		"merchant": suffix = " · 财720枚" if index == 0 else " · 粮-75石 财+620枚"
+		"merchant":
+			if index == 0: suffix = " · 财720枚"
+			elif index == 1: suffix = " · 粮-75石 财+620枚"
 		"scouts": suffix = " · 财320枚，探明并袭扰敌军" if index == 0 else " · 敌军延误一日"
 		"harvest": suffix = " · 粮+105石" if index == 0 else " · 粮+42石 民心+15"
 	return base + suffix

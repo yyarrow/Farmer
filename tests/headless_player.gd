@@ -273,7 +273,7 @@ func _event_choice(id: String) -> int:
 		"merchant":
 			if policy in ["agrarian", "greedy"] and float(state.resources.coins) >= 900.0:
 				return 0
-			return 1
+			return 1 if float(state.resources.grain) >= 260.0 else 2
 		"scouts":
 			if policy in ["balanced", "militarist"] and float(state.resources.coins) >= 420.0:
 				return 0

@@ -8,6 +8,16 @@ func _initialize() -> void:
 func _run() -> void:
 	var state := root.get_node("State")
 	state.reset_game()
+	_check(state.get_calendar() == {"year": 1, "season_index": 0, "season": "spring", "season_name": "春", "day": 1}, "calendar starts in spring")
+	var spring_grain := float(state.get_daily_ledger().grain.net)
+	state.current_day = 37
+	_check(state.get_calendar().season == "winter" and int(state.get_calendar().day) == 1, "calendar reaches winter")
+	_check(float(state.get_daily_ledger().grain.net) < spring_grain, "winter grain ledger is visibly lower")
+	for event in state._events_for_current_season():
+		_check(str(event.id) not in ["drought", "harvest"], "winter event pool stays seasonal")
+	state.current_day = 49
+	_check(int(state.get_calendar().year) == 2 and state.get_calendar().season == "spring", "calendar rolls into next year")
+	state.current_day = 1
 	_check(state.get_population_cap() == 150, "initial population cap")
 	_check(state.get_defense() > 0, "initial defense")
 	_check(state.get_rates().grain > 0.0, "initial grain production")
