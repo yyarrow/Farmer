@@ -15,6 +15,7 @@
 - 暂停、1×、2×、推进一日及事件/敌袭自动停时
 - 每季12日的四时历法；农收、采集、赋税、冬粮和事件池随季节变化并在账簿中公开
 - 原创竖屏国风主场景、轻动效、触觉反馈与短促编钟音色
+- 内嵌 Noto Sans SC 中文字体，不依赖手机厂商字体；字体按 SIL OFL 1.1 合规随包分发
 - 48 秒原创五声音阶国风音乐，以 2 秒交叉衔接无缝循环；战斗音效会短暂压低背景音乐
 - 总音量、背景音乐、操作音效、静音和触觉反馈设置，设置写入带损坏恢复且拖动时不反复刷盘
 - 八类建筑四阶段外观，建造、升级、交易、征兵、政令和战斗场景动效
@@ -41,6 +42,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3
 python3 tests/audio_assets.py
+python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
@@ -53,7 +55,16 @@ python3 tools/create_release_keystore.py
 python3 tools/build_release_apk.py
 ```
 
-私钥和随机密码只保存在被 Git 忽略的 `.release/`，脚本不会覆盖已有签名身份。必须把该目录安全备份；丢失上传密钥会影响后续更新。Google Play 的 AAB 还需要安装 Godot Android Gradle Build template，正式上架前按 `docs/RELEASE.md` 的闸门执行。
+构建并验证 Google Play AAB；追加参数会同时模拟 Play 交付并验证派生 APK：
+
+```bash
+python3 tools/build_release_aab.py
+python3 tools/build_release_aab.py --universal-apk
+```
+
+私钥和随机密码只保存在被 Git 忽略的 `.release/`，脚本不会覆盖已有签名身份。必须把该目录安全备份；丢失上传密钥会影响后续更新。AAB 构建需要官方 Godot 4.7 Android Gradle template 和 Google bundletool，具体准备、验收和 Play Console 外部门槛见 [`docs/RELEASE.md`](docs/RELEASE.md)。
+
+Google Play 图标、宣传图、截图、中文文案和隐私政策草案位于 [`store/`](store/README.md)。
 
 当前经济、建筑、军队和敌袭公式见 [`docs/BALANCE.md`](docs/BALANCE.md)。
 无界面自动玩家的策略、指标和最近一次 4000 局结果见 [`docs/HEADLESS_PLAYTEST.md`](docs/HEADLESS_PLAYTEST.md)。批量测试支持 runs、days、seed、policy、report 和 strict 参数，默认在 .qa/ 生成 JSON 与 Markdown 完整报告。

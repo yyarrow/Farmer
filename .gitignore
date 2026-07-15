@@ -3,8 +3,13 @@
 .home/
 build/*.apk
 build/*.aab
+build/*.apks
 build/*.idsig
 tools/godot/
+**/__pycache__/
 .qa/
 .release/
+android/build/
+android/.build_version
+store/**/*.import
 assets/art/buildings/source/

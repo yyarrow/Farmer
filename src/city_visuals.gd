@@ -1,5 +1,6 @@
 extends Control
 
+const UiFont = preload("res://src/ui_font.gd")
 const POSITIONS := {
 	"wall": Vector2(386, 154),
 	"barracks": Vector2(326, 217),
@@ -34,10 +35,12 @@ var displayed_levels := {}
 var veteran_banners := {}
 var master_banners := {}
 var effects: Array[Dictionary] = []
+var _effect_font: Font
 var _production_accum := 0.0
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	_effect_font = UiFont.medium()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rng.seed = 884422
 	_build_views()
@@ -134,7 +137,7 @@ func _atlas_for(id: String, stage: int) -> AtlasTexture:
 func play_event(kind: String, payload: Dictionary) -> void:
 	var position := _position_for_event(kind, payload)
 	var color := Color("#d7aa51")
-	var glyph := "✦"
+	var glyph := "◆"
 	match kind:
 		"build":
 			color = Color("#d9be7b")
@@ -250,7 +253,7 @@ func _draw() -> void:
 				draw_circle(effect.pos, effect.size, color)
 				draw_line(effect.pos - Vector2(effect.size, 0), effect.pos + Vector2(effect.size, 0), color.lightened(0.25), 1.0)
 			"label":
-				draw_string(ThemeDB.fallback_font, effect.pos, effect.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, color)
+				draw_string(_effect_font, effect.pos, effect.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, color)
 			"caravan":
 				draw_rect(Rect2(effect.pos, Vector2(18, 9)), color, true)
 				draw_circle(effect.pos + Vector2(4, 11), 3, Color(0.18, 0.15, 0.11, alpha))

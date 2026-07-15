@@ -15,10 +15,11 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd --audio-driver Dummy
 python3 tests/audio_assets.py
+python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK` 和 `VISUAL_CAPTURE_OK`。渲染截图位于 `.qa/`，需人工检查文字无截断、弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异。
 
 长期平衡复核：
 
@@ -49,15 +50,27 @@ python3 tools/build_release_apk.py
 
 构建成功会打印 APK 与签名证书的 SHA-256。将 `.release/` 的两个文件加密备份到至少两个独立位置，绝不能提交到 Git、聊天或公开存储。丢失密钥可能导致无法向同一安装渠道发布后续更新。
 
-## 3. Google Play AAB 闸门
+## 3. Google Play AAB
 
-Google Play 新应用需提交 AAB。Godot 的 AAB 导出依赖项目内的 Android Gradle Build template；当前仓库没有该模板，因此签名 APK 可用于本地验收和其他 APK 渠道，但在完成下列事项前不得宣称 Google Play 包已经就绪：
+发布机需准备与编辑器完全一致的 Godot 4.7 `android_source.zip`，放在 Godot 的 `4.7.stable` 导出模板目录中；同时把 Google 官方 [bundletool 1.18.3](https://github.com/google/bundletool/releases/tag/1.18.3) JAR 放到被 Git 忽略的 `.home/bundletool.jar`。脚本固定校验模板 SHA-256 `2dcb079f64b6cf9103cce273f42d1d5a4f52bc28d83a215579100fe568d6779c` 和 bundletool SHA-256 `a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29`。首次 Gradle 构建需要访问官方依赖源，依赖只缓存到仓库内 `.home/.gradle/`。
 
-1. 使用与编辑器完全一致的 Godot 4.7 Android build template；
-2. 在 Godot 中安装 Gradle build template，确认生成 `res://android/build`；
-3. 新增签名 AAB 导出预设并输出 `build/Qinghe.aab`；
-4. 用 `bundletool validate` 校验 AAB；
-5. 在 Play Console 内部测试轨道安装，完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
+构建并验证可上传的签名 AAB：
+
+```bash
+python3 tools/build_release_aab.py
+```
+
+额外模拟 Play 交付链，生成并验证通用 APK：
+
+```bash
+python3 tools/build_release_aab.py --universal-apk
+```
+
+脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
+
+2026 年 7 月 16 日的本地候选验证结果：AAB 40.7 MiB，SHA-256 `be5f498b0ec043501d85a6ff810403b3950fdcb4491271c6c9c99eeab055da84`，上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 派生 APK 已在 Android 35 arm64 模拟器完成冷启动和同签名覆盖安装；封板冷启动约 100 ms，字体子集候选 PSS 约 157 MiB，教程完成状态可跨覆盖安装保留，错误级进程日志为空，未见崩溃、ANR 或 Godot 脚本错误。
+
+本地 AAB 工程闸门已经通过；正式公开发布仍必须先上传 Play Console 内部测试轨道，并用 Play 实际分发的安装包完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
 
 参考：Godot 官方的 [Android 导出](https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html) 与 [Gradle 构建](https://docs.godotengine.org/en/4.7/tutorials/export/android_gradle_build.html) 文档。
 
@@ -72,10 +85,15 @@ Google Play 新应用需提交 AAB。Godot 的 AAB 导出依赖项目内的 Andr
 - 背景音乐无明显循环爆音，音乐/音效/振动开关重启后保留；
 - 事件无资源时不能获得免费收益，战斗兵力与伤亡账目可读；
 - 全屏竖屏布局无系统栏遮挡，长中文与最小支持屏幕不溢出；
+- 内嵌中文字体在无 CJK 系统字体的环境中也无缺字方框，OFL 许可证随安装包分发；
 - 诊断报告只能由玩家主动导出，不会联网或自动上传。
 
 ## 5. 商店资料与合规
 
-公开发布前还需准备并人工确认：应用图标、至少两张手机截图、1024×500 宣传图、中文短说明和完整说明、内容分级问卷、目标年龄、数据安全表、隐私政策公开链接、客服邮箱以及版权/商标归属。当前游戏离线运行，不请求联网权限；存档、设置和诊断均留在应用私有目录，诊断只能由玩家主动复制分享。
+`store/` 已包含 512×512 应用图标、三张 1080×1920 实机比例截图、1024×500 宣传图、中文短说明和完整说明、版本说明、隐私政策正文及图片替代文字。素材规格与重新生成命令见 `store/README.md`，Play Console 填写顺序见 `store/play-console-checklist.md`。
+
+公开发布前仍需发布主体人工完成：填写法定名称和客服邮箱、把隐私政策部署到无需登录的公开 HTTPS 地址、回答内容分级和目标年龄问卷、确认数据安全表、确认版权/商标归属、选择价格和国家/地区，并通过内部测试轨道。当前游戏离线运行，不请求联网权限；存档、设置和诊断均留在应用私有目录，诊断只能由玩家主动复制分享。
+
+替换占位符后运行 `python3 tests/store_assets.py --strict-contact`；只有严格模式也通过，商店资料才可进入生产发布。
 
 每次正式候选包都必须递增 versionCode、重跑本清单，并在 Git 中留下对应提交；不要复用已公开发布的版本码。

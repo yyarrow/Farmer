@@ -1,5 +1,6 @@
 extends Control
 
+const UiFont = preload("res://src/ui_font.gd")
 const INK := Color("#29382f")
 const INK_SOFT := Color("#5f6555")
 const PAPER := Color("#f4e8c8")
@@ -40,6 +41,7 @@ var city_visual_layer: Control
 var _displayed_season := ""
 
 func _ready() -> void:
+	theme = UiFont.make_theme()
 	_build_scene()
 	State.changed.connect(_refresh_dynamic)
 	State.notice.connect(_show_toast)

@@ -7,6 +7,7 @@ import hashlib
 import os
 import re
 import subprocess
+import zipfile
 from pathlib import Path
 
 
@@ -35,13 +36,16 @@ def android_tool(name: str) -> Path:
     return candidates[-1]
 
 
-def verify() -> None:
+def verify(apk: Path = APK) -> None:
     aapt = android_tool("aapt")
     apksigner = android_tool("apksigner")
-    badging = subprocess.run([aapt, "dump", "badging", APK], check=True, text=True, capture_output=True).stdout
-    manifest = subprocess.run([aapt, "dump", "xmltree", APK, "AndroidManifest.xml"], check=True, text=True, capture_output=True).stdout
-    permissions = subprocess.run([aapt, "dump", "permissions", APK], check=True, text=True, capture_output=True).stdout
-    signature = subprocess.run([apksigner, "verify", "--verbose", "--print-certs", APK], check=True, text=True, capture_output=True).stdout
+    badging = subprocess.run([aapt, "dump", "badging", apk], check=True, text=True, capture_output=True).stdout
+    manifest = subprocess.run([aapt, "dump", "xmltree", apk, "AndroidManifest.xml"], check=True, text=True, capture_output=True).stdout
+    permissions = subprocess.run([aapt, "dump", "permissions", apk], check=True, text=True, capture_output=True).stdout
+    signature = subprocess.run([apksigner, "verify", "--verbose", "--print-certs", apk], check=True, text=True, capture_output=True).stdout
+    with zipfile.ZipFile(apk) as archive:
+        bad_entry = archive.testzip()
+        names = set(archive.namelist())
     alias_start = manifest.find("E: activity-alias")
     alias_end = manifest.find("\n      E:", alias_start + 1) if alias_start >= 0 else -1
     launcher_alias = manifest[alias_start : alias_end if alias_end >= 0 else len(manifest)]
@@ -60,14 +64,18 @@ def verify() -> None:
         "game_category": "application-isGame" in badging,
         "signature": "Verified using v2 scheme (APK Signature Scheme v2): true" in signature,
         "identity": "CN=Qinghe Game" in signature and "CN=Godot" not in signature,
+        "zip": bad_entry is None,
+        "bundled_font": any("QingheSansSC-Medium" in name and name.endswith(".fontdata") for name in names),
+        "font_license": any(name.endswith("assets/fonts/OFL.txt") for name in names),
+        "store_excluded": not any("/store/" in name or "feature-graphic" in name for name in names),
     }
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
         raise SystemExit("ANDROID_RELEASE_FAILED " + ",".join(failed))
-    digest = hashlib.sha256(APK.read_bytes()).hexdigest()
+    digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     cert_match = re.search(r"Signer #1 certificate SHA-256 digest: ([0-9a-f]+)", signature)
     cert = cert_match.group(1) if cert_match else "unknown"
-    print(f"ANDROID_RELEASE_OK apk={APK} size_mb={APK.stat().st_size / 1048576:.1f}")
+    print(f"ANDROID_RELEASE_OK apk={apk} size_mb={apk.stat().st_size / 1048576:.1f}")
     print(f"APK_SHA256={digest}")
     print(f"SIGNER_SHA256={cert}")
 

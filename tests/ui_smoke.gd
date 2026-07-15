@@ -14,6 +14,18 @@ func _run() -> void:
 	var ui = scene.instantiate()
 	root.add_child(ui)
 	await process_frame
+	_check(ui.theme != null and ui.theme.default_font != null, "bundled UI font is active")
+	for glyph in "敌军稳定伤亡粮木石币":
+		_check(ui.theme.default_font.has_char(glyph.unicode_at(0)), "bundled UI font covers %s" % glyph)
+	var missing_glyphs := {}
+	for file_name in DirAccess.get_files_at("res://src"):
+		if not file_name.ends_with(".gd"):
+			continue
+		for glyph in FileAccess.get_file_as_string("res://src/" + file_name):
+			var codepoint := glyph.unicode_at(0)
+			if codepoint >= 128 and not ui.theme.default_font.has_char(codepoint):
+				missing_glyphs[glyph] = true
+	_check(missing_glyphs.is_empty(), "bundled UI font covers every source glyph: %s" % str(missing_glyphs.keys()))
 	await process_frame
 	_check(ui.content_box != null, "main content built")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
