@@ -359,29 +359,36 @@ func recruit(id: String) -> bool:
 	save_game()
 	return true
 
-func trade(kind: String) -> bool:
-	var ok := false
+func get_trade_quote(kind: String) -> Dictionary:
 	match kind:
-		"sell_grain":
-			ok = spend({"grain": 55})
-			if ok: resources.coins = minf(get_capacity("coins"), resources.coins + 340 + buildings.market * 30)
-		"buy_grain":
-			ok = spend({"coins": maxi(340, 460 - buildings.market * 20)})
-			if ok: resources.grain = minf(get_capacity("grain"), resources.grain + 55)
-		"sell_wood":
-			ok = spend({"wood": 40})
-			if ok: resources.coins = minf(get_capacity("coins"), resources.coins + 300 + buildings.market * 20)
-		"buy_stone":
-			ok = spend({"coins": maxi(380, 500 - buildings.market * 20)})
-			if ok: resources.stone = minf(get_capacity("stone"), resources.stone + 35)
-	if ok:
-		changed.emit()
-		notice.emit("市易完成")
-		visual_event.emit("trade", {"trade": kind})
-		Audio.play_sfx("trade")
-		Telemetry.track("trade_completed", {"kind": kind, "resources": resources.duplicate()})
-		save_game()
-	return ok
+		"sell_grain": return {"cost": {"grain": 55}, "gain": {"coins": 340 + buildings.market * 30}}
+		"buy_grain": return {"cost": {"coins": maxi(340, 460 - buildings.market * 20)}, "gain": {"grain": 55}}
+		"sell_wood": return {"cost": {"wood": 40}, "gain": {"coins": 300 + buildings.market * 20}}
+		"buy_stone": return {"cost": {"coins": maxi(380, 500 - buildings.market * 20)}, "gain": {"stone": 35}}
+	return {}
+
+func trade(kind: String) -> bool:
+	var quote := get_trade_quote(kind)
+	if quote.is_empty():
+		return false
+	for resource in quote.gain:
+		var amount := float(quote.gain[resource])
+		if float(resources.get(resource, 0.0)) + amount > get_capacity(resource) + 0.001:
+			notice.emit("仓容不足：需留出%d%s%s空间，本次不扣款" % [roundi(amount), RESOURCE_UNITS[resource].unit, RESOURCE_UNITS[resource].short])
+			visual_event.emit("storage_full", {"resource": resource, "amount": amount})
+			Telemetry.track("trade_blocked_capacity", {"kind": kind, "resource": resource, "amount": amount, "stored": resources.get(resource, 0.0), "capacity": get_capacity(resource)})
+			return false
+	if not spend(quote.cost):
+		return false
+	for resource in quote.gain:
+		resources[resource] += float(quote.gain[resource])
+	changed.emit()
+	notice.emit("市易完成")
+	visual_event.emit("trade", {"trade": kind})
+	Audio.play_sfx("trade")
+	Telemetry.track("trade_completed", {"kind": kind, "quote": quote, "resources": resources.duplicate()})
+	save_game()
+	return true
 
 func enact_policy(id: String) -> bool:
 	match id:

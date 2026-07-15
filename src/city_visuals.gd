@@ -27,6 +27,7 @@ const EFFECT_POSITIONS := {
 	"policy": Vector2(270, 410),
 	"siege": Vector2(425, 205),
 	"shortage": Vector2(270, 460),
+	"storage_full": Vector2(270, 350),
 }
 
 var building_views := {}
@@ -216,6 +217,9 @@ func play_event(kind: String, payload: Dictionary) -> void:
 		"shortage":
 			color = Color("#b65243")
 			glyph = "物资不足"
+		"storage_full":
+			color = Color("#c07a42")
+			glyph = "仓容不足"
 		"chapter":
 			color = Color("#e6c56f")
 			glyph = "城邑焕新"

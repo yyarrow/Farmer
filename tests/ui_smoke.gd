@@ -136,6 +136,9 @@ func _run() -> void:
 	visuals.effects.clear()
 	visuals.play_event("event_choice", {"id": "merchant", "choice": 2})
 	_check(not _has_effect_kind(visuals.effects, "caravan"), "declining a merchant does not show a false caravan journey")
+	visuals.effects.clear()
+	visuals.play_event("storage_full", {"resource": "grain"})
+	_check(_has_effect_text(visuals.effects, "仓容不足"), "blocked full-storage trade has visible feedback")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame

@@ -536,11 +536,11 @@ func _render_market() -> void:
 	var ledger := State.get_daily_ledger()
 	for id in ["grain", "wood", "stone", "coins"]:
 		_add_ledger_card(id, ledger[id])
-	_add_section_heading("陶朱之市", "市集等级越高，交易价格越有利")
-	_add_trade_card("粟米出仓", "售出 55石粮", "获得 %d枚" % (340 + State.buildings.market * 30), "sell_grain")
-	_add_trade_card("购入军粮", "支付 %d枚" % maxi(340, 460 - State.buildings.market * 20), "获得 55石粮", "buy_grain")
-	_add_trade_card("木材发卖", "售出 40车木", "获得 %d枚" % (300 + State.buildings.market * 20), "sell_wood")
-	_add_trade_card("商队运石", "支付 %d枚" % maxi(380, 500 - State.buildings.market * 20), "获得 35方石", "buy_stone")
+	_add_section_heading("陶朱之市", "市集等级越高价格越有利；仓容不足时整笔不成交、不扣款")
+	_add_trade_card("粟米出仓", "sell_grain")
+	_add_trade_card("购入军粮", "buy_grain")
+	_add_trade_card("木材发卖", "sell_wood")
+	_add_trade_card("商队运石", "buy_stone")
 
 func _add_ledger_card(id: String, entry: Dictionary) -> void:
 	var unit: String = RESOURCE_META[id].unit
@@ -555,7 +555,8 @@ func _add_ledger_card(id: String, entry: Dictionary) -> void:
 		accent
 	))
 
-func _add_trade_card(title: String, pay: String, gain: String, id: String) -> void:
+func _add_trade_card(title: String, id: String) -> void:
+	var quote := State.get_trade_quote(id)
 	var card := _card(78)
 	content_box.add_child(card)
 	var row := HBoxContainer.new()
@@ -571,7 +572,7 @@ func _add_trade_card(title: String, pay: String, gain: String, id: String) -> vo
 	heading.add_theme_color_override("font_color", INK)
 	stack.add_child(heading)
 	var detail := Label.new()
-	detail.text = "%s  →  %s" % [pay, gain]
+	detail.text = "付 %s  →  得 %s" % [_format_cost(quote.cost), _format_cost(quote.gain)]
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)

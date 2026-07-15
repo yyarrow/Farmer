@@ -33,7 +33,19 @@ func _run() -> void:
 	# All economy actions, unit unlocks and policies execute.
 	_fill_resources(state)
 	for trade in ["sell_grain", "buy_grain", "sell_wood", "buy_stone"]:
+		for resource in state.resources:
+			state.resources[resource] = state.get_capacity(resource) * 0.40
 		_check(state.trade(trade), "trade %s" % trade)
+	var grain_quote: Dictionary = state.get_trade_quote("buy_grain")
+	_check(int(grain_quote.cost.coins) == maxi(340, 460 - state.buildings.market * 20) and int(grain_quote.gain.grain) == 55, "market UI and settlement share one quote")
+	state.resources.coins = 2000.0
+	state.resources.grain = state.get_capacity("grain") - 10.0
+	var coins_before_blocked_trade: float = state.resources.coins
+	_check(not state.trade("buy_grain") and state.resources.coins == coins_before_blocked_trade and state.resources.grain == state.get_capacity("grain") - 10.0, "full grain storage rejects purchase without charging")
+	state.resources.grain = 500.0
+	state.resources.coins = state.get_capacity("coins") - 10.0
+	var grain_before_blocked_sale: float = state.resources.grain
+	_check(not state.trade("sell_grain") and state.resources.grain == grain_before_blocked_sale and state.resources.coins == state.get_capacity("coins") - 10.0, "full treasury rejects sale without taking goods")
 	for unit in state.UNITS:
 		_fill_resources(state)
 		_check(state.recruit(unit), "recruit %s" % unit)
