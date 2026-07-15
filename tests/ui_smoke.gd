@@ -37,6 +37,16 @@ func _run() -> void:
 		ui._render_tab()
 		await process_frame
 		_check(ui.content_box.get_child_count() > 0, "tab %d renders" % tab)
+	ui.current_tab = 2
+	state.enemy_army.scouted = false
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "军情不足") and not _has_label_containing(ui.content_box, "胜算约"), "unscouted military view does not leak exact forecast")
+	state.enemy_army.scouted = true
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "胜算约") and _has_label_containing(ui.content_box, "预计伤亡"), "scouting unlocks exact battle forecast")
+	state.enemy_army.scouted = false
 	ui._show_settings()
 	await process_frame
 	await process_frame
@@ -144,6 +154,12 @@ func _check(condition: bool, label: String) -> void:
 func _has_label(parent: Node, text_value: String) -> bool:
 	for node in parent.find_children("*", "Label", true, false):
 		if node.text == text_value:
+			return true
+	return false
+
+func _has_label_containing(parent: Node, text_value: String) -> bool:
+	for node in parent.find_children("*", "Label", true, false):
+		if str(node.text).contains(text_value):
 			return true
 	return false
 

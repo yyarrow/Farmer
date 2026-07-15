@@ -585,11 +585,14 @@ func _add_trade_card(title: String, pay: String, gain: String, id: String) -> vo
 func _render_military() -> void:
 	_add_section_heading("戎车既饬", "军籍、军粮、伤员与来敌编成均可追溯")
 	var enemy := State.get_enemy_display()
-	var forecast := State.get_battle_forecast(100)
 	var enemy_detail := "%s · 距城%d日 · %s\n%s" % [enemy.name, State.days_until_attack(), enemy.range, enemy.composition]
 	content_box.add_child(_info_banner("来敌军情", enemy_detail, CINNABAR))
-	var forecast_text := "我军力%d / 敌军力%s · 胜算约%d%% · 预计伤亡%d～%d人" % [State.get_army_power(), str(State.get_enemy_power()) if enemy.known else "未明", roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
-	content_box.add_child(_info_banner("守城推演", forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
+	if bool(enemy.known):
+		var forecast := State.get_battle_forecast(100)
+		var forecast_text := "我军力%d / 敌军力%d · 胜算约%d%% · 预计伤亡%d～%d人" % [State.get_army_power(), State.get_enemy_power(), roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
+		content_box.add_child(_info_banner("守城推演", forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
+	else:
+		content_box.add_child(_info_banner("守城推演", "我军力%d · 敌军约%s\n军情不足：巡剿或反侦后显示胜算与预计伤亡" % [State.get_army_power(), enemy.range], GOLD))
 	var ledger := State.get_daily_ledger()
 	content_box.add_child(_info_banner("军籍与伤营", "%d/%d人 · 其中伤员%d人 · 日耗粮%.1f石、军饷%.0f枚" % [State.get_army_count() + State.get_wounded_count(), State.get_army_capacity(), State.get_wounded_count(), _army_ledger_cost(ledger.grain.details), _army_ledger_cost(ledger.coins.details)], GOLD))
 	for id in State.UNITS:

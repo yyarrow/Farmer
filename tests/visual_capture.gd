@@ -34,6 +34,27 @@ func _run() -> void:
 		var path := "res://.qa/visual_%s_max.png" % capture[1]
 		if image.save_png(path) != OK:
 			failures.append("cannot save %s" % path)
+	ui.current_tab = 2
+	ui._update_tab_buttons()
+	state.enemy_army.scouted = false
+	ui._render_tab()
+	await create_timer(0.3).timeout
+	var unknown_intel_image := root.get_viewport().get_texture().get_image()
+	if unknown_intel_image.is_empty() or unknown_intel_image.get_width() != 540 or unknown_intel_image.get_height() != 960:
+		failures.append("invalid unknown intelligence frame")
+	elif unknown_intel_image.save_png("res://.qa/visual_military_unknown.png") != OK:
+		failures.append("cannot save unknown intelligence frame")
+	state.enemy_army.scouted = true
+	ui._render_tab()
+	await create_timer(0.3).timeout
+	var scouted_intel_image := root.get_viewport().get_texture().get_image()
+	if scouted_intel_image.is_empty() or scouted_intel_image.get_width() != 540 or scouted_intel_image.get_height() != 960:
+		failures.append("invalid scouted intelligence frame")
+	elif scouted_intel_image.save_png("res://.qa/visual_military_scouted.png") != OK:
+		failures.append("cannot save scouted intelligence frame")
+	ui.current_tab = 0
+	ui._update_tab_buttons()
+	ui._render_tab()
 	state.current_day = 5
 	state.next_attack_day = 7
 	state.enemy_army.scouted = true
@@ -68,7 +89,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 feedback=1 modals=2 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 feedback=1 modals=2 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:
