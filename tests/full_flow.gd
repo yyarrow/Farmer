@@ -2,6 +2,8 @@ extends SceneTree
 
 var failures: Array[String] = []
 var battle_results: Array[Dictionary] = []
+var day_visual_events := 0
+var last_day_visual := {}
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -12,6 +14,11 @@ func _run() -> void:
 	var telemetry = root.get_node("Telemetry")
 	audio.sfx_streams.clear()
 	state.battle_finished.connect(func(result: Dictionary): battle_results.append(result))
+	state.visual_event.connect(func(kind: String, payload: Dictionary):
+		if kind == "day":
+			day_visual_events += 1
+			last_day_visual = payload.duplicate(true)
+	)
 	state.reset_game()
 	state.tutorial_seen = true
 	_fill_resources(state)
@@ -80,6 +87,10 @@ func _run() -> void:
 	state._resolve_siege()
 	_check(not battle_results.is_empty() and bool(battle_results[-1].won), "high defense wins siege")
 	_check(int(battle_results[-1].player_losses) == int(battle_results[-1].killed_total) + int(battle_results[-1].wounded_total), "battle losses reconcile")
+	state.units.militia = 0
+	state.wounded.militia = 5
+	state.recovery_queue = [{"unit": "militia", "count": 5, "return_day": state.current_day}]
+	_check(state._recover_wounded() == 5 and state.units.militia == 5 and state.wounded.militia == 0, "wounded recovery reports and restores exact people")
 	_check(int(battle_results[-1].enemy_losses) > 0, "battle inflicts real enemy casualties")
 	battle_results.clear()
 	state.units = {"militia": 0, "archer": 0, "chariot": 0}
@@ -260,6 +271,8 @@ func _run() -> void:
 	# Long economy soak: 20,000 ticks, manually resolving events as they arise.
 	state.reset_game()
 	state.tutorial_seen = true
+	day_visual_events = 0
+	last_day_visual = {}
 	for i in 20000:
 		state._tick_economy(0.1)
 		if not state.current_event.is_empty():
@@ -267,6 +280,7 @@ func _run() -> void:
 		for key in state.resources:
 			_check(is_finite(float(state.resources[key])), "finite %s at tick %d" % [key, i])
 			_check(float(state.resources[key]) >= 0.0, "nonnegative %s at tick %d" % [key, i])
+	_check(day_visual_events > 0 and last_day_visual.has("ledger") and last_day_visual.has("recovered"), "daily settlement emits complete visual feedback")
 
 	state.reset_game()
 	audio.set_volume("music", 0.62)

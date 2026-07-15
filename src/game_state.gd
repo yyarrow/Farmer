@@ -460,7 +460,7 @@ func patrol() -> bool:
 
 func _advance_day() -> void:
 	current_day += 1
-	_recover_wounded()
+	var recovered := _recover_wounded()
 	var ledger := get_daily_ledger()
 	last_day_report = "第%d日账：粮 %+.1f石  木 %+.1f车  石 %+.1f方  财 %+.0f枚" % [current_day, ledger.grain.net, ledger.wood.net, ledger.stone.net, ledger.coins.net]
 	var civil_food := maxf(1.0, population / 15.0)
@@ -477,10 +477,11 @@ func _advance_day() -> void:
 	elif current_event.is_empty() and current_day % 3 == 0:
 		_start_random_event()
 	changed.emit()
+	visual_event.emit("day", {"ledger": ledger, "recovered": recovered})
 	Telemetry.track("day_settled", {"day": current_day, "ledger": ledger, "population": population, "army": units.duplicate(), "wounded": wounded.duplicate()})
 	save_game()
 
-func _recover_wounded() -> void:
+func _recover_wounded() -> int:
 	var remaining: Array = []
 	var recovered := 0
 	for entry in recovery_queue:
@@ -495,6 +496,7 @@ func _recover_wounded() -> void:
 	recovery_queue = remaining
 	if recovered > 0:
 		notice.emit("伤营有%d人康复归队" % recovered)
+	return recovered
 
 func _start_random_event() -> void:
 	set_time_speed(0.0, "random_event")

@@ -34,6 +34,20 @@ func _run() -> void:
 		var path := "res://.qa/visual_%s_max.png" % capture[1]
 		if image.save_png(path) != OK:
 			failures.append("cannot save %s" % path)
+	state.current_day = 5
+	state.next_attack_day = 7
+	state.enemy_army.scouted = true
+	state.buffs = {"farm_until": 8, "all_until": 8}
+	state.units = {"militia": 45, "archer": 15, "chariot": 5}
+	state.wounded = {"militia": 5, "archer": 5, "chariot": 0}
+	state.changed.emit()
+	ui.city_visual_layer.play_event("policy", {"policy": "irrigate"})
+	await create_timer(0.45).timeout
+	var feedback_image := root.get_viewport().get_texture().get_image()
+	if feedback_image.is_empty() or feedback_image.get_width() != 540 or feedback_image.get_height() != 960:
+		failures.append("invalid world feedback frame")
+	elif feedback_image.save_png("res://.qa/visual_world_feedback.png") != OK:
+		failures.append("cannot save world feedback frame")
 	ui._handle_back_request()
 	await create_timer(0.5).timeout
 	var modal_image := root.get_viewport().get_texture().get_image()
@@ -54,7 +68,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 modals=2 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 feedback=1 modals=2 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

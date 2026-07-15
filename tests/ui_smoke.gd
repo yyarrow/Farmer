@@ -90,11 +90,42 @@ func _run() -> void:
 	_check(state.get_prosperity() > 100, "city visuals accept max state")
 	var visuals = ui.city_visual_layer
 	_check(visuals.displayed_stages.farm == 3 and visuals.master_banners.farm.visible, "level five building has final art and master banner")
+	var level_signatures := {}
+	for level in 6:
+		state.buildings.farm = level
+		visuals._refresh_buildings()
+		var signature := "%d/%.2f/%s/%s" % [visuals.displayed_stages.farm, visuals.building_views.farm.scale.x, visuals.veteran_banners.farm.visible, visuals.master_banners.farm.visible]
+		level_signatures[signature] = true
+	_check(level_signatures.size() == 6, "all six building levels have distinct persistent appearances")
 	state.buildings.farm = 3
 	state.changed.emit()
 	await process_frame
 	_check(visuals.displayed_stages.farm == 2 and visuals.veteran_banners.farm.visible and not visuals.master_banners.farm.visible, "level three has distinct veteran appearance")
 	_check(absf(float(visuals.building_views.farm.scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
+	state.buffs = {"farm_until": state.current_day + 2, "all_until": state.current_day + 2}
+	state.units = {"militia": 35, "archer": 10, "chariot": 5}
+	state.wounded = {"militia": 5, "archer": 0, "chariot": 0}
+	state.enemy_army.scouted = true
+	state.next_attack_day = state.current_day + 2
+	visuals._refresh_buildings()
+	_check(bool(visuals.world_state.irrigation) and bool(visuals.world_state.all_buff), "active production policies remain visible in the city")
+	_check(int(visuals.world_state.soldier_markers) >= 3 and int(visuals.world_state.wounded_markers) == 1, "army and wounded state remain visible in the city")
+	_check(bool(visuals.world_state.enemy_warning), "scouted or nearby enemy remains visible at the wall")
+	visuals.effects.clear()
+	visuals.play_event("policy", {"policy": "irrigate"})
+	_check(_has_effect_kind(visuals.effects, "water"), "irrigation policy has specific water feedback")
+	visuals.effects.clear()
+	visuals.play_event("trade", {"trade": "sell_grain"})
+	_check(_has_effect_velocity(visuals.effects, "caravan", -1), "selling sends caravans outward")
+	visuals.effects.clear()
+	visuals.play_event("trade", {"trade": "buy_grain"})
+	_check(_has_effect_velocity(visuals.effects, "caravan", 1), "buying brings caravans inward")
+	visuals.effects.clear()
+	visuals.play_event("day", {"ledger": state.get_daily_ledger(), "recovered": 2})
+	_check(_has_effect_text(visuals.effects, "2人归队"), "daily settlement reports recovered troops visually")
+	visuals.effects.clear()
+	visuals.play_event("event_choice", {"id": "merchant", "choice": 2})
+	_check(not _has_effect_kind(visuals.effects, "caravan"), "declining a merchant does not show a false caravan journey")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
@@ -113,5 +144,23 @@ func _check(condition: bool, label: String) -> void:
 func _has_label(parent: Node, text_value: String) -> bool:
 	for node in parent.find_children("*", "Label", true, false):
 		if node.text == text_value:
+			return true
+	return false
+
+func _has_effect_kind(effects: Array[Dictionary], kind: String) -> bool:
+	for effect in effects:
+		if str(effect.get("kind", "")) == kind:
+			return true
+	return false
+
+func _has_effect_velocity(effects: Array[Dictionary], kind: String, direction: int) -> bool:
+	for effect in effects:
+		if str(effect.get("kind", "")) == kind and signf(float(effect.vel.x)) == float(direction):
+			return true
+	return false
+
+func _has_effect_text(effects: Array[Dictionary], text_value: String) -> bool:
+	for effect in effects:
+		if str(effect.get("text", "")) == text_value:
 			return true
 	return false
