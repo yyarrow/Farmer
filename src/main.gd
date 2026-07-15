@@ -1110,9 +1110,10 @@ func _on_event_started(event: Dictionary) -> void:
 	var options: Array = []
 	for i in event.options.size():
 		var choice: int = i
-		var available := State.is_event_choice_available(choice)
+		var block_reason := State.get_event_choice_block_reason(choice)
+		var available := block_reason.is_empty()
 		var caption := _event_option_caption(event.id, i, event.options[i])
-		options.append({"text": caption if available else caption + " · 物资不足", "disabled": not available, "callback": func():
+		options.append({"text": caption if available else caption + " · " + block_reason, "disabled": not available, "callback": func():
 			State.resolve_event(choice)
 			_render_tab()
 		})
@@ -1121,16 +1122,20 @@ func _on_event_started(event: Dictionary) -> void:
 func _event_option_caption(id: String, index: int, base: String) -> String:
 	var suffix := ""
 	match id:
-		"drought": suffix = " · 木28车 石18方" if index == 0 else " · 粮-45石"
-		"refugees": suffix = " · 粮58石，民口+20" if index == 0 else " · 粮-28石"
+		"drought":
+			var drought_relief := mini(45, floori(State.resources.grain))
+			suffix = " · 木28车 石18方" if index == 0 else " · 粮-%d石 民心%s" % [drought_relief, "+4" if drought_relief == 45 else "-4"]
+		"refugees":
+			var refugee_relief := mini(28, floori(State.resources.grain))
+			suffix = " · 粮58石，民口+20" if index == 0 else " · 粮-%d石 民心%s" % [refugee_relief, "+2" if refugee_relief == 28 else "-3"]
 		"merchant":
 			if index == 0: suffix = " · 财720枚"
 			elif index == 1: suffix = " · 粮-75石 财+620枚"
 		"scouts": suffix = " · 财320枚，探明并袭扰敌军" if index == 0 else " · 敌军延误一日"
-		"harvest": suffix = " · 粮+105石" if index == 0 else " · 粮+42石 民心+15"
-		"flood": suffix = " · 木30车 石18方，农田增产3日" if index == 0 else " · 粮-60石 民心-4"
+		"harvest": suffix = " · 粮最多+105石" if index == 0 else " · 粮最多+42石 民心+15"
+		"flood": suffix = " · 木30车 石18方，农田增产3日" if index == 0 else " · 粮-%d石 民心-4" % mini(60, floori(State.resources.grain))
 		"winter_relief": suffix = " · 粮42石 民心+10" if index == 0 else " · 民心-5"
-		"craftsmen": suffix = " · 财480枚 木16车，全邑增产3日" if index == 0 else " · 石+28方 民心-3"
+		"craftsmen": suffix = " · 财480枚 木16车，全邑增产3日" if index == 0 else " · 石最多+28方 民心-3"
 		"rumors": suffix = " · 财200枚，探明敌军 民心+5" if index == 0 else " · 民心-6"
 		"levy": suffix = " · 粮45石 财220枚 民心+3" if index == 0 else " · 敌军提前1日 民心-4"
 	return base + suffix

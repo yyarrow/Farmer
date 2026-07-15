@@ -527,64 +527,94 @@ func _events_for_current_season() -> Array:
 			available.append(event)
 	return available
 
-func is_event_choice_available(choice: int) -> bool:
-	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
-		return false
-	match str(current_event.get("id", "")):
-		"drought": return choice != 0 or can_afford({"wood": 28, "stone": 18})
-		"refugees": return choice != 0 or can_afford({"grain": 58})
+func _event_choice_cost(id: String, choice: int) -> Dictionary:
+	match id:
+		"drought":
+			if choice == 0: return {"wood": 28, "stone": 18}
+		"refugees":
+			if choice == 0: return {"grain": 58}
 		"merchant":
-			if choice == 0: return can_afford({"coins": 720})
-			if choice == 1: return can_afford({"grain": 75})
-		"scouts": return choice != 0 or can_afford({"coins": 320})
-		"flood": return choice != 0 or can_afford({"wood": 30, "stone": 18})
-		"winter_relief": return choice != 0 or can_afford({"grain": 42})
-		"craftsmen": return choice != 0 or can_afford({"coins": 480, "wood": 16})
-		"rumors": return choice != 0 or can_afford({"coins": 200})
-		"levy": return choice != 0 or can_afford({"grain": 45, "coins": 220})
-	return true
+			if choice == 0: return {"coins": 720}
+			if choice == 1: return {"grain": 75}
+		"scouts":
+			if choice == 0: return {"coins": 320}
+		"flood":
+			if choice == 0: return {"wood": 30, "stone": 18}
+		"winter_relief":
+			if choice == 0: return {"grain": 42}
+		"craftsmen":
+			if choice == 0: return {"coins": 480, "wood": 16}
+		"rumors":
+			if choice == 0: return {"coins": 200}
+		"levy":
+			if choice == 0: return {"grain": 45, "coins": 220}
+	return {}
+
+func get_event_choice_block_reason(choice: int) -> String:
+	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
+		return "选项无效"
+	var id := str(current_event.get("id", ""))
+	var cost := _event_choice_cost(id, choice)
+	if not cost.is_empty() and not can_afford(cost):
+		return "物资不足"
+	if id == "refugees" and choice == 0:
+		var civilian_room := get_population_cap() - get_army_count() - get_wounded_count() - population
+		if civilian_room < 20:
+			return "需20人民口空位"
+	if id == "merchant" and choice == 1 and resources.coins + 620.0 > get_capacity("coins") + 0.001:
+		return "需620枚财货空位"
+	return ""
+
+func is_event_choice_available(choice: int) -> bool:
+	return get_event_choice_block_reason(choice).is_empty()
 
 func resolve_event(choice: int) -> bool:
 	if current_event.is_empty() or choice < 0 or choice >= int(current_event.get("options", []).size()):
 		return false
-	if not is_event_choice_available(choice):
-		notice.emit("物资不足，无法执行这项处置")
-		Telemetry.track("event_choice_unavailable", {"id": current_event.get("id", ""), "choice": choice, "resources": resources.duplicate()})
+	var block_reason := get_event_choice_block_reason(choice)
+	if not block_reason.is_empty():
+		notice.emit(block_reason + "，无法执行这项处置")
+		Telemetry.track("event_choice_unavailable", {"id": current_event.get("id", ""), "choice": choice, "reason": block_reason, "resources": resources.duplicate()})
 		return false
 	var id: String = current_event.id
+	var cost := _event_choice_cost(id, choice)
+	if not cost.is_empty() and not spend(cost):
+		return false
 	match id:
 		"drought":
 			if choice == 0:
-				if not spend({"wood": 28, "stone": 18}): return false
 				buffs.farm_until = current_day + 3
 				notice.emit("旧渠复通，农田转危为安")
 			else:
-				resources.grain = maxf(0.0, resources.grain - 45.0)
-				morale = minf(100.0, morale + 4.0)
-				notice.emit("开仓赈济，百姓得以安心")
+				var relief := mini(45, floori(resources.grain))
+				resources.grain -= relief
+				if relief == 45:
+					morale = minf(100.0, morale + 4.0)
+					notice.emit("开仓赈济，百姓得以安心")
+				else:
+					morale = maxf(10.0, morale - 4.0)
+					notice.emit("粮储不足，仅赈出%d石，乡里仍有不安" % relief)
 		"refugees":
 			if choice == 0:
-				if not spend({"grain": 58}): return false
-				population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 20)
+				population += 20
 				morale = minf(100.0, morale + 6.0)
 				notice.emit("新民入籍，田野更添生气")
 			else:
-				resources.grain = maxf(0.0, resources.grain - 28.0)
-				morale = minf(100.0, morale + 2.0)
+				var relief := mini(28, floori(resources.grain))
+				resources.grain -= relief
+				morale = minf(100.0, morale + 2.0) if relief == 28 else maxf(10.0, morale - 3.0)
+				notice.emit("备粮送行，流民转赴他邑" if relief == 28 else "粮少难赈，流民失望离去")
 		"merchant":
 			if choice == 0:
-				if not spend({"coins": 720}): return false
 				buffs.all_until = current_day + 3
 				notice.emit("新农具使全邑生产加快")
 			elif choice == 1:
-				if not spend({"grain": 75}): return false
-				resources.coins = minf(get_capacity("coins"), resources.coins + 620.0)
+				resources.coins += 620.0
 				notice.emit("商队购粮75石，财货入库620枚")
 			else:
 				notice.emit("商队另赴他邑，青禾物资未有变动")
 		"scouts":
 			if choice == 0:
-				if not spend({"coins": 320}): return false
 				enemy_army.scouted = true
 				var losses := _deal_losses(enemy_army, 3, rng)
 				notice.emit("反侦得手：探明敌军并使其折损%d人" % _sum_force(losses))
@@ -602,17 +632,16 @@ func resolve_event(choice: int) -> bool:
 				notice.emit("与民同乐，举邑欢腾")
 		"flood":
 			if choice == 0:
-				if not spend({"wood": 30, "stone": 18}): return false
 				buffs.farm_until = maxi(int(buffs.farm_until), current_day + 3)
 				morale = minf(100.0, morale + 2.0)
 				notice.emit("堤渠相济，三日内农田增产")
 			else:
-				resources.grain = maxf(0.0, resources.grain - 60.0)
+				var lost_grain := mini(60, floori(resources.grain))
+				resources.grain -= lost_grain
 				morale = maxf(10.0, morale - 4.0)
-				notice.emit("低田受淹，粮秣与民心受损")
+				notice.emit("低田受淹，损失粮%d石，民心受挫" % lost_grain)
 		"winter_relief":
 			if choice == 0:
-				if not spend({"grain": 42}): return false
 				morale = minf(100.0, morale + 10.0)
 				notice.emit("粥棚炊烟不绝，民心得安")
 			else:
@@ -620,7 +649,6 @@ func resolve_event(choice: int) -> bool:
 				notice.emit("仓门紧闭，乡里颇有怨言")
 		"craftsmen":
 			if choice == 0:
-				if not spend({"coins": 480, "wood": 16}): return false
 				buffs.all_until = maxi(int(buffs.all_until), current_day + 3)
 				notice.emit("百工安居，三日内全邑增产")
 			else:
@@ -629,7 +657,6 @@ func resolve_event(choice: int) -> bool:
 				notice.emit("城工告成，却留下役使怨言")
 		"rumors":
 			if choice == 0:
-				if not spend({"coins": 200}): return false
 				enemy_army.scouted = true
 				morale = minf(100.0, morale + 5.0)
 				notice.emit("吏卒查明军情，流言渐息")
@@ -638,7 +665,6 @@ func resolve_event(choice: int) -> bool:
 				notice.emit("流言蔓延，民心浮动")
 		"levy":
 			if choice == 0:
-				if not spend({"grain": 45, "coins": 220}): return false
 				morale = minf(100.0, morale + 3.0)
 				notice.emit("使者受礼而去，边境暂安")
 			else:

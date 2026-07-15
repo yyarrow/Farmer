@@ -47,6 +47,8 @@ func _run() -> void:
 	await process_frame
 	_check(_has_label_containing(ui.content_box, "胜算约") and _has_label_containing(ui.content_box, "预计伤亡"), "scouting unlocks exact battle forecast")
 	state.enemy_army.scouted = false
+	state.resources.grain = 12.0
+	_check(ui._event_option_caption("drought", 1, "赈济").contains("粮-12石 民心-4"), "event button exposes stock-limited disaster outcome")
 	ui._show_settings()
 	await process_frame
 	await process_frame

@@ -57,7 +57,7 @@ func _run() -> void:
 	var event_branch_count := 0
 	for event_data in state.EVENTS:
 		for choice in event_data.options.size():
-			_fill_resources(state)
+			_fill_event_resources(state)
 			state.current_event = event_data.duplicate(true)
 			_check(state.resolve_event(choice), "event %s choice %d resolves" % [event_data.id, choice])
 			_check(state.current_event.is_empty(), "event %s choice %d" % [event_data.id, choice])
@@ -91,8 +91,33 @@ func _run() -> void:
 	_check(not state.resolve_event(0) and not state.current_event.is_empty(), "unaffordable event choice remains pending")
 	_check(not state.is_event_choice_available(1) and not state.resolve_event(1), "merchant cannot buy nonexistent grain")
 	_check(state.resources.coins == 0.0 and state.resolve_event(2), "declining merchant grants no free proceeds")
+	state.current_event = state.EVENTS[0].duplicate(true)
+	state.resources.grain = 44.0
+	var morale_before_short_relief: float = state.morale
+	_check(state.get_event_choice_block_reason(1).is_empty(), "disaster keeps a fallback choice when resources are scarce")
+	_check(state.resolve_event(1) and state.resources.grain == 0.0 and state.morale == morale_before_short_relief - 4.0, "underfunded drought relief uses actual grain and grants no free morale")
+	state.current_event = state.EVENTS[1].duplicate(true)
+	state.resources.grain = 100.0
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count() - 10
+	_check(state.get_event_choice_block_reason(0) == "需20人民口空位", "refugees require the full advertised population space")
+	_check(not state.resolve_event(0) and state.resources.grain == 100.0, "full housing rejects refugees without taking grain")
+	state.current_event = state.EVENTS[2].duplicate(true)
+	state.resources.grain = 100.0
+	state.resources.coins = state.get_capacity("coins") - 500.0
+	_check(state.get_event_choice_block_reason(1) == "需620枚财货空位", "merchant sale requires full treasury space")
+	_check(not state.resolve_event(1) and state.resources.grain == 100.0, "full treasury rejects event sale without taking grain")
+	state.resources = {"grain": 0.0, "wood": 0.0, "stone": 0.0, "coins": 0.0}
+	state.population = state.get_population_cap() - state.get_army_count() - state.get_wounded_count()
+	for event_data in state.EVENTS:
+		state.current_event = event_data.duplicate(true)
+		var fallback_count := 0
+		for choice in event_data.options.size():
+			if state.is_event_choice_available(choice):
+				fallback_count += 1
+		_check(fallback_count > 0, "resource-empty event always has a fallback: " + str(event_data.id))
 
 	# Deterministic strong and weak siege cases.
+	state.reset_game()
 	battle_results.clear()
 	state.units = {"militia": 100, "archer": 100, "chariot": 100}
 	state.morale = 100.0
@@ -314,7 +339,14 @@ func _run() -> void:
 
 func _fill_resources(state) -> void:
 	state.resources = {"grain": 100000.0, "wood": 100000.0, "stone": 100000.0, "coins": 100000.0}
-	state.population = maxi(state.population, 500)
+	var civilian_cap: int = maxi(40, state.get_population_cap() - state.get_army_count() - state.get_wounded_count())
+	state.population = clampi(maxi(state.population, 200), 40, civilian_cap)
+
+func _fill_event_resources(state) -> void:
+	for resource in state.resources:
+		state.resources[resource] = state.get_capacity(resource) * 0.40
+	var civilian_cap: int = maxi(40, state.get_population_cap() - state.get_army_count() - state.get_wounded_count())
+	state.population = clampi(state.population, 40, maxi(40, civilian_cap - 40))
 
 func _check(condition: bool, label: String) -> void:
 	if not condition:
