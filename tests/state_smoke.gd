@@ -45,6 +45,26 @@ func _run() -> void:
 	_check(not state.current_event.is_empty() and state.time_speed == 0.0, "event forces pause")
 	state.resolve_event(1)
 	state.reset_game()
+	state.current_day = 12
+	state.next_attack_day = 99
+	state.population = state.get_population_cap() - state.get_army_count()
+	var season_boundary_grain: float = state.resources.grain
+	var spring_net: float = state.get_daily_ledger().grain.net
+	state.current_day = 13
+	var summer_net: float = state.get_daily_ledger().grain.net
+	state.current_day = 12
+	state._tick_economy(state.DAY_SECONDS * 2.0)
+	_check(state.current_day == 14 and absf(state.resources.grain - season_boundary_grain - spring_net - summer_net) < 0.01, "long frame settles each season with its own rate")
+	state.reset_game()
+	state.next_attack_day = 99
+	state._tick_economy(state.DAY_SECONDS * 10.0)
+	_check(state.current_day == 3 and not state.current_event.is_empty(), "long frame stops at a required event decision")
+	state.reset_game()
+	state.current_day = 6
+	state.next_attack_day = 7
+	state._tick_economy(state.DAY_SECONDS * 3.0)
+	_check(state.current_day == 7 and state.next_attack_day > 7, "long frame stops after a siege resolution")
+	state.reset_game()
 
 	state.resources = {"grain": 5000.0, "wood": 5000.0, "stone": 5000.0, "coins": 5000.0}
 	_check(state.upgrade_building("market"), "build market")

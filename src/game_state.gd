@@ -128,11 +128,22 @@ func _notification(what: int) -> void:
 		save_game()
 
 func _tick_economy(delta: float) -> void:
-	_produce_resources(delta)
-	day_progress += delta / DAY_SECONDS
-	if day_progress >= 1.0:
-		day_progress -= 1.0
-		_advance_day()
+	var remaining_seconds := maxf(0.0, delta)
+	while remaining_seconds > 0.0001:
+		var seconds_to_next_day := maxf(0.0, (1.0 - day_progress) * DAY_SECONDS)
+		var step := minf(remaining_seconds, seconds_to_next_day)
+		var completed_ledger := get_daily_ledger()
+		_produce_resources(step)
+		day_progress += step / DAY_SECONDS
+		remaining_seconds -= step
+		if day_progress < 0.999999:
+			break
+		day_progress = 0.0
+		var siege_due := current_day + 1 >= next_attack_day
+		_advance_day(completed_ledger)
+		# A long frame must never skip a decision that intentionally stops time.
+		if siege_due or not current_event.is_empty():
+			break
 
 func _produce_resources(delta: float) -> void:
 	var rates := get_rates()
@@ -214,10 +225,11 @@ func advance_one_day() -> bool:
 		notice.emit("请先暂停时间并处理当前事务")
 		return false
 	var remaining_seconds := maxf(0.0, (1.0 - day_progress) * DAY_SECONDS)
+	var completed_ledger := get_daily_ledger()
 	_produce_resources(remaining_seconds)
 	day_progress = 0.0
 	Telemetry.track("day_advanced_manually", {"from_day": current_day})
-	_advance_day()
+	_advance_day(completed_ledger)
 	return true
 
 func get_capacity(resource_id: String) -> float:
@@ -504,10 +516,10 @@ func patrol() -> bool:
 	save_game()
 	return true
 
-func _advance_day() -> void:
+func _advance_day(completed_ledger: Dictionary = {}) -> void:
 	current_day += 1
 	var recovered := _recover_wounded()
-	var ledger := get_daily_ledger()
+	var ledger := completed_ledger if not completed_ledger.is_empty() else get_daily_ledger()
 	last_day_report = "第%d日账：粮 %+.1f石  木 %+.1f车  石 %+.1f方  财 %+.0f枚" % [current_day, ledger.grain.net, ledger.wood.net, ledger.stone.net, ledger.coins.net]
 	var civil_food := maxf(1.0, population / 15.0)
 	if resources.grain > civil_food * 5.0 and get_total_residents() < get_population_cap() and morale >= 55.0:
@@ -1073,10 +1085,12 @@ func _apply_offline_progress(data: Dictionary) -> void:
 	var ledger := get_daily_ledger()
 	var gains := []
 	for key in resources:
-		var gain: float = maxf(0.0, float(ledger[key].net)) * rewarded_days * 0.45
-		resources[key] = minf(get_capacity(key), resources[key] + gain)
-		if gain >= 1.0:
-			gains.append("%s +%d%s" % [_resource_name(key), roundi(gain), _resource_unit(key)])
+		var potential_gain: float = maxf(0.0, float(ledger[key].net)) * rewarded_days * 0.45
+		var before: float = resources[key]
+		resources[key] = minf(get_capacity(key), before + potential_gain)
+		var actual_gain: float = resources[key] - before
+		if actual_gain >= 1.0:
+			gains.append("%s +%d%s" % [_resource_name(key), roundi(actual_gain), _resource_unit(key)])
 	if not gains.is_empty():
 		offline_report = "离城期间只结算安全生产：" + "  ".join(gains)
 		Telemetry.track("offline_rewards", {"elapsed": roundi(elapsed), "rewarded_days": rewarded_days, "gains": gains})

@@ -302,6 +302,15 @@ func _run() -> void:
 	state._apply_snapshot(offline_data, true)
 	_check(state.current_day == 5 and state.next_attack_day == 7, "offline progress does not advance danger")
 	_check(state.current_event.is_empty() and state.resources.grain > 20.0, "offline progress grants safe production")
+	state.reset_game()
+	state.resources.grain = state.get_capacity("grain") - 3.0
+	state.resources.wood = state.get_capacity("wood")
+	state.resources.stone = state.get_capacity("stone")
+	state.resources.coins = state.get_capacity("coins")
+	var near_capacity_snapshot: Dictionary = state.get_snapshot()
+	near_capacity_snapshot.saved_at = Time.get_unix_time_from_system() - state.MAX_OFFLINE_SECONDS
+	state._apply_snapshot(near_capacity_snapshot, true)
+	_check(state.offline_report.contains("粮 +3石") and not state.offline_report.contains("木 +"), "offline report shows only actual stored gains")
 	state.current_event = state.EVENTS[0].duplicate(true)
 	var event_snapshot: Dictionary = state.get_snapshot()
 	state.current_event = {}
