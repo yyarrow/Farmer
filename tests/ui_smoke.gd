@@ -30,6 +30,7 @@ func _run() -> void:
 	await process_frame
 	_check(ui.content_box != null, "main content built")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
+	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
 	state.set_time_speed(1.0)
 	for tab in range(4):
 		ui.current_tab = tab

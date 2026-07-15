@@ -1109,7 +1109,11 @@ func _danger_button(text_value: String) -> Button:
 	return button
 
 func _format_save_time(unix_time: float) -> String:
-	var date := Time.get_datetime_dict_from_unix_time(int(unix_time))
+	var time_zone := Time.get_time_zone_from_system()
+	return _format_save_time_with_bias(unix_time, int(time_zone.get("bias", 0)))
+
+func _format_save_time_with_bias(unix_time: float, utc_bias_minutes: int) -> String:
+	var date := Time.get_datetime_dict_from_unix_time(int(unix_time) + utc_bias_minutes * 60)
 	return "%04d-%02d-%02d  %02d:%02d" % [date.year, date.month, date.day, date.hour, date.minute]
 
 func _show_tutorial() -> void:
