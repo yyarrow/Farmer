@@ -81,6 +81,9 @@ def verify() -> None:
         "bundled_font": any("QingheSansSC-Medium" in name and name.endswith(".fontdata") for name in names),
         "font_license": any(name.endswith("assets/fonts/OFL.txt") for name in names),
         "store_excluded": not any("/store/" in name or "feature-graphic" in name for name in names),
+        "development_files_excluded": not any(
+            marker in f"/{name}" for name in names for marker in ("/tests/", "/docs/", "/tools/", "/.qa/")
+        ),
     }
     failed = [name for name, passed in structural_checks.items() if not passed]
     if failed:
