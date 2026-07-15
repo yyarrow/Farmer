@@ -46,6 +46,7 @@ python3 tools/build_release_apk.py
 - 不含 debuggable 标记；
 - 仅声明振动权限，不声明网络权限；
 - APK Signature Scheme v2 签名有效；
+- 两个 arm64 原生库的每个 ELF `LOAD` 段均按 16 KiB 对齐并启用 RELRO，APK 的未压缩原生库也通过 16 KiB ZIP 对齐；
 - 签名证书属于 `Qinghe Game`，不是 Godot 调试证书。
 
 构建成功会打印 APK 与签名证书的 SHA-256。将 `.release/` 的两个文件加密备份到至少两个独立位置，绝不能提交到 Git、聊天或公开存储。丢失密钥可能导致无法向同一安装渠道发布后续更新。
@@ -66,15 +67,15 @@ python3 tools/build_release_aab.py
 python3 tools/build_release_aab.py --universal-apk
 ```
 
-脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，幂等启用 Godot 4.7 已接入的 Android 13+ 预测性返回回调，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、预测性返回、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单和签名验证。脚本不会打印签名密码。
+脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，幂等启用 Godot 4.7 已接入的 Android 13+ 预测性返回回调，并自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、预测性返回、非调试状态、JAR 签名和上传证书；随后调用 `bundletool validate`。原生兼容闸门还会检查 AAB 声明 `PAGE_ALIGNMENT_16K`、每个 arm64 ELF 的 16 KiB `LOAD` 对齐及 RELRO。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单、签名和 16 KiB ZIP 对齐验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的 `0.5.0` 最终本地候选验证结果：AAB 37.8 MiB，SHA-256 `1ccabad822b2075931a76164cf73e7d2d47235cdbb17376f9af962be1c362141`；独立 APK 37.8 MiB，SHA-256 `6de5cbe719865347d7abe92e9ef6c2ec67f58da508c0892351c4da137a1674ba`；AAB 派生通用 APK 84.5 MiB，SHA-256 `9f47cbe41bc7f7ffc1954542707dab1b7538ed230e2b6cf1821674e1f4d6d88d`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。最终 AAB 派生包在 Android 35 清数据冷启动为 250 ms，普通热恢复为 67 ms；同版本前序压力复核的设置页 PSS 约 170 MiB，`RUNNING_CRITICAL` 内存压力后热恢复为 127 ms。1080×2400 教程、设置、音量、存档和退出确认均无截断；系统返回键不能跳过教程、可关闭设置、并在主界面打开保存退出确认；启用预测性返回后对应 Android 警告已消失。SwiftShader 模拟器切后台时仍可能记录已断开绘图表面的 `EGL_BAD_SURFACE`，但 Godot、AndroidRuntime 与原生崩溃日志以及 crash buffer 均为空，未见崩溃、ANR 或 Godot 脚本错误，仍须按下文在实体设备复核后台恢复。
+2026 年 7 月 16 日的 `0.5.0` 最终本地候选验证结果：AAB 37.8 MiB，SHA-256 `1ccabad822b2075931a76164cf73e7d2d47235cdbb17376f9af962be1c362141`；独立 APK 37.8 MiB，SHA-256 `e0fe222a71a653dcc8c199c93b12501ff480b7c588a87cf72be49e80c4d2f50d`；AAB 派生通用 APK 84.5 MiB，SHA-256 `9f47cbe41bc7f7ffc1954542707dab1b7538ed230e2b6cf1821674e1f4d6d88d`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 和两个 APK 的全部 arm64 原生库均通过 16 KiB ELF/ZIP 对齐与 RELRO 检查。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。最终 AAB 派生包在 Android 35 清数据冷启动为 250 ms，普通热恢复为 67 ms；同版本前序压力复核的设置页 PSS 约 170 MiB，`RUNNING_CRITICAL` 内存压力后热恢复为 127 ms。1080×2400 教程、设置、音量、存档和退出确认均无截断；系统返回键不能跳过教程、可关闭设置、并在主界面打开保存退出确认；启用预测性返回后对应 Android 警告已消失。SwiftShader 模拟器切后台时仍可能记录已断开绘图表面的 `EGL_BAD_SURFACE`，但 Godot、AndroidRuntime 与原生崩溃日志以及 crash buffer 均为空，未见崩溃、ANR 或 Godot 脚本错误，仍须按下文在实体设备复核后台恢复。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
 本地 AAB 工程闸门已经通过；正式公开发布仍必须先上传 Play Console 内部测试轨道，并用 Play 实际分发的安装包完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
 
-参考：Godot 官方的 [Android 导出](https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html) 与 [Gradle 构建](https://docs.godotengine.org/en/4.7/tutorials/export/android_gradle_build.html) 文档。
+当前目标 API 36 已满足 Google Play 自 2026 年 8 月 31 日起对新应用与更新的要求；16 KiB 闸门对应 2025 年 11 月 1 日起实施的 64 位设备兼容要求。参考官方的 [目标 API 要求](https://developer.android.com/google/play/requirements/target-sdk)、[16 KiB 页面兼容指南](https://developer.android.com/guide/practices/page-sizes)、Godot [Android 导出](https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html) 与 [Gradle 构建](https://docs.godotengine.org/en/4.7/tutorials/export/android_gradle_build.html) 文档。
 
 ## 4. 人工实机验收
 
@@ -96,7 +97,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 `store/` 已包含 512×512 应用图标、五张 1080×1920 实机比例截图、1024×500 宣传图、中文短说明和完整说明、版本说明、隐私政策正文及图片替代文字。截图覆盖三季城景、侦察推演和政令经营；素材规格与重新生成命令见 `store/README.md`，Play Console 填写顺序见 `store/play-console-checklist.md`。
 
-公开发布前仍需发布主体人工完成：填写法定名称和客服邮箱、把隐私政策部署到无需登录的公开 HTTPS 地址、回答内容分级和目标年龄问卷、确认数据安全表、确认版权/商标归属、选择价格和国家/地区，并通过内部测试轨道。当前游戏离线运行，不请求联网权限；存档、设置和诊断均留在应用私有目录，诊断只能由玩家主动复制分享。
+公开发布前仍需发布主体人工完成：在 Play Console 完成开发者身份验证并登记 `com.qinghe.farmer` 包名，填写法定名称和客服邮箱、把隐私政策部署到无需登录的公开 HTTPS 地址、回答内容分级和目标年龄问卷、确认数据安全表、确认版权/商标归属、选择价格和国家/地区，并通过内部测试轨道。Android 开发者验证将从 2026 年 9 月起首先在新加坡、泰国、巴西和印度尼西亚实施，详见 Google 的 [Play Console 验证指南](https://developer.android.com/developer-verification/guides/pdf-guides/pdc-guide.pdf)。当前游戏离线运行，不请求联网权限；存档、设置和诊断均留在应用私有目录，诊断只能由玩家主动复制分享。
 
 替换占位符后运行 `python3 tests/store_assets.py --strict-contact`；只有严格模式也通过，商店资料才可进入生产发布。
 

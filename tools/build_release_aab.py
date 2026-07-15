@@ -11,7 +11,7 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-from build_release_apk import GODOT, ROOT, load_credentials, verify as verify_apk
+from build_release_apk import GODOT, ROOT, inspect_native_libraries, load_credentials, verify as verify_apk
 
 
 AAB = ROOT / "build" / "Qinghe.aab"
@@ -63,9 +63,11 @@ def verify() -> None:
     with zipfile.ZipFile(AAB) as archive:
         bad_entry = archive.testzip()
         names = set(archive.namelist())
+        native_16k, native_relro, native_count = inspect_native_libraries(archive, names)
     required = {
         "base/manifest/AndroidManifest.xml",
         "base/dex/classes.dex",
+        "base/lib/arm64-v8a/libc++_shared.so",
         "base/lib/arm64-v8a/libgodot_android.so",
         "base/resources.pb",
     }
@@ -74,6 +76,8 @@ def verify() -> None:
         "zip": bad_entry is None,
         "entries": required.issubset(names),
         "architecture": native_abis == ["arm64-v8a"],
+        "elf_page_alignment_16k": native_16k,
+        "elf_relro": native_relro,
         "signature_files": (
             any(name.upper().startswith("META-INF/") and name.upper().endswith(".SF") for name in names)
             and any(name.upper().startswith("META-INF/") and name.upper().endswith((".RSA", ".DSA", ".EC")) for name in names)
@@ -106,6 +110,13 @@ def verify() -> None:
         capture_output=True,
         env=clean_env,
     ).stdout
+    bundle_config = subprocess.run(
+        [java, "-jar", str(BUNDLETOOL), "dump", "config", f"--bundle={AAB}"],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=clean_env,
+    ).stdout
     manifest_checks = {
         "package": 'package="com.qinghe.farmer"' in manifest,
         "version": 'android:versionCode="6"' in manifest and 'android:versionName="0.5.0"' in manifest,
@@ -115,6 +126,7 @@ def verify() -> None:
         "portrait": 'android:screenOrientation="1"' in manifest or 'android:screenOrientation="portrait"' in manifest,
         "release": "android:debuggable=\"true\"" not in manifest,
         "predictive_back": 'android:enableOnBackInvokedCallback="true"' in manifest,
+        "bundle_page_alignment_16k": "PAGE_ALIGNMENT_16K" in bundle_config,
     }
     failed = [name for name, passed in manifest_checks.items() if not passed]
     if failed:
@@ -146,6 +158,7 @@ def verify() -> None:
             cert_digest = line.split("SHA256:", 1)[1].strip().replace(":", "").lower()
             break
     print("BUNDLETOOL_VALIDATE_OK")
+    print(f"ANDROID_16K_AAB_OK libraries={native_count} alignment=PAGE_ALIGNMENT_16K")
     print(f"ANDROID_AAB_OK aab={AAB} size_mb={AAB.stat().st_size / 1048576:.1f} abis={','.join(native_abis)}")
     print(f"AAB_SHA256={digest}")
     print(f"SIGNER_SHA256={cert_digest}")
