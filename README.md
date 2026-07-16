@@ -41,6 +41,7 @@
 
 ```bash
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/architecture_contract.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd
@@ -73,6 +74,7 @@ python3 tools/build_release_aab.py --universal-apk
 Google Play 图标、宣传图、截图、中文文案和隐私政策草案位于 [`store/`](store/README.md)。
 
 当前经济、建筑、军队和敌袭公式见 [`docs/BALANCE.md`](docs/BALANCE.md)。
+当前模块边界与朝代扩展约束见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 无界面自动玩家的策略、指标和最近一次 4000 局结果见 [`docs/HEADLESS_PLAYTEST.md`](docs/HEADLESS_PLAYTEST.md)。批量测试支持 runs、days、seed、policy、report 和 strict 参数，默认在 .qa/ 生成 JSON 与 Markdown 完整报告。
 
 ## 重新生成原创音频

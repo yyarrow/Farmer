@@ -11,6 +11,7 @@
 
 ```bash
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/architecture_contract.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd --audio-driver Dummy
@@ -21,7 +22,7 @@ python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、开场说明、首战备忘、容量账簿、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对建筑当前/下一阶效果可读、侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`ARCHITECTURE_CONTRACT_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、开场说明、首战备忘、容量账簿、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对建筑当前/下一阶效果可读、侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
 
 长期平衡复核：
 

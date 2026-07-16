@@ -1,35 +1,10 @@
 extends Control
 
 const UiFont = preload("res://src/ui_font.gd")
-const POSITIONS := {
-	"wall": Vector2(386, 154),
-	"barracks": Vector2(326, 217),
-	"warehouse": Vector2(226, 268),
-	"market": Vector2(78, 323),
-	"house": Vector2(330, 348),
-	"woodcut": Vector2(35, 209),
-	"quarry": Vector2(395, 407),
-	"farm": Vector2(83, 432),
-}
-const SIZES := {
-	"wall": Vector2(132, 112),
-	"barracks": Vector2(126, 112),
-	"warehouse": Vector2(112, 102),
-	"market": Vector2(118, 100),
-	"house": Vector2(118, 104),
-	"woodcut": Vector2(116, 104),
-	"quarry": Vector2(116, 104),
-	"farm": Vector2(126, 106),
-}
-const EFFECT_POSITIONS := {
-	"trade": Vector2(150, 405),
-	"recruit": Vector2(380, 275),
-	"defense_order": Vector2(377, 292),
-	"policy": Vector2(270, 410),
-	"siege": Vector2(425, 205),
-	"shortage": Vector2(270, 460),
-	"storage_full": Vector2(270, 350),
-}
+const CityLayout = preload("res://src/data/city_layout.gd")
+const POSITIONS := CityLayout.BUILDING_POSITIONS
+const SIZES := CityLayout.BUILDING_SIZES
+const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
 
 var building_views := {}
 var displayed_stages := {}

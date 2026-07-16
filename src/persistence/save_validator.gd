@@ -1,0 +1,162 @@
+extends RefCounted
+
+const BattleSystem = preload("res://src/systems/battle_system.gd")
+const EconomySystem = preload("res://src/systems/economy_system.gd")
+
+static func valid_number(value: Variant, minimum: float, maximum: float) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and float(value) >= minimum and float(value) <= maximum
+
+static func valid_numeric_map(value: Variant, allowed_keys: Array, minimum: float, maximum: float) -> bool:
+	if value is not Dictionary:
+		return false
+	for key in value:
+		if key not in allowed_keys or not valid_number(value[key], minimum, maximum):
+			return false
+	return true
+
+static func event_definition(id: String, events: Array) -> Dictionary:
+	for event in events:
+		if str(event.id) == id:
+			return event
+	return {}
+
+static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool:
+	var saved_buildings: Dictionary = context.initial_buildings.duplicate(true)
+	saved_buildings.merge(data.get("buildings", {}), true)
+	var warehouse_level := int(saved_buildings.warehouse)
+	var saved_resources: Dictionary = context.initial_resources.duplicate(true)
+	saved_resources.merge(data.get("resources", {}), true)
+	for id in saved_resources:
+		if float(saved_resources[id]) > EconomySystem.capacity(id, warehouse_level) + 0.001:
+			return false
+
+	var saved_units: Dictionary = context.initial_units.duplicate(true)
+	saved_units.merge(data.get("units", {}), true)
+	var saved_wounded: Dictionary = context.empty_units.duplicate(true)
+	saved_wounded.merge(data.get("wounded", {}), true)
+	var army_total := BattleSystem.sum_force(saved_units)
+	var wounded_total := BattleSystem.sum_force(saved_wounded)
+	var saved_population := int(data.get("population", 110))
+	if saved_population < 40 or saved_population + army_total + wounded_total > EconomySystem.population_cap(int(saved_buildings.house)):
+		return false
+	if army_total + wounded_total > EconomySystem.army_capacity(int(saved_buildings.barracks)):
+		return false
+
+	var queued_wounded: Dictionary = context.empty_units.duplicate(true)
+	var saved_day := int(data.get("current_day", 1))
+	for entry in data.get("recovery_queue", []):
+		if int(entry.return_day) <= saved_day:
+			return false
+		queued_wounded[entry.unit] += int(entry.count)
+	for id in context.units:
+		if int(queued_wounded[id]) != int(saved_wounded[id]):
+			return false
+	if int(data.get("next_attack_day", 7)) <= saved_day:
+		return false
+	if int(data.get("last_patrol_day", 0)) > saved_day:
+		return false
+	if int(data.get("patrol_delay_wave", 0)) > int(data.get("attack_wave", 1)):
+		return false
+	var saved_enemy: Dictionary = data.get("enemy_army", {})
+	if not saved_enemy.is_empty():
+		if BattleSystem.sum_force(saved_enemy) <= 0:
+			return false
+		if int(saved_enemy.get("wave", data.get("attack_wave", 1))) != int(data.get("attack_wave", 1)):
+			return false
+		if not valid_number(saved_enemy.get("tier", 1), 1.0, float(context.max_enemy_tier)):
+			return false
+
+	var saved_event: Dictionary = data.get("current_event", {})
+	if not saved_event.is_empty():
+		var canonical_event := event_definition(str(saved_event.get("id", "")), context.events)
+		if canonical_event.is_empty() or saved_event.get("options") != canonical_event.options:
+			return false
+	return true
+
+static func is_valid(data: Dictionary, context: Dictionary) -> bool:
+	if data.is_empty() or not valid_number(data.get("format_version", 1), 1.0, float(context.format_version)):
+		return false
+	var format_version := int(data.get("format_version", 1))
+	if data.has("resources") and not valid_numeric_map(data.resources, context.resource_units.keys(), 0.0, 1000000000.0):
+		return false
+	if data.has("buildings"):
+		if data.buildings is not Dictionary:
+			return false
+		for id in data.buildings:
+			if not context.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(context.buildings[id].max)):
+				return false
+	for roster_key in ["units", "wounded"]:
+		if data.has(roster_key) and not valid_numeric_map(data[roster_key], context.units.keys(), 0.0, 10000.0):
+			return false
+	var numeric_ranges := {
+		"population": [0.0, 1000000.0],
+		"morale": [0.0, 100.0],
+		"current_day": [1.0, 10000000.0],
+		"chapter": [1.0, 3.0],
+		"day_progress": [0.0, 1.0],
+		"next_attack_day": [1.0, 10000000.0],
+		"attack_wave": [1.0, 10000000.0],
+		"last_patrol_day": [0.0, 10000000.0],
+		"patrol_delay_wave": [0.0, 10000000.0],
+		"saved_at": [0.0, 100000000000.0],
+	}
+	for key in numeric_ranges:
+		if data.has(key) and not valid_number(data[key], numeric_ranges[key][0], numeric_ranges[key][1]):
+			return false
+	if data.has("tutorial_seen") and data.tutorial_seen is not bool:
+		return false
+	if data.has("defense_order") and str(data.defense_order) not in context.defense_orders:
+		return false
+	if data.has("buffs") and not valid_numeric_map(data.buffs, ["farm_until", "all_until"], 0.0, 10000000.0):
+		return false
+	if data.has("recovery_queue"):
+		if data.recovery_queue is not Array or data.recovery_queue.size() > 1000:
+			return false
+		for entry in data.recovery_queue:
+			if entry is not Dictionary or str(entry.get("unit", "")) not in context.units:
+				return false
+			if not valid_number(entry.get("count"), 1.0, 10000.0) or not valid_number(entry.get("return_day"), 1.0, 10000000.0):
+				return false
+	if data.has("enemy_army"):
+		if data.enemy_army is not Dictionary or (format_version >= int(context.format_version) and data.enemy_army.is_empty()):
+			return false
+		if not data.enemy_army.is_empty():
+			if data.enemy_army.get("name") is not String or str(data.enemy_army.name).length() > 80:
+				return false
+			if not valid_numeric_map(
+				{
+					"militia": data.enemy_army.get("militia"),
+					"archer": data.enemy_army.get("archer"),
+					"chariot": data.enemy_army.get("chariot"),
+				},
+				["militia", "archer", "chariot"], 0.0, 10000.0
+			):
+				return false
+			if not valid_number(data.enemy_army.get("morale"), 0.0, 100.0) or not valid_number(data.enemy_army.get("training"), 0.1, 3.0):
+				return false
+			if data.enemy_army.get("scouted") is not bool:
+				return false
+	if data.has("current_event"):
+		if data.current_event is not Dictionary:
+			return false
+		if not data.current_event.is_empty():
+			if event_definition(str(data.current_event.get("id", "")), context.events).is_empty() or data.current_event.get("options") is not Array:
+				return false
+			if data.current_event.get("title") is not String or str(data.current_event.title).length() > 80:
+				return false
+			if data.current_event.get("body") is not String or str(data.current_event.body).length() > 500:
+				return false
+			for option in data.current_event.options:
+				if option is not String or str(option).length() > 100:
+					return false
+	if data.has("last_event_id"):
+		if data.last_event_id is not String:
+			return false
+		var valid_last_ids: Array[String] = [""]
+		for event in context.events:
+			valid_last_ids.append(str(event.id))
+		if str(data.last_event_id) not in valid_last_ids:
+			return false
+	if format_version >= int(context.format_version) and not is_consistent_current(data, context):
+		return false
+	return true

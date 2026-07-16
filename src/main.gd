@@ -2,22 +2,20 @@ extends Control
 
 const UiFont = preload("res://src/ui_font.gd")
 const LicenseNotice = preload("res://src/license_notice.gd")
-const INK := Color("#29382f")
-const INK_SOFT := Color("#5f6555")
-const PAPER := Color("#f4e8c8")
-const PAPER_DARK := Color("#dfca96")
-const JADE := Color("#55745d")
-const JADE_LIGHT := Color("#779274")
-const CINNABAR := Color("#a54a3d")
-const GOLD := Color("#c99945")
-const SHADOW := Color(0.10, 0.12, 0.09, 0.42)
-
-const RESOURCE_META := {
-	"grain": {"name": "粮", "glyph": "粟", "unit": "石"},
-	"wood": {"name": "木", "glyph": "木", "unit": "车"},
-	"stone": {"name": "石", "glyph": "石", "unit": "方"},
-	"coins": {"name": "财", "glyph": "币", "unit": "枚"},
-}
+const CityLayout = preload("res://src/data/city_layout.gd")
+const UiComponents = preload("res://src/ui/component_factory.gd")
+const UiPresentation = preload("res://src/ui/presentation_formatter.gd")
+const OpeningAdvisor = preload("res://src/ui/opening_advisor.gd")
+const INK := UiComponents.INK
+const INK_SOFT := UiComponents.INK_SOFT
+const PAPER := UiComponents.PAPER
+const PAPER_DARK := UiComponents.PAPER_DARK
+const JADE := UiComponents.JADE
+const JADE_LIGHT := UiComponents.JADE_LIGHT
+const CINNABAR := UiComponents.CINNABAR
+const GOLD := UiComponents.GOLD
+const SHADOW := UiComponents.SHADOW
+const RESOURCE_META := UiPresentation.RESOURCE_META
 
 var resource_labels := {}
 var marker_buttons := {}
@@ -268,16 +266,7 @@ func _build_top_panel() -> void:
 		resource_labels[id] = pill
 
 func _build_map_markers() -> void:
-	var marker_data := {
-		"wall": Vector2(410, 190),
-		"barracks": Vector2(344, 260),
-		"warehouse": Vector2(243, 305),
-		"market": Vector2(102, 354),
-		"house": Vector2(360, 390),
-		"woodcut": Vector2(58, 242),
-		"quarry": Vector2(415, 465),
-		"farm": Vector2(104, 485),
-	}
+	var marker_data := CityLayout.MARKER_POSITIONS
 	for id in marker_data:
 		var button := Button.new()
 		button.position = marker_data[id]
@@ -495,31 +484,7 @@ func _render_tab() -> void:
 		3: _render_governance()
 
 func _opening_guidance() -> Dictionary:
-	if State.attack_wave > 1:
-		return {}
-	var days_left := State.days_until_attack()
-	var militia_cost: Dictionary = State.UNITS.militia.cost
-	if State.get_army_count() < 25:
-		var roster_used := State.get_army_count() + State.get_wounded_count()
-		if roster_used + int(State.UNITS.militia.batch) > State.get_army_capacity():
-			return {"step": "recover", "title": "首战备忘 · 安置伤卒", "detail": "伤员仍占军籍，待其归队或升级兵营扩充军籍后再征募。来敌%d日后抵城。" % days_left, "tab": 2, "action": "查看伤营"}
-		if not State.can_afford(militia_cost):
-			return {"step": "funds", "title": "首战备忘 · 筹措粮饷", "detail": "征募一伍乡勇需%s；先从账簿确认日结，必要时市易筹措。" % _format_cost(militia_cost), "tab": 1, "action": "查看账簿"}
-		var enemy := State.get_enemy_display()
-		return {"step": "recruit", "title": "首战备忘 · 补足军籍", "detail": "%s约%s，现有守军%d人。先征募一伍乡勇，不会推进日期。" % [enemy.name, enemy.range, State.get_army_count()], "tab": 2, "action": "前往军务"}
-	if State.buildings.wall == 0 and State.buildings.barracks == 0:
-		var can_build_defense := State.can_afford(State.building_cost("wall")) or State.can_afford(State.building_cost("barracks"))
-		if not can_build_defense:
-			return {"step": "funds", "title": "首战备忘 · 积蓄城资", "detail": "守军已经补足；接下来修城垣减伤或建兵营扩军。先从账簿安排缺少的物资。", "tab": 1, "action": "查看账簿"}
-		return {"step": "defense", "title": "首战备忘 · 建立防务", "detail": "来敌%d日后抵城。城垣直接降低伤亡；兵营提高军籍上限与训练，可择一先建。" % days_left, "tab": 0, "action": "查看城建"}
-	if not bool(State.enemy_army.get("scouted", false)):
-		return {"step": "scout", "title": "首战备忘 · 探明来敌", "detail": "防务已有根基。巡剿会探明真实编成，并有机会削敌、拖延行军，但也可能产生伤员。", "tab": 2, "action": "前往军务"}
-	var forecast := State.get_battle_forecast(60)
-	var win_percent := roundi(float(forecast.win_rate) * 100.0)
-	var forecast_text := "当前推演胜算约%d%%，预计伤亡%d～%d人。" % [win_percent, int(forecast.loss_low), int(forecast.loss_high)]
-	if win_percent < 60:
-		return {"step": "reinforce", "title": "首战备忘 · 风险仍高", "detail": forecast_text + "继续扩军、修墙或更换阵令，再决定是否推进日期。", "tab": 2, "action": "调整军务"}
-	return {"step": "ready", "title": "首战备忘 · 可以应战", "detail": forecast_text + "确认账簿能承担军粮军饷后，再用顶部按钮推进日期。", "tab": 2, "action": "查看推演"}
+	return OpeningAdvisor.guidance(State)
 
 func _add_opening_guidance() -> void:
 	var advice := _opening_guidance()
@@ -610,35 +575,7 @@ func _add_building_card(id: String) -> void:
 	row.add_child(action)
 
 func _format_building_effect(preview: Dictionary) -> String:
-	if preview.is_empty():
-		return ""
-	match str(preview.kind):
-		"farm", "woodcut", "quarry":
-			var unit: String = str(RESOURCE_META[str(preview.resource)].unit)
-			if bool(preview.has_next):
-				return "本季产出 %.1f → %.1f%s/日" % [float(preview.current), float(preview.next), unit]
-			return "本季产出 %.1f%s/日" % [float(preview.current), unit]
-		"house":
-			if bool(preview.has_next):
-				return "民口上限 %d → %d人 · 赋税 %.1f → %.1f枚/日" % [int(preview.population_cap), int(preview.next_population_cap), float(preview.current), float(preview.next)]
-			return "民口上限 %d人 · 赋税 %.1f枚/日" % [int(preview.population_cap), float(preview.current)]
-		"market":
-			if bool(preview.has_next):
-				return "赋税 %.1f → %.1f枚/日 · 市易价格同步改善" % [float(preview.current), float(preview.next)]
-			return "赋税 %.1f枚/日 · 市易价格已达最佳" % float(preview.current)
-		"warehouse":
-			if bool(preview.has_next):
-				return "仓容 粮%d→%d石 · 木石%d→%d · 财%d→%d枚" % [int(preview.grain), int(preview.next_grain), int(preview.material), int(preview.next_material), int(preview.coins), int(preview.next_coins)]
-			return "仓容 粮%d石 · 木石%d · 财%d枚" % [int(preview.grain), int(preview.material), int(preview.coins)]
-		"barracks":
-			if bool(preview.has_next):
-				return "军籍 %d → %d人 · 训练 +%d%% → +%d%%" % [int(preview.capacity), int(preview.next_capacity), int(preview.training), int(preview.next_training)]
-			return "军籍 %d人 · 训练 +%d%%" % [int(preview.capacity), int(preview.training)]
-		"wall":
-			if bool(preview.has_next):
-				return "守军承受敌方杀伤 %d%% → %d%%" % [int(preview.incoming), int(preview.next_incoming)]
-			return "守军承受敌方杀伤 %d%%" % int(preview.incoming)
-	return ""
+	return UiPresentation.building_effect(preview)
 
 func _render_market() -> void:
 	_add_section_heading("邑中账簿", "所有生产、民食、军粮与军饷按日公开结算")
@@ -893,87 +830,19 @@ func _add_section_heading(title: String, subtitle: String) -> void:
 	stack.add_child(sub)
 
 func _card(height: float) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.custom_minimum_size.y = height
-	card.add_theme_stylebox_override("panel", _style(Color(1.0, 0.975, 0.89, 0.80), 14, 1, Color(0.42, 0.36, 0.24, 0.16), 10))
-	return card
+	return UiComponents.card(height)
 
 func _glyph_badge(glyph: String, color: Color) -> Label:
-	var badge := Label.new()
-	badge.text = glyph
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.custom_minimum_size = Vector2(50, 50)
-	badge.add_theme_font_size_override("font_size", 20)
-	badge.add_theme_color_override("font_color", Color.WHITE)
-	badge.add_theme_stylebox_override("normal", _style(color, 14))
-	return badge
+	return UiComponents.glyph_badge(glyph, color)
 
 func _action_button(text_value: String) -> Button:
-	var button := Button.new()
-	button.text = text_value
-	button.custom_minimum_size = Vector2(76, 42)
-	button.add_theme_font_size_override("font_size", 13)
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_pressed_color", Color.WHITE)
-	button.add_theme_stylebox_override("normal", _style(JADE, 11, 0, Color.TRANSPARENT, 5))
-	button.add_theme_stylebox_override("hover", _style(JADE_LIGHT, 11, 0, Color.TRANSPARENT, 5))
-	button.add_theme_stylebox_override("pressed", _style(CINNABAR, 11, 0, Color.TRANSPARENT, 5))
-	button.add_theme_stylebox_override("disabled", _style(Color(0.42, 0.41, 0.35, 0.35), 11, 0, Color.TRANSPARENT, 5))
-	return button
+	return UiComponents.action_button(text_value)
 
 func _info_banner(title: String, detail: String, accent: Color) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.y = 68 if "\n" in detail else 60
-	panel.add_theme_stylebox_override("panel", _style(Color(accent, 0.13), 13, 1, Color(accent, 0.22), 9))
-	var stack := VBoxContainer.new()
-	panel.add_child(stack)
-	var heading := Label.new()
-	heading.text = title
-	heading.add_theme_font_size_override("font_size", 13)
-	heading.add_theme_color_override("font_color", accent.darkened(0.25))
-	stack.add_child(heading)
-	var desc := Label.new()
-	desc.text = detail
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.add_theme_font_size_override("font_size", 12)
-	desc.add_theme_color_override("font_color", INK)
-	stack.add_child(desc)
-	return panel
+	return UiComponents.info_banner(title, detail, accent)
 
 func _progress_card(title: String, value: int, target: int, detail_text: String) -> PanelContainer:
-	var card := _card(90)
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 4)
-	card.add_child(stack)
-	var heading := HBoxContainer.new()
-	stack.add_child(heading)
-	var label := Label.new()
-	label.text = title
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("font_size", 14)
-	label.add_theme_color_override("font_color", INK)
-	heading.add_child(label)
-	var number := Label.new()
-	number.text = "%d / %d" % [value, target]
-	number.add_theme_font_size_override("font_size", 13)
-	number.add_theme_color_override("font_color", CINNABAR)
-	heading.add_child(number)
-	var progress := ProgressBar.new()
-	progress.max_value = target
-	progress.value = value
-	progress.show_percentage = false
-	progress.custom_minimum_size.y = 8
-	progress.add_theme_stylebox_override("background", _style(Color(0.31, 0.32, 0.23, 0.13), 4))
-	progress.add_theme_stylebox_override("fill", _style(JADE, 4))
-	stack.add_child(progress)
-	var detail := Label.new()
-	detail.text = detail_text
-	detail.add_theme_font_size_override("font_size", 10)
-	detail.add_theme_color_override("font_color", INK_SOFT)
-	stack.add_child(detail)
-	return card
+	return UiComponents.progress_card(title, value, target, detail_text)
 
 func _show_toast(message: String) -> void:
 	toast_label.text = message
@@ -1309,22 +1178,13 @@ func _confirm_action(title: String, body: String, confirm_text: String, action: 
 	], CINNABAR, _show_settings)
 
 func _danger_button(text_value: String) -> Button:
-	var button := Button.new()
-	button.text = text_value
-	button.custom_minimum_size.y = 44
-	button.add_theme_font_size_override("font_size", 13)
-	button.add_theme_color_override("font_color", CINNABAR)
-	button.add_theme_stylebox_override("normal", _style(Color(CINNABAR, 0.08), 11, 1, Color(CINNABAR, 0.28), 6))
-	button.add_theme_stylebox_override("pressed", _style(Color(CINNABAR, 0.20), 11, 1, CINNABAR, 6))
-	return button
+	return UiComponents.danger_button(text_value)
 
 func _format_save_time(unix_time: float) -> String:
-	var time_zone := Time.get_time_zone_from_system()
-	return _format_save_time_with_bias(unix_time, int(time_zone.get("bias", 0)))
+	return UiPresentation.save_time(unix_time)
 
 func _format_save_time_with_bias(unix_time: float, utc_bias_minutes: int) -> String:
-	var date := Time.get_datetime_dict_from_unix_time(int(unix_time) + utc_bias_minutes * 60)
-	return "%04d-%02d-%02d  %02d:%02d" % [date.year, date.month, date.day, date.hour, date.minute]
+	return UiPresentation.save_time_with_bias(unix_time, utc_bias_minutes)
 
 func _show_tutorial(return_to_settings := false) -> void:
 	var finish := func():
@@ -1353,25 +1213,7 @@ func _on_event_started(event: Dictionary) -> void:
 	_show_modal(event.title, event.body, options, GOLD)
 
 func _event_option_caption(id: String, index: int, base: String) -> String:
-	var suffix := ""
-	match id:
-		"drought":
-			var drought_relief := mini(45, floori(State.resources.grain))
-			suffix = " · 木28车 石18方" if index == 0 else " · 粮-%d石 民心%s" % [drought_relief, "+4" if drought_relief == 45 else "-4"]
-		"refugees":
-			var refugee_relief := mini(28, floori(State.resources.grain))
-			suffix = " · 粮58石，民口+20" if index == 0 else " · 粮-%d石 民心%s" % [refugee_relief, "+2" if refugee_relief == 28 else "-3"]
-		"merchant":
-			if index == 0: suffix = " · 财720枚"
-			elif index == 1: suffix = " · 粮-75石 财+620枚"
-		"scouts": suffix = " · 财320枚，探明并袭扰敌军" if index == 0 else " · 敌军延误一日"
-		"harvest": suffix = " · 粮最多+105石" if index == 0 else " · 粮最多+42石 民心+15"
-		"flood": suffix = " · 木30车 石18方，农田增产3日" if index == 0 else " · 粮-%d石 民心-4" % mini(60, floori(State.resources.grain))
-		"winter_relief": suffix = " · 粮42石 民心+10" if index == 0 else " · 民心-5"
-		"craftsmen": suffix = " · 财480枚 木16车，全邑增产3日" if index == 0 else " · 石最多+28方 民心-3"
-		"rumors": suffix = " · 财200枚，探明敌军 民心+5" if index == 0 else " · 民心-6"
-		"levy": suffix = " · 粮45石 财220枚 民心+3" if index == 0 else " · 敌军提前1日 民心-4"
-	return base + suffix
+	return UiPresentation.event_option_caption(State, id, index, base)
 
 func _on_battle_finished(result: Dictionary) -> void:
 	var title := "城头凯歌" if result.won else "烽火入郭"
@@ -1387,26 +1229,7 @@ func _on_battle_finished(result: Dictionary) -> void:
 	_show_modal(title, body, [{"text": "整顿城邑", "callback": func(): _render_tab()}], JADE if result.won else CINNABAR)
 
 func _battle_breakdown(result: Dictionary) -> String:
-	if not result.has("player_losses_by_type") or not result.has("enemy_losses_by_type"):
-		return ""
-	var player_parts: Array[String] = []
-	for id in State.UNITS:
-		var before := int(result.player_before.get(id, 0))
-		var dead := int(result.killed.get(id, 0))
-		var injured := int(result.wounded.get(id, 0))
-		if before > 0 or dead + injured > 0:
-			player_parts.append("%s %d亡 %d伤 %d余" % [State.UNITS[id].name, dead, injured, int(result.player_survivors.get(id, 0))])
-	var enemy_names := {"militia": "戈卒", "archer": "弓手", "chariot": "车士"}
-	var enemy_parts: Array[String] = []
-	for id in State.UNITS:
-		var before := int(result.enemy_before.get(id, 0))
-		var lost := int(result.enemy_losses_by_type.get(id, 0))
-		if before > 0 or lost > 0:
-			enemy_parts.append("%s %d损 %d余" % [enemy_names[id], lost, int(result.enemy_survivors.get(id, 0))])
-	var player_text := " · ".join(player_parts.slice(0, 2))
-	if player_parts.size() > 2:
-		player_text += "\n　　　" + " · ".join(player_parts.slice(2))
-	return "我军：" + player_text + "\n敌军：" + " · ".join(enemy_parts)
+	return UiPresentation.battle_breakdown(result, State.UNITS)
 
 func _show_chapter_modal() -> void:
 	var texts := ["", "", "青禾已由村聚成长为真正的城邑。商旅渐多，邻国也开始注视这里。", "城垣坚固，仓廪充实。你在乱世中守住了一方生民。"]
@@ -1474,29 +1297,10 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color, bac
 		layout.add_child(button)
 
 func _format_cost(cost: Dictionary) -> String:
-	var parts: Array[String] = []
-	for id in ["grain", "wood", "stone", "coins"]:
-		if cost.has(id):
-			parts.append("%s%d%s" % [RESOURCE_META[id].name, int(cost[id]), RESOURCE_META[id].unit])
-	return "  ".join(parts)
+	return UiPresentation.cost(cost)
 
 func _cn_number(value: int) -> String:
-	return ["零", "一", "二", "三", "四", "五"][clampi(value, 0, 5)]
+	return UiPresentation.chinese_number(value)
 
 func _style(fill: Color, radius := 12, border_width := 0, border_color := Color.TRANSPARENT, padding := 0) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.corner_radius_top_left = radius
-	box.corner_radius_top_right = radius
-	box.corner_radius_bottom_left = radius
-	box.corner_radius_bottom_right = radius
-	box.border_width_left = border_width
-	box.border_width_top = border_width
-	box.border_width_right = border_width
-	box.border_width_bottom = border_width
-	box.border_color = border_color
-	box.content_margin_left = padding
-	box.content_margin_top = padding
-	box.content_margin_right = padding
-	box.content_margin_bottom = padding
-	return box
+	return UiComponents.style(fill, radius, border_width, border_color, padding)
