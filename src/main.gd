@@ -1,6 +1,7 @@
 extends Control
 
 const UiFont = preload("res://src/ui_font.gd")
+const LicenseNotice = preload("res://src/license_notice.gd")
 const INK := Color("#29382f")
 const INK_SOFT := Color("#5f6555")
 const PAPER := Color("#f4e8c8")
@@ -961,6 +962,72 @@ func _show_settings() -> void:
 		)
 	)
 	content.add_child(clear_logs)
+
+	_add_settings_heading(content, "关于", "版本 %s · 离线单机 · 无广告与联网权限" % ProjectSettings.get_setting("application/config/version", "未知"))
+	var licenses_button := _action_button("开源软件许可与鸣谢")
+	licenses_button.custom_minimum_size.y = 46
+	licenses_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	licenses_button.pressed.connect(func():
+		_play_chime()
+		_show_licenses()
+	)
+	content.add_child(licenses_button)
+
+func _show_licenses() -> void:
+	State.set_modal_paused(true)
+	Telemetry.track("licenses_opened", {})
+	if modal_layer and is_instance_valid(modal_layer):
+		modal_layer.queue_free()
+	modal_layer = Control.new()
+	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_layer.z_index = 215
+	add_child(modal_layer)
+	_modal_back_action = _show_settings
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.055, 0.075, 0.06, 0.82)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	modal_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.035
+	panel.anchor_right = 0.965
+	panel.anchor_top = 0.035
+	panel.anchor_bottom = 0.965
+	panel.add_theme_stylebox_override("panel", _style(PAPER, 22, 2, Color(JADE, 0.62), 13))
+	modal_layer.add_child(panel)
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 9)
+	panel.add_child(layout)
+	var header := HBoxContainer.new()
+	layout.add_child(header)
+	var title := Label.new()
+	title.text = "开源软件许可"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 21)
+	title.add_theme_color_override("font_color", INK)
+	header.add_child(title)
+	var back := _action_button("返回设置")
+	back.custom_minimum_size = Vector2(86, 38)
+	back.pressed.connect(func():
+		_play_chime()
+		_show_settings()
+	)
+	header.add_child(back)
+	var hint := Label.new()
+	hint.text = "许可信息随当前引擎生成，可长按选择文本。"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", INK_SOFT)
+	layout.add_child(hint)
+	var notice := RichTextLabel.new()
+	notice.name = "LicenseNotice"
+	notice.text = LicenseNotice.build_notice()
+	notice.bbcode_enabled = false
+	notice.selection_enabled = true
+	notice.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	notice.add_theme_font_size_override("normal_font_size", 11)
+	notice.add_theme_color_override("default_color", INK)
+	notice.add_theme_stylebox_override("normal", _style(Color(1.0, 0.98, 0.90, 0.62), 12, 1, Color(JADE, 0.18), 9))
+	layout.add_child(notice)
 
 func _style_settings_toggle(toggle: CheckButton) -> void:
 	toggle.add_theme_font_size_override("font_size", 14)

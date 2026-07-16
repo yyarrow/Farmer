@@ -114,6 +114,14 @@ func _run() -> void:
 		failures.append("invalid world feedback frame")
 	elif feedback_image.save_png("res://.qa/visual_world_feedback.png") != OK:
 		failures.append("cannot save world feedback frame")
+	ui._show_licenses()
+	await create_timer(0.5).timeout
+	var licenses_image := root.get_viewport().get_texture().get_image()
+	if licenses_image.is_empty() or licenses_image.get_width() != 540 or licenses_image.get_height() != 960:
+		failures.append("invalid licenses frame")
+	elif licenses_image.save_png("res://.qa/visual_licenses.png") != OK:
+		failures.append("cannot save licenses frame")
+	ui._dismiss_modal()
 	ui._handle_back_request()
 	await create_timer(0.5).timeout
 	var modal_image := root.get_viewport().get_texture().get_image()
@@ -134,7 +142,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 policies=4 feedback=1 modals=2 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 policies=4 feedback=1 modals=3 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

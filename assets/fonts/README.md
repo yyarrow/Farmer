@@ -4,7 +4,7 @@
 
 - Source: `https://github.com/google/fonts/tree/main/ofl/notosanssc`
 - Original source SHA-256: `a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da`
-- Subset SHA-256: `75878d4cd4c2930e27915c8fcd571295ae7812034869547ed5f8e5783f23b7d2`
+- Subset SHA-256: `d81caf103f6c6873531415bccd7c1c022a402eeb8086604ab22f1adb1365dbda`
 - Rebuild: `PYTHONPATH=.home/pydeps python3 tools/subset_ui_font.py`
 - Copyright: © 2014–2021 Adobe, with Reserved Font Name “Source”
 - License: SIL Open Font License 1.1; the complete text is in `OFL.txt`.

@@ -83,6 +83,26 @@ func _run() -> void:
 	for toggle in settings_toggles:
 		_check(toggle.get_theme_color("font_pressed_color").is_equal_approx(ui.INK), "%s pressed text stays readable" % toggle.text)
 	_check(state.time_speed == 1.0 and state.get_effective_time_speed() == 0.0, "settings temporarily pauses time")
+	_check(_has_button(ui.modal_layer, "开源软件许可与鸣谢"), "settings exposes open-source licenses")
+	ui._show_licenses()
+	await process_frame
+	var notices: Array[Node] = ui.modal_layer.find_children("LicenseNotice", "RichTextLabel", true, false)
+	_check(notices.size() == 1, "license screen renders one scrollable notice")
+	if notices.size() == 1:
+		var notice_text := str(notices[0].text)
+		_check(notice_text.contains("Godot Engine") and notice_text.contains("Permission is hereby granted"), "Godot MIT license is user-accessible")
+		_check(notice_text.contains("Qinghe Sans SC") and notice_text.contains("SIL OPEN FONT LICENSE"), "font OFL license is user-accessible")
+		_check(notice_text.contains("引擎第三方组件与版权") and notice_text.contains("Apache-2.0"), "engine third-party notices are user-accessible")
+		_check(not notice_text.contains("Â©"), "embedded third-party notices are normalized for display")
+		var missing_notice_glyphs := {}
+		for glyph in notice_text:
+			if glyph.unicode_at(0) >= 128 and not ui.theme.default_font.has_char(glyph.unicode_at(0)):
+				missing_notice_glyphs[glyph] = true
+		_check(missing_notice_glyphs.is_empty(), "bundled UI font covers every license glyph: %s" % str(missing_notice_glyphs.keys()))
+	_check(state.get_effective_time_speed() == 0.0, "license screen keeps time paused")
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer != null and _has_label(ui.modal_layer, "城邑设置"), "back from licenses returns to settings")
 	ui._close_settings()
 	await process_frame
 	_check(state.get_effective_time_speed() == 1.0, "closing settings restores selected speed")
@@ -189,6 +209,12 @@ func _has_label(parent: Node, text_value: String) -> bool:
 func _has_label_containing(parent: Node, text_value: String) -> bool:
 	for node in parent.find_children("*", "Label", true, false):
 		if str(node.text).contains(text_value):
+			return true
+	return false
+
+func _has_button(parent: Node, text_value: String) -> bool:
+	for node in parent.find_children("*", "Button", true, false):
+		if str(node.text) == text_value:
 			return true
 	return false
 

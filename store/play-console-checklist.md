@@ -17,6 +17,7 @@
 - 商店文案：`listing-zh-CN.md`；版本说明：`release-notes-zh-CN.txt`。
 - 图标、宣传图、五张截图及替代文字：见 `README.md`。
 - 隐私政策正文：`privacy-policy.md`。
+- 开源许可：游戏设置页可离线查看 Godot MIT、引擎第三方组件版权/许可全文及字体 SIL OFL 1.1。
 
 ## 必须由发布主体填写或确认
 
