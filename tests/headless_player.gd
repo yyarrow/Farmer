@@ -14,6 +14,7 @@ func _init(game_state: Node, policy_id: String) -> void:
 	policy = policy_id
 
 func act_day() -> void:
+	_select_defense_order()
 	if not state.current_event.is_empty():
 		_resolve_event()
 	var actions := 0
@@ -31,6 +32,17 @@ func act_day() -> void:
 func finish_forced_choices() -> void:
 	if not state.current_event.is_empty():
 		_resolve_event()
+
+func _select_defense_order() -> void:
+	var target := "steady"
+	match policy:
+		"agrarian": target = "fortify"
+		"militarist": target = "sally"
+		"balanced":
+			if int(state.units.archer) >= 10 and int(state.units.archer) * 3 >= state.get_army_count():
+				target = "volley"
+	if target != state.defense_order and state.set_defense_order(target):
+		_record("order_%s" % target)
 
 func _act_balanced() -> bool:
 	if float(state.morale) < 48.0 and _try_policy("reward_army"):

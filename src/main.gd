@@ -598,12 +598,13 @@ func _render_military() -> void:
 	var enemy := State.get_enemy_display()
 	var enemy_detail := "%s · 距城%d日 · %s\n%s" % [enemy.name, State.days_until_attack(), enemy.range, enemy.composition]
 	content_box.add_child(_info_banner("来敌军情", enemy_detail, CINNABAR))
+	_add_defense_order_card()
 	if bool(enemy.known):
 		var forecast := State.get_battle_forecast(100)
-		var forecast_text := "我军力%d / 敌军力%d · 胜算约%d%% · 预计伤亡%d～%d人" % [State.get_army_power(), State.get_enemy_power(), roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
+		var forecast_text := "阵令「%s」 · 我军力%d / 敌军力%d\n胜算约%d%% · 预计伤亡%d～%d人" % [State.get_defense_order_data().name, State.get_army_power(), State.get_enemy_power(), roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
 		content_box.add_child(_info_banner("守城推演", forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
 	else:
-		content_box.add_child(_info_banner("守城推演", "我军力%d · 敌军约%s\n军情不足：巡剿或反侦后显示胜算与预计伤亡" % [State.get_army_power(), enemy.range], GOLD))
+		content_box.add_child(_info_banner("守城推演", "阵令「%s」 · 我军力%d · 敌军约%s\n军情不足：巡剿或反侦后显示胜算与预计伤亡" % [State.get_defense_order_data().name, State.get_army_power(), enemy.range], GOLD))
 	var ledger := State.get_daily_ledger()
 	content_box.add_child(_info_banner("军籍与伤营", "%d/%d人 · 其中伤员%d人 · 日耗粮%.1f石、军饷%.0f枚" % [State.get_army_count() + State.get_wounded_count(), State.get_army_capacity(), State.get_wounded_count(), _army_ledger_cost(ledger.grain.details), _army_ledger_cost(ledger.coins.details)], GOLD))
 	for id in State.UNITS:
@@ -633,6 +634,41 @@ func _render_military() -> void:
 		if State.patrol(): _render_tab()
 	)
 	row.add_child(action)
+
+func _add_defense_order_card() -> void:
+	var active: Dictionary = State.get_defense_order_data()
+	var card := _card(124)
+	content_box.add_child(card)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 5)
+	card.add_child(stack)
+	var title := Label.new()
+	title.text = "守城阵令 · 当前「%s」" % active.name
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", INK)
+	stack.add_child(title)
+	var detail := Label.new()
+	detail.text = active.desc + "；切换后推演与真实守城同步更新"
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.add_theme_font_size_override("font_size", 11)
+	detail.add_theme_color_override("font_color", INK_SOFT)
+	stack.add_child(detail)
+	var choices := HBoxContainer.new()
+	choices.add_theme_constant_override("separation", 6)
+	stack.add_child(choices)
+	for id in State.DEFENSE_ORDERS:
+		var order_id := str(id)
+		var order: Dictionary = State.DEFENSE_ORDERS[order_id]
+		var button := _action_button(("● " if order_id == State.defense_order else "") + str(order.name))
+		button.custom_minimum_size = Vector2(0, 38)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if order_id == State.defense_order:
+			button.add_theme_stylebox_override("normal", _style(CINNABAR, 10, 1, GOLD, 4))
+		button.pressed.connect(func():
+			if State.set_defense_order(order_id):
+				_render_tab()
+		)
+		choices.add_child(button)
 
 func _add_unit_card(id: String) -> void:
 	var data: Dictionary = State.UNITS[id]
@@ -1186,7 +1222,7 @@ func _format_save_time_with_bias(unix_time: float, utc_bias_minutes: int) -> Str
 func _show_tutorial() -> void:
 	_show_modal(
 		"青禾初托",
-		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n粮以石计、木以车计、石料以方计、财货以枚计。四时会改变收成、采集、赋税与冬日口粮，所有变化都会列入每日账本。\n\n军队按真实人数征募，来敌也有实际编成；城墙降低伤亡而不凭空增加军力。使用顶部时序控制暂停、正常、加速或精确推进一日。",
+		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n粮以石计、木以车计、石料以方计、财货以枚计。四时会改变收成、采集、赋税与冬日口粮，所有变化都会列入每日账本。\n\n军队按真实人数征募，来敌也有实际编成；城墙降低伤亡而不凭空增加军力。军务页可在持重、坚壁、雁行、锋矢四种阵令间选择，推演与真实守城使用同一规则。\n\n使用顶部时序控制暂停、正常、加速或精确推进一日。",
 		[{"text": "接掌城邑", "callback": func(): State.mark_tutorial_seen()}],
 		JADE
 	)
@@ -1227,7 +1263,7 @@ func _event_option_caption(id: String, index: int, base: String) -> String:
 
 func _on_battle_finished(result: Dictionary) -> void:
 	var title := "城头凯歌" if result.won else "烽火入郭"
-	var body := "%s来敌%d人。战前我军力%d、敌军力%d。\n\n%s" % [result.enemy_name, result.enemy_total, result.player_power, result.enemy_power, result.loss_text]
+	var body := "%s来敌%d人。守军奉「%s」阵令，战前我军力%d、敌军力%d。\n\n%s" % [result.enemy_name, result.enemy_total, result.defense_order_name, result.player_power, result.enemy_power, result.loss_text]
 	if result.rounds.size() > 0:
 		var round_lines: Array[String] = []
 		for round_data in result.rounds:

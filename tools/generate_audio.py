@@ -225,6 +225,7 @@ def generate_effects() -> None:
     effect("upgrade", 1.15, lambda l, r: [add_bell(l, r, i * 0.22, note(62 + i * 2), 0.10, -0.35 + i * 0.35) for i in range(4)])
     effect("trade", 0.75, lambda l, r: [add_bell(l, r, i * 0.14, note(69 + i * 3), 0.07, -0.25 + i * 0.25) for i in range(3)])
     effect("recruit", 1.0, lambda l, r: [add_drum(l, r, i * 0.23, 0.20 - i * 0.03) for i in range(4)])
+    effect("command", 0.9, lambda l, r: [add_drum(l, r, i * 0.24, 0.24 - i * 0.04) for i in range(3)] + [add_bell(l, r, 0.48, note(57), 0.055, 0.0)])
     effect("battle_win", 1.8, lambda l, r: [add_bell(l, r, i * 0.25, note([57, 62, 66, 69, 74][i]), 0.11, -0.4 + i * 0.2) for i in range(5)])
     effect("battle_loss", 1.6, lambda l, r: [add_tone(l, r, i * 0.28, 1.0, note([50, 47, 45][i]), 0.13, 0.0, "pad") for i in range(3)])
     effect("event", 1.1, lambda l, r: [add_bell(l, r, i * 0.32, note(62 + i * 7), 0.08, -0.25 + i * 0.5) for i in range(2)])

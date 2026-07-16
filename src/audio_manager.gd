@@ -17,6 +17,7 @@ const SFX_PATHS := {
 	"upgrade": "res://assets/audio/upgrade.wav",
 	"trade": "res://assets/audio/trade.wav",
 	"recruit": "res://assets/audio/recruit.wav",
+	"command": "res://assets/audio/command.wav",
 	"battle_win": "res://assets/audio/battle_win.wav",
 	"battle_loss": "res://assets/audio/battle_loss.wav",
 	"event": "res://assets/audio/event.wav",

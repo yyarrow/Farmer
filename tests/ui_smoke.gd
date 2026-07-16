@@ -48,10 +48,13 @@ func _run() -> void:
 	ui._render_tab()
 	await process_frame
 	_check(_has_label_containing(ui.content_box, "军情不足") and not _has_label_containing(ui.content_box, "胜算约"), "unscouted military view does not leak exact forecast")
+	for order_name in ["持重", "坚壁", "雁行", "锋矢"]:
+		_check(_has_button_containing(ui.content_box, order_name), "military view exposes order " + order_name)
 	state.enemy_army.scouted = true
+	_check(state.set_defense_order("fortify"), "defense order can be changed from the military flow")
 	ui._render_tab()
 	await process_frame
-	_check(_has_label_containing(ui.content_box, "胜算约") and _has_label_containing(ui.content_box, "预计伤亡"), "scouting unlocks exact battle forecast")
+	_check(_has_label_containing(ui.content_box, "阵令「坚壁」") and _has_label_containing(ui.content_box, "胜算约") and _has_label_containing(ui.content_box, "预计伤亡"), "scouting unlocks an order-specific battle forecast")
 	state.enemy_army.scouted = false
 	state.resources.grain = 12.0
 	_check(ui._event_option_caption("drought", 1, "赈济").contains("粮-12石 民心-4"), "event button exposes stock-limited disaster outcome")
@@ -160,13 +163,18 @@ func _run() -> void:
 	_check(absf(float(visuals.building_views.farm.scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
 	state.buffs = {"farm_until": state.current_day + 2, "all_until": state.current_day + 2}
 	state.units = {"militia": 35, "archer": 10, "chariot": 5}
+	state.defense_order = "sally"
 	state.wounded = {"militia": 5, "archer": 0, "chariot": 0}
 	state.enemy_army.scouted = true
 	state.next_attack_day = state.current_day + 2
 	visuals._refresh_buildings()
 	_check(bool(visuals.world_state.irrigation) and bool(visuals.world_state.all_buff), "active production policies remain visible in the city")
 	_check(int(visuals.world_state.soldier_markers) >= 3 and int(visuals.world_state.wounded_markers) == 1, "army and wounded state remain visible in the city")
+	_check(str(visuals.world_state.defense_order) == "sally", "standing defense order remains visible in the city")
 	_check(bool(visuals.world_state.enemy_warning), "scouted or nearby enemy remains visible at the wall")
+	visuals.effects.clear()
+	visuals.play_event("defense_order", {"order": "volley"})
+	_check(_has_effect_text(visuals.effects, "军令·雁行"), "changing defense order has specific city feedback")
 	visuals.effects.clear()
 	visuals.play_event("policy", {"policy": "irrigate"})
 	_check(_has_effect_kind(visuals.effects, "water"), "irrigation policy has specific water feedback")
@@ -215,6 +223,12 @@ func _has_label_containing(parent: Node, text_value: String) -> bool:
 func _has_button(parent: Node, text_value: String) -> bool:
 	for node in parent.find_children("*", "Button", true, false):
 		if str(node.text) == text_value:
+			return true
+	return false
+
+func _has_button_containing(parent: Node, text_value: String) -> bool:
+	for node in parent.find_children("*", "Button", true, false):
+		if str(node.text).contains(text_value):
 			return true
 	return false
 

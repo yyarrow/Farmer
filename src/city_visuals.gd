@@ -24,6 +24,7 @@ const SIZES := {
 const EFFECT_POSITIONS := {
 	"trade": Vector2(150, 405),
 	"recruit": Vector2(380, 275),
+	"defense_order": Vector2(377, 292),
 	"policy": Vector2(270, 410),
 	"siege": Vector2(425, 205),
 	"shortage": Vector2(270, 460),
@@ -125,6 +126,7 @@ func _refresh_world_state() -> void:
 		"all_buff": State.current_day <= int(State.buffs.get("all_until", 0)),
 		"civilian_markers": clampi(ceili(State.population / 35.0), 1, 5),
 		"soldier_markers": clampi(ceili(army_count / 15.0), 0, 6),
+		"defense_order": State.defense_order,
 		"wounded_markers": clampi(ceili(State.get_wounded_count() / 5.0), 0, 3),
 		"enemy_warning": State.days_until_attack() <= 3 or bool(State.enemy_army.get("scouted", false)),
 		"enemy_urgent": State.days_until_attack() <= 1,
@@ -172,6 +174,12 @@ func play_event(kind: String, payload: Dictionary) -> void:
 		"recruit":
 			color = Color("#a94d3f")
 			glyph = "列阵"
+			_spawn_soldiers()
+		"defense_order":
+			var order_id := str(payload.get("order", "steady"))
+			var order: Dictionary = State.DEFENSE_ORDERS.get(order_id, State.DEFENSE_ORDERS.steady)
+			color = {"steady": Color("#c59b52"), "fortify": Color("#5c7964"), "volley": Color("#6d758f"), "sally": Color("#a94d3f")}.get(order_id, Color("#c59b52"))
+			glyph = "军令·" + str(order.name)
 			_spawn_soldiers()
 		"policy":
 			color = Color("#6d9476")
@@ -407,10 +415,22 @@ func _draw_world_state() -> void:
 	for i in int(world_state.soldier_markers):
 		if i == 0:
 			draw_circle(POSITIONS.barracks + Vector2(16, 124), 18.0, Color(0.12, 0.10, 0.08, 0.26))
-		var soldier_pos := POSITIONS.barracks + Vector2(5 + (i % 3) * 10, 117 + int(i / 3) * 11)
+		var offset := Vector2(5 + (i % 3) * 10, 117 + int(i / 3) * 11)
+		match str(world_state.defense_order):
+			"fortify": offset = Vector2(7 + (i % 2) * 9, 115 + int(i / 2) * 8)
+			"volley": offset = Vector2(3 + i * 6, 116 + (i % 2) * 7)
+			"sally": offset = Vector2(4 + int(i / 2) * 9, 113 + abs(i % 2 - 1) * 8)
+		var soldier_pos := POSITIONS.barracks + offset
 		draw_circle(soldier_pos, 3.0, Color("#b75042"))
 		draw_line(soldier_pos + Vector2(0, 3), soldier_pos + Vector2(0, 10), Color("#654034"), 1.8)
 		draw_line(soldier_pos + Vector2(3, 6), soldier_pos + Vector2(7, -2), Color("#c7aa68"), 1.2)
+	var order_id := str(world_state.defense_order)
+	var order: Dictionary = State.DEFENSE_ORDERS.get(order_id, State.DEFENSE_ORDERS.steady)
+	var banner_base := POSITIONS.barracks + Vector2(43, 126)
+	var banner_color: Color = {"steady": Color("#c59b52"), "fortify": Color("#55745d"), "volley": Color("#69718a"), "sally": Color("#a54a3d")}.get(order_id, Color("#c59b52"))
+	draw_line(banner_base, banner_base + Vector2(0, -31), Color("#4b3b2d"), 2.0)
+	draw_colored_polygon(PackedVector2Array([banner_base + Vector2(1, -30), banner_base + Vector2(22, -25), banner_base + Vector2(1, -17)]), banner_color)
+	draw_string(_effect_font, banner_base + Vector2(5, -19), str(order.glyph), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#f7ebc9"))
 	if int(world_state.wounded_markers) > 0:
 		var tent := POSITIONS.barracks + Vector2(48, 123)
 		draw_colored_polygon(PackedVector2Array([tent, tent + Vector2(13, -13), tent + Vector2(26, 0)]), Color(0.84, 0.76, 0.58, 0.90))

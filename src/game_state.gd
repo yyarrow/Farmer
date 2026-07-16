@@ -50,6 +50,15 @@ const UNITS := {
 	"chariot": {"name": "车士", "glyph": "车", "batch": 5, "need": 3, "power": 2.20, "ranged": 0.0, "melee": 2.2, "exposure": 0.48, "cost": {"grain": 20, "wood": 12, "stone": 4, "coins": 650}, "grain_daily": 0.24, "coins_daily": 2.00},
 }
 
+# A standing order changes the next siege without inventing another power score.
+# The same multipliers feed both the visible forecast and the real battle.
+const DEFENSE_ORDERS := {
+	"steady": {"name": "持重", "glyph": "衡", "desc": "按常法守城，杀伤与战损均无修正", "incoming": 1.00, "ranged": 1.00, "melee": 1.00},
+	"fortify": {"name": "坚壁", "glyph": "守", "desc": "敌方杀伤-16%，我方远射-12%、近战-18%", "incoming": 0.84, "ranged": 0.88, "melee": 0.82},
+	"volley": {"name": "雁行", "glyph": "弓", "desc": "弓手远射+32%，近战-12%，敌方杀伤+4%", "incoming": 1.04, "ranged": 1.32, "melee": 0.88},
+	"sally": {"name": "锋矢", "glyph": "锋", "desc": "近战杀伤+20%，远射-12%，敌方杀伤+16%", "incoming": 1.16, "ranged": 0.88, "melee": 1.20},
+}
+
 const ENEMY_WAVES := [
 	{"name": "山泽盗", "militia": 20, "archer": 5, "chariot": 0, "morale": 50.0, "training": 0.92},
 	{"name": "流寇合众", "militia": 30, "archer": 10, "chariot": 0, "morale": 56.0, "training": 0.96},
@@ -85,6 +94,7 @@ var day_progress := 0.0
 var next_attack_day := 7
 var attack_wave := 1
 var enemy_army: Dictionary = {}
+var defense_order := "steady"
 var last_patrol_day := 0
 var patrol_delay_wave := 0
 var tutorial_seen := false
@@ -275,6 +285,22 @@ func get_army_power() -> int:
 
 func get_defense() -> int:
 	return get_army_power()
+
+func get_defense_order_data() -> Dictionary:
+	return DEFENSE_ORDERS.get(defense_order, DEFENSE_ORDERS.steady)
+
+func set_defense_order(id: String) -> bool:
+	if not DEFENSE_ORDERS.has(id) or id == defense_order:
+		return false
+	var previous := defense_order
+	defense_order = id
+	changed.emit()
+	notice.emit("守城阵令改为「%s」" % DEFENSE_ORDERS[id].name)
+	visual_event.emit("defense_order", {"order": id, "previous": previous})
+	Audio.play_sfx("command")
+	Telemetry.track("defense_order_changed", {"from": previous, "to": id, "day": current_day, "wave": attack_wave, "army": units.duplicate()})
+	save_game()
+	return true
 
 func get_enemy_power() -> int:
 	if enemy_army.is_empty():
@@ -807,16 +833,20 @@ func _simulate_battle(player_force: Dictionary, player_morale: float, enemy_forc
 	var player_training := get_training()
 	var enemy_training := float(enemy_force.get("training", 1.0))
 	var wall_cover := maxf(0.52, 1.0 - buildings.wall * 0.09)
+	var order := get_defense_order_data()
+	var incoming_multiplier := float(order.incoming)
+	var ranged_multiplier := float(order.ranged)
+	var melee_multiplier := float(order.melee)
 	var round_log: Array = []
 	for round_index in 3:
 		if _sum_force(player) <= 0 or _sum_force(enemy) <= 0 or player_current_morale < 24.0 or enemy_current_morale < 24.0:
 			break
-		var player_ranged := int(player.archer) * float(UNITS.archer.ranged) * 0.055 * _morale_factor(player_current_morale) * player_training * sim_rng.randf_range(0.90, 1.10)
-		var enemy_ranged := int(enemy.archer) * float(UNITS.archer.ranged) * 0.055 * _morale_factor(enemy_current_morale) * enemy_training * wall_cover * sim_rng.randf_range(0.90, 1.10)
+		var player_ranged := int(player.archer) * float(UNITS.archer.ranged) * 0.055 * _morale_factor(player_current_morale) * player_training * ranged_multiplier * sim_rng.randf_range(0.90, 1.10)
+		var enemy_ranged := int(enemy.archer) * float(UNITS.archer.ranged) * 0.055 * _morale_factor(enemy_current_morale) * enemy_training * wall_cover * incoming_multiplier * sim_rng.randf_range(0.90, 1.10)
 		var player_melee_strength: float = player.militia * 1.0 + player.archer * 0.35 + player.chariot * 2.2
 		var enemy_melee_strength: float = enemy.militia * 1.0 + enemy.archer * 0.35 + enemy.chariot * 2.2
-		var player_clash: float = player_melee_strength * 0.047 * _morale_factor(player_current_morale) * player_training * sim_rng.randf_range(0.90, 1.10)
-		var enemy_clash: float = enemy_melee_strength * 0.047 * _morale_factor(enemy_current_morale) * enemy_training * wall_cover * sim_rng.randf_range(0.90, 1.10)
+		var player_clash: float = player_melee_strength * 0.047 * _morale_factor(player_current_morale) * player_training * melee_multiplier * sim_rng.randf_range(0.90, 1.10)
+		var enemy_clash: float = enemy_melee_strength * 0.047 * _morale_factor(enemy_current_morale) * enemy_training * wall_cover * incoming_multiplier * sim_rng.randf_range(0.90, 1.10)
 		var player_round_losses := mini(_sum_force(player), _stochastic_round(enemy_ranged + enemy_clash, sim_rng))
 		var enemy_round_losses := mini(_sum_force(enemy), _stochastic_round(player_ranged + player_clash, sim_rng))
 		var lost_player := _deal_losses(player, player_round_losses, sim_rng)
@@ -849,6 +879,8 @@ func _simulate_battle(player_force: Dictionary, player_morale: float, enemy_forc
 		injured[id] = total_lost - dead
 	return {
 		"won": won,
+		"defense_order": defense_order,
+		"defense_order_name": order.name,
 		"player_before": player_before,
 		"enemy_before": enemy_before,
 		"player_survivors": player,
@@ -1010,6 +1042,7 @@ func get_snapshot() -> Dictionary:
 		"next_attack_day": next_attack_day,
 		"attack_wave": attack_wave,
 		"enemy_army": enemy_army.duplicate(true),
+		"defense_order": defense_order,
 		"last_patrol_day": last_patrol_day,
 		"patrol_delay_wave": patrol_delay_wave,
 		"tutorial_seen": tutorial_seen,
@@ -1067,6 +1100,7 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	next_attack_day = int(snapshot.get("next_attack_day", 7))
 	attack_wave = int(snapshot.get("attack_wave", 1))
 	enemy_army = snapshot.get("enemy_army", _make_enemy_army(attack_wave)).duplicate(true)
+	defense_order = str(snapshot.get("defense_order", "steady"))
 	last_patrol_day = int(snapshot.get("last_patrol_day", 0))
 	patrol_delay_wave = int(snapshot.get("patrol_delay_wave", 0))
 	tutorial_seen = bool(snapshot.get("tutorial_seen", tutorial_seen))
@@ -1301,6 +1335,8 @@ func _is_valid_save_data(data: Dictionary) -> bool:
 			return false
 	if data.has("tutorial_seen") and data.tutorial_seen is not bool:
 		return false
+	if data.has("defense_order") and str(data.defense_order) not in DEFENSE_ORDERS:
+		return false
 	if data.has("buffs") and not _valid_numeric_map(data.buffs, ["farm_until", "all_until"], 0.0, 10000000.0):
 		return false
 	if data.has("recovery_queue"):
@@ -1398,6 +1434,7 @@ func reset_game() -> void:
 	next_attack_day = 7
 	attack_wave = 1
 	enemy_army = _make_enemy_army(attack_wave)
+	defense_order = "steady"
 	last_patrol_day = 0
 	patrol_delay_wave = 0
 	current_event = {}

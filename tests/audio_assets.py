@@ -22,6 +22,7 @@ EXPECTED_DURATIONS = {
     "upgrade.wav": 1.15,
     "trade.wav": 0.75,
     "recruit.wav": 1.0,
+    "command.wav": 0.9,
     "battle_win.wav": 1.8,
     "battle_loss.wav": 1.6,
     "event.wav": 1.1,

@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.5.0`（versionCode `6`）
+当前候选版本：`0.6.0`（versionCode `7`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -13,6 +13,7 @@
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/state_smoke.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd --audio-driver Dummy
 python3 tests/audio_assets.py
 python3 tests/store_assets.py
@@ -20,7 +21,7 @@ python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认与最长事件选项弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对侦察前不显示胜算/伤亡、侦察后才解锁精确推演、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
 
 长期平衡复核：
 
@@ -71,7 +72,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 三个 Android 导出预设都使用独立的主图标、自适应背景、自适应前景和单色主题层，符合 Android 官方的[自适应图标规范](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)。脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，幂等启用 Godot 4.7 已接入的 Android 13+ 预测性返回回调，并按 Android 官方的[自动备份规则](https://developer.android.com/identity/data/autobackup)显式排除云备份和设备迁移，保持与“数据只留在当前设备”的隐私承诺一致；随后自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、预测性返回、AAB 中实际编译的主题图标和本地数据规则、非调试状态、JAR 签名和上传证书，再调用 `bundletool validate`。原生兼容闸门还会检查 AAB 声明 `PAGE_ALIGNMENT_16K`、每个 arm64 ELF 的 16 KiB `LOAD` 对齐及 RELRO。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单、签名和 16 KiB ZIP 对齐验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的 `0.5.0` 最终本地候选验证结果：AAB 38.0 MiB，SHA-256 `d7893f5e95f86e85879461cdf525bf46cdd7a3f6a5f61f4a82a12b1159468b57`；独立 APK 38.0 MiB，SHA-256 `2d315b7bad338f64c216e69128f28c4f97da379297dee51414fb6cad6325cca3`；AAB 派生通用 APK 84.7 MiB，SHA-256 `81ac85922729de83263010919e6d3e26cb8a2855af9520ca481a68e723980f69`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 和两个 APK 的全部 arm64 原生库均通过 16 KiB ELF/ZIP 对齐与 RELRO 检查，APK 与 AAB 均实际编译了 Android 13+ 单色主题图标，AAB 还包含显式的云备份与设备迁移排除规则。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。同一代码版 AAB 派生包在 Android 35 清数据冷启动为 250 ms，普通热恢复为 67 ms；同版本前序压力复核的设置页 PSS 约 170 MiB，`RUNNING_CRITICAL` 内存压力后热恢复为 127 ms。1080×2400 教程、设置、音量、存档、开源许可和退出确认均无截断；系统返回键不能跳过教程、可从许可页返回设置、可关闭设置、并在主界面打开保存退出确认；启用预测性返回后对应 Android 警告已消失。SwiftShader 模拟器切后台时仍可能记录已断开绘图表面的 `EGL_BAD_SURFACE`，但 Godot、AndroidRuntime 与原生崩溃日志以及 crash buffer 均为空，未见崩溃、ANR 或 Godot 脚本错误，仍须按下文在实体设备复核后台恢复。
+2026 年 7 月 16 日的 `0.6.0` 最终本地候选验证结果：AAB 38.0 MiB，SHA-256 `8f66ef6ad17a3cf9d930bff62999e33d217fc980b1244a0d39d094d158eb64ca`；独立 APK 38.0 MiB，SHA-256 `1033e12707ebea86819601b7892682c0742fae97e391aa886fad6f10e6e07abb`；AAB 派生通用 APK 84.7 MiB，SHA-256 `d542b716e499860122acef3ee3fa0e36a421e7ee0285ff4720c0a414c8114a11`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 和两个 APK 的全部 arm64 原生库均通过 16 KiB ELF/ZIP 对齐与 RELRO 检查，APK 与 AAB 均实际编译了 Android 13+ 单色主题图标，AAB 还包含显式的云备份与设备迁移排除规则。包内清单确认新增军令鼓点已经随运行资源打包，正式包只含编译后的运行脚本，不含测试、文档、工具或商店素材。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 192 秒，最差循环接缝为 0.0040。540×960 真实渲染覆盖四种阵令选择态、兵营旗阵、侦察边界与最长战报，均无文字截断。Android 35 冷启动、后台恢复与内存压力数据来自前一版 `0.5.0` 运行基线，本段不把它冒充为 `0.6.0` 实机证据；按本仓库只写边界，本轮没有改动仓库外模拟器状态。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
@@ -91,6 +92,7 @@ python3 tools/build_release_aab.py --universal-apk
 - 建造和每级升级的外观、粒子、数值与账本同步变化；水利、军民、伤营、近敌常驻状态及日结反馈准确；
 - 春夏秋冬四首背景音乐无明显循环爆音，换季无突跳，音乐/音效/静音/振动设置重启后保留；
 - 事件无资源时不能获得免费收益，战斗兵力与伤亡账目可读；
+- 四种守城阵令的推演、真实战损、战报、军令鼓点、兵营旗色与士卒队形同步变化；
 - 全屏竖屏布局无系统栏遮挡，长中文与最小支持屏幕不溢出；
 - 内嵌中文字体在无 CJK 系统字体的环境中也无缺字方框，OFL 许可证随安装包分发；
 - 设置页可离线查看 Godot MIT、引擎第三方组件版权与许可全文，以及 Qinghe Sans SC 的 SIL OFL 1.1；

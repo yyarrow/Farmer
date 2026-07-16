@@ -144,6 +144,7 @@ func _run() -> void:
 	state.morale = 100.0
 	state._resolve_siege()
 	_check(not battle_results.is_empty() and bool(battle_results[-1].won), "high defense wins siege")
+	_check(str(battle_results[-1].defense_order_name) == "持重", "battle report records the order actually used")
 	_check(int(battle_results[-1].player_losses) == int(battle_results[-1].killed_total) + int(battle_results[-1].wounded_total), "battle losses reconcile")
 	state.units.militia = 0
 	state.wounded.militia = 5
@@ -168,6 +169,31 @@ func _run() -> void:
 	state.enemy_army = {}
 	state._apply_snapshot(enemy_snapshot, false)
 	_check(bool(state.get_enemy_display().known) and state.get_enemy_display().composition.contains("戈卒"), "enemy intelligence persists")
+
+	# The standing defense order is a persisted battle input shared by forecast and combat.
+	state.units = {"militia": 25, "archer": 15, "chariot": 0}
+	state.buildings.wall = 1
+	state.buildings.barracks = 3
+	var steady_forecast: Dictionary = state.get_battle_forecast(400)
+	_check(state.set_defense_order("volley"), "select archer formation")
+	var volley_forecast: Dictionary = state.get_battle_forecast(400)
+	_check(steady_forecast != volley_forecast, "changing formation immediately changes the shared battle forecast")
+	var order_snapshot: Dictionary = state.get_snapshot()
+	state.defense_order = "steady"
+	state._apply_snapshot(order_snapshot, false)
+	_check(state.defense_order == "volley", "defense order persists in saves")
+	_check(not state.set_defense_order("unknown") and state.defense_order == "volley", "unknown defense order is rejected")
+	var pre_order_snapshot: Dictionary = order_snapshot.duplicate(true)
+	pre_order_snapshot.erase("defense_order")
+	state.defense_order = "sally"
+	state._apply_snapshot(pre_order_snapshot, false)
+	_check(state.defense_order == "steady", "existing saves without an order migrate to steady")
+	var invalid_order_snapshot: Dictionary = state.get_snapshot()
+	invalid_order_snapshot.defense_order = "unknown"
+	state.defense_order = "fortify"
+	state._apply_snapshot(invalid_order_snapshot, false)
+	_check(state.defense_order == "fortify", "invalid saved order is rejected without changing live state")
+	state.defense_order = "steady"
 
 	# Patrol can delay each enemy roster only once, and destroying it advances the wave.
 	state.reset_game()
@@ -305,7 +331,8 @@ func _run() -> void:
 	_check(audio._duck_gain < 0.5, "battle duck is independent during seasonal crossfade")
 	audio._season_tween.set_speed_scale(30.0)
 	audio._duck_tween.set_speed_scale(30.0)
-	await create_timer(0.15).timeout
+	# Headless frames can coalesce under load; leave margin above both accelerated tweens.
+	await create_timer(0.25).timeout
 	_check(not audio.music_players[old_music_index].playing and audio.music_players[old_music_index].stream == null, "crossfade releases previous seasonal track")
 	_check(audio.music_player.playing and absf(audio._duck_gain - 1.0) < 0.001, "seasonal track and battle duck finish cleanly")
 	for season in ["autumn", "winter", "spring"]:

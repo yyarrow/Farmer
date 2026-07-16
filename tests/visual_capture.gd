@@ -45,6 +45,7 @@ func _run() -> void:
 	elif unknown_intel_image.save_png("res://.qa/visual_military_unknown.png") != OK:
 		failures.append("cannot save unknown intelligence frame")
 	state.enemy_army.scouted = true
+	state.defense_order = "volley"
 	ui._render_tab()
 	await create_timer(0.3).timeout
 	var scouted_intel_image := root.get_viewport().get_texture().get_image()
@@ -52,6 +53,14 @@ func _run() -> void:
 		failures.append("invalid scouted intelligence frame")
 	elif scouted_intel_image.save_png("res://.qa/visual_military_scouted.png") != OK:
 		failures.append("cannot save scouted intelligence frame")
+	state.defense_order = "sally"
+	ui._render_tab()
+	await create_timer(0.3).timeout
+	var sally_order_image := root.get_viewport().get_texture().get_image()
+	if sally_order_image.is_empty() or sally_order_image.get_width() != 540 or sally_order_image.get_height() != 960:
+		failures.append("invalid sally order frame")
+	elif sally_order_image.save_png("res://.qa/visual_military_order_sally.png") != OK:
+		failures.append("cannot save sally order frame")
 	ui.current_tab = 3
 	ui._update_tab_buttons()
 	state.current_day = 5
@@ -105,6 +114,7 @@ func _run() -> void:
 	state.enemy_army.scouted = true
 	state.buffs = {"farm_until": 8, "all_until": 8}
 	state.units = {"militia": 45, "archer": 15, "chariot": 5}
+	state.defense_order = "fortify"
 	state.wounded = {"militia": 5, "archer": 5, "chariot": 0}
 	state.changed.emit()
 	ui.city_visual_layer.play_event("policy", {"policy": "irrigate"})
@@ -138,11 +148,32 @@ func _run() -> void:
 		failures.append("invalid long event frame")
 	elif event_image.save_png("res://.qa/visual_event_longest.png") != OK:
 		failures.append("cannot save long event frame")
+	ui._dismiss_modal()
+	ui._on_battle_finished({
+		"won": false,
+		"enemy_name": "列国主力",
+		"enemy_total": 128,
+		"defense_order_name": "锋矢",
+		"player_power": 172,
+		"enemy_power": 184,
+		"loss_text": "阵亡12人，负伤27人；敌军折损34人。城外仓舍受损，损失粮126石、财935枚。",
+		"rounds": [
+			{"round": 1, "player_losses": 9, "enemy_losses": 11},
+			{"round": 2, "player_losses": 13, "enemy_losses": 14},
+			{"round": 3, "player_losses": 17, "enemy_losses": 9},
+		],
+	})
+	await create_timer(0.5).timeout
+	var battle_image := root.get_viewport().get_texture().get_image()
+	if battle_image.is_empty() or battle_image.get_width() != 540 or battle_image.get_height() != 960:
+		failures.append("invalid battle report frame")
+	elif battle_image.save_png("res://.qa/visual_battle_report.png") != OK:
+		failures.append("cannot save battle report frame")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 policies=4 feedback=1 modals=3 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 orders=2 policies=4 feedback=1 modals=4 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:
