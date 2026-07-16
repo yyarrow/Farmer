@@ -21,6 +21,7 @@ BUNDLETOOL = ROOT / ".home" / "bundletool.jar"
 ANDROID_TEMPLATE = ROOT / ".home" / "Library" / "Application Support" / "Godot" / "export_templates" / "4.7.stable" / "android_source.zip"
 GRADLEW = ROOT / "android" / "build" / "gradlew"
 ANDROID_MANIFEST = ROOT / "android" / "build" / "src" / "main" / "AndroidManifest.xml"
+ANDROID_XML = ROOT / "android" / "build" / "res" / "xml"
 BUNDLETOOL_SHA256 = "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
 ANDROID_TEMPLATE_SHA256 = "2dcb079f64b6cf9103cce273f42d1d5a4f52bc28d83a215579100fe568d6779c"
 
@@ -58,17 +59,81 @@ def enable_predictive_back() -> None:
     ANDROID_MANIFEST.write_text(text, encoding="utf-8")
 
 
+def enforce_local_only_data() -> None:
+    """Make Android backup behavior match the local-only privacy policy."""
+    if not ANDROID_MANIFEST.exists():
+        raise SystemExit(f"Missing Android Gradle manifest: {ANDROID_MANIFEST}")
+    text = ANDROID_MANIFEST.read_text(encoding="utf-8")
+    marker = "    <application\n"
+    if marker not in text:
+        raise SystemExit("Cannot locate <application> in Android Gradle manifest")
+    for name, value in (
+        ("android:dataExtractionRules", "@xml/data_extraction_rules"),
+        ("android:fullBackupContent", "@xml/full_backup_rules"),
+    ):
+        attribute = f'{name}="{value}"'
+        if attribute in text:
+            continue
+        if f"{name}=" in text:
+            raise SystemExit(f"Unexpected existing Android backup attribute: {name}")
+        text = text.replace(marker, marker + f"        {attribute}\n", 1)
+    ANDROID_MANIFEST.write_text(text, encoding="utf-8")
+
+    domains = (
+        "root",
+        "file",
+        "database",
+        "sharedpref",
+        "external",
+        "device_root",
+        "device_file",
+        "device_database",
+        "device_sharedpref",
+    )
+    excludes = "\n".join(f'        <exclude domain="{domain}" path="."/>' for domain in domains)
+    ANDROID_XML.mkdir(parents=True, exist_ok=True)
+    (ANDROID_XML / "data_extraction_rules.xml").write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+%s
+    </cloud-backup>
+    <device-transfer>
+%s
+    </device-transfer>
+</data-extraction-rules>
+""" % (excludes, excludes),
+        encoding="utf-8",
+    )
+    (ANDROID_XML / "full_backup_rules.xml").write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+%s
+</full-backup-content>
+""" % excludes,
+        encoding="utf-8",
+    )
+
+
 def verify() -> None:
     require_sha256(BUNDLETOOL, BUNDLETOOL_SHA256, "Google bundletool 1.18.3")
     with zipfile.ZipFile(AAB) as archive:
         bad_entry = archive.testzip()
         names = set(archive.namelist())
         native_16k, native_relro, native_count = inspect_native_libraries(archive, names)
+        themed_icon = (
+            "base/res/mipmap-anydpi-v26/icon.xml" in names
+            and b"monochrome" in archive.read("base/res/mipmap-anydpi-v26/icon.xml")
+        )
     required = {
         "base/manifest/AndroidManifest.xml",
         "base/dex/classes.dex",
         "base/lib/arm64-v8a/libc++_shared.so",
         "base/lib/arm64-v8a/libgodot_android.so",
+        "base/res/mipmap-anydpi-v26/icon.xml",
+        "base/res/mipmap/icon_monochrome.webp",
+        "base/res/xml/data_extraction_rules.xml",
+        "base/res/xml/full_backup_rules.xml",
         "base/resources.pb",
     }
     native_abis = sorted({name.split("/")[2] for name in names if name.startswith("base/lib/") and name.count("/") >= 3})
@@ -76,6 +141,7 @@ def verify() -> None:
         "zip": bad_entry is None,
         "entries": required.issubset(names),
         "architecture": native_abis == ["arm64-v8a"],
+        "themed_icon": themed_icon,
         "elf_page_alignment_16k": native_16k,
         "elf_relro": native_relro,
         "signature_files": (
@@ -126,6 +192,11 @@ def verify() -> None:
         "portrait": 'android:screenOrientation="1"' in manifest or 'android:screenOrientation="portrait"' in manifest,
         "release": "android:debuggable=\"true\"" not in manifest,
         "predictive_back": 'android:enableOnBackInvokedCallback="true"' in manifest,
+        "local_only_data": (
+            'android:allowBackup="false"' in manifest
+            and 'android:dataExtractionRules="@xml/data_extraction_rules"' in manifest
+            and 'android:fullBackupContent="@xml/full_backup_rules"' in manifest
+        ),
         "bundle_page_alignment_16k": "PAGE_ALIGNMENT_16K" in bundle_config,
     }
     failed = [name for name, passed in manifest_checks.items() if not passed]
@@ -223,6 +294,7 @@ def main() -> None:
     elif (ROOT / "android" / ".build_version").read_text(encoding="utf-8").strip() != "4.7.stable":
         raise SystemExit("Installed Android build template does not match Godot 4.7.stable")
     enable_predictive_back()
+    enforce_local_only_data()
     command = [
         str(GODOT),
         "--headless",

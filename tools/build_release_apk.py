@@ -88,6 +88,10 @@ def verify(apk: Path = APK) -> None:
         bad_entry = archive.testzip()
         names = set(archive.namelist())
         native_16k, native_relro, native_count = inspect_native_libraries(archive, names)
+        themed_icon = (
+            "res/mipmap-anydpi-v26/icon.xml" in names
+            and b"monochrome" in archive.read("res/mipmap-anydpi-v26/icon.xml")
+        )
     native_abis = sorted({name.split("/")[1] for name in names if name.startswith("lib/") and name.count("/") >= 2})
     zip_16k = subprocess.run(
         [zipalign, "-c", "-P", "16", "4", apk],
@@ -117,6 +121,7 @@ def verify(apk: Path = APK) -> None:
             "lib/arm64-v8a/libc++_shared.so",
             "lib/arm64-v8a/libgodot_android.so",
         }.issubset(names),
+        "themed_icon": themed_icon,
         "elf_page_alignment_16k": native_16k,
         "elf_relro": native_relro,
         "zip_page_alignment_16k": zip_16k,
