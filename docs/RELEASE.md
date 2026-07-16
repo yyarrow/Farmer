@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.6.0`（versionCode `7`）
+当前候选版本：`0.7.0`（versionCode `8`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -21,7 +21,7 @@ python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
+所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、开场说明、首战备忘、容量账簿、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对建筑当前/下一阶效果可读、侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
 
 长期平衡复核：
 
@@ -72,7 +72,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 三个 Android 导出预设都使用独立的主图标、自适应背景、自适应前景和单色主题层，符合 Android 官方的[自适应图标规范](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)。脚本会按需安装被 Git 忽略的 `android/build/` Gradle template，幂等启用 Godot 4.7 已接入的 Android 13+ 预测性返回回调，并按 Android 官方的[自动备份规则](https://developer.android.com/identity/data/autobackup)显式排除云备份和设备迁移，保持与“数据只留在当前设备”的隐私承诺一致；随后自动检查 ZIP 完整性、arm64 架构、版本、包名、SDK、权限、启动入口、竖屏、预测性返回、AAB 中实际编译的主题图标和本地数据规则、非调试状态、JAR 签名和上传证书，再调用 `bundletool validate`。原生兼容闸门还会检查 AAB 声明 `PAGE_ALIGNMENT_16K`、每个 arm64 ELF 的 16 KiB `LOAD` 对齐及 RELRO。`--universal-apk` 还会生成 `build/Qinghe-universal.apks`，提取 `build/Qinghe-from-aab.apk`，再执行与正式 APK 相同的清单、签名和 16 KiB ZIP 对齐验证。脚本不会打印签名密码。
 
-2026 年 7 月 16 日的 `0.6.0` 最终本地候选验证结果：AAB 41.9 MiB，SHA-256 `e5287f624567a3ff443a7227e1cb08e9e077fbc82e9af6fcac91f761093a585a`；独立 APK 41.9 MiB，SHA-256 `e565127c61ece351b2a44ae94733713ce373089c5ce31321b151b23cbdc2f001`；AAB 派生通用 APK 89.5 MiB，SHA-256 `af0f7f48ed686b9378d5c851cd1a9b2955277afd135b71327bd524ebb929d5aa`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 和两个 APK 的全部 arm64 原生库均通过 16 KiB ELF/ZIP 对齐与 RELRO 检查，APK 与 AAB 均实际编译了 Android 13+ 单色主题图标，AAB 还包含显式的云备份与设备迁移排除规则。包内清单确认新增军令鼓点和四首 96 秒配乐已经随运行资源打包，正式包只含编译后的运行脚本，不含测试、文档、工具或商店素材。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 384 秒，最差循环接缝为 0.0040，四个段落的最大相关性 0.6797、最大响度差 1.067 倍、内部衔接跳变 0.0144。540×960 真实渲染覆盖四种阵令选择态、兵营旗阵、侦察边界与最长战报，均无文字截断。Android 35 冷启动、后台恢复与内存压力数据来自前一版 `0.5.0` 运行基线，本段不把它冒充为 `0.6.0` 实机证据；按本仓库只写边界，本轮没有改动仓库外模拟器状态。
+2026 年 7 月 16 日的 `0.7.0` 最终本地候选验证结果：AAB 41.9 MiB，SHA-256 `e9995ce3dd0ff8e2e605368eafc0e1d512fc04188d3a1fde7cfe7706d53975c0`；独立 APK 41.9 MiB，SHA-256 `c145a405fb2540fb9b7ea4f6caed00e59e4f950add66e88a51cef97bd3f01756`；AAB 派生通用 APK 89.5 MiB，SHA-256 `999b5b2f854acfea24d4ea878cf712da049476cba7b11e41a3442816204ea266`；上传证书 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 和两个 APK 的全部 arm64 原生库均通过 16 KiB ELF/ZIP 对齐与 RELRO 检查，APK 与 AAB 均实际编译了 Android 13+ 单色主题图标，AAB 还包含显式的云备份与设备迁移排除规则。包内清单确认军令鼓点和四首 96 秒配乐已经随运行资源打包，正式包只含编译后的运行脚本，不含测试、文档、工具或商店素材。八张建筑图仍保留约三倍屏幕采样精度；春夏秋冬四首配乐共 384 秒，最差循环接缝为 0.0040，四个段落的最大相关性 0.6797、最大响度差 1.067 倍、内部衔接跳变 0.0144。540×960 真实渲染新增覆盖开场说明、状态化首战备忘、容量账簿与建筑下一阶预览，并继续覆盖四种阵令选择态、兵营旗阵、侦察边界与最长战报，均无文字截断。Android 35 冷启动、后台恢复与内存压力数据来自前一版 `0.5.0` 运行基线，本段不把它冒充为 `0.7.0` 实机证据；按本仓库只写边界，本轮没有改动仓库外模拟器状态。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
@@ -85,11 +85,12 @@ python3 tools/build_release_aab.py --universal-apk
 至少覆盖一台 Android 7—10 低端机或模拟器、一台 Android 14 以上真机，并逐项记录：
 
 - 首次启动、无存档启动、旧存档迁移、三个存档槽切换、覆盖和删除；
+- 首战备忘依次随补兵、建防、侦察和推演状态更新，首胜后消失；设置可重看说明，重新开始会恢复首次说明；
 - 截断、字段类型损坏、人口/军籍越界、伤员队列不一致或事件选项异常时拒绝主存档并回退上一份有效备份；
 - 应用切后台再恢复、锁屏恢复、强杀后恢复、离线启动；
 - 系统返回键不能跳过教程、事件或战报；设置和二次确认可安全返回，主界面需先确认再保存退出；
 - 停时状态不推进日期，主动推进后经济、季节、事件与敌袭只结算一次；
-- 建造和每级升级的外观、粒子、数值与账本同步变化；水利、军民、伤营、近敌常驻状态及日结反馈准确；
+- 建造和每级升级的外观、粒子、当前/下一阶效果与账本同步变化；库存与仓容并列可读；水利、军民、伤营、近敌常驻状态及日结反馈准确；
 - 春夏秋冬四首背景音乐无明显循环爆音，换季无突跳，音乐/音效/静音/振动设置重启后保留；
 - 事件无资源时不能获得免费收益；守城与巡剿按兵种显示阵亡、负伤、敌损和余部，且战前兵力、损失与余部可以逐项核对；
 - 四种守城阵令的推演、真实战损、战报、军令鼓点、兵营旗色与士卒队形同步变化；

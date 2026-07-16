@@ -31,6 +31,29 @@ func _run() -> void:
 	_check(ui.content_box != null, "main content built")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
 	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
+	_check(_has_label_containing(ui.content_box, "本季产出 20.0 → 40.0石/日"), "building card exposes the actual current and next production")
+	ui.current_tab = 1
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "粮 360 / 2000石"), "ledger exposes current storage against capacity")
+	ui.current_tab = 0
+	ui._render_tab()
+	await process_frame
+	var advice: Dictionary = ui._opening_guidance()
+	_check(str(advice.get("step", "")) == "recruit" and int(advice.get("tab", -1)) == 2, "opening advice starts with a concrete recruitment action")
+	state.units.militia = 25
+	advice = ui._opening_guidance()
+	_check(str(advice.get("step", "")) == "defense" and int(advice.get("tab", -1)) == 0, "opening advice advances to a defensive building choice")
+	state.buildings.wall = 1
+	advice = ui._opening_guidance()
+	_check(str(advice.get("step", "")) == "scout" and int(advice.get("tab", -1)) == 2, "opening advice advances to scouting")
+	state.enemy_army.scouted = true
+	advice = ui._opening_guidance()
+	_check(str(advice.get("step", "")) in ["reinforce", "ready"] and str(advice.get("detail", "")).contains("胜算约"), "opening advice ends with the real battle forecast")
+	state.attack_wave = 2
+	_check(ui._opening_guidance().is_empty(), "opening advice disappears after the first victory")
+	state.reset_game()
+	state.tutorial_seen = true
 	state.set_time_speed(1.0)
 	for tab in range(4):
 		ui.current_tab = tab
@@ -117,6 +140,13 @@ func _run() -> void:
 	ui._handle_back_request()
 	await process_frame
 	_check(ui.modal_layer != null and _has_label(ui.modal_layer, "城邑设置"), "back from licenses returns to settings")
+	_check(_has_button(ui.modal_layer, "重看上任说明"), "settings exposes the onboarding explanation after first launch")
+	ui._show_tutorial(true)
+	await process_frame
+	_check(_has_label_containing(ui.modal_layer, "不操作就不会过日") and _has_button(ui.modal_layer, "返回设置"), "reopened onboarding explains paused time and can return to settings")
+	ui._handle_back_request()
+	await process_frame
+	_check(ui.modal_layer != null and _has_label(ui.modal_layer, "城邑设置"), "back from reopened onboarding returns to settings")
 	ui._close_settings()
 	await process_frame
 	_check(state.get_effective_time_speed() == 1.0, "closing settings restores selected speed")

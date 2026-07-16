@@ -487,11 +487,78 @@ func _update_tab_buttons() -> void:
 func _render_tab() -> void:
 	for child in content_box.get_children():
 		child.queue_free()
+	_add_opening_guidance()
 	match current_tab:
 		0: _render_buildings()
 		1: _render_market()
 		2: _render_military()
 		3: _render_governance()
+
+func _opening_guidance() -> Dictionary:
+	if State.attack_wave > 1:
+		return {}
+	var days_left := State.days_until_attack()
+	var militia_cost: Dictionary = State.UNITS.militia.cost
+	if State.get_army_count() < 25:
+		var roster_used := State.get_army_count() + State.get_wounded_count()
+		if roster_used + int(State.UNITS.militia.batch) > State.get_army_capacity():
+			return {"step": "recover", "title": "首战备忘 · 安置伤卒", "detail": "伤员仍占军籍，待其归队或升级兵营扩充军籍后再征募。来敌%d日后抵城。" % days_left, "tab": 2, "action": "查看伤营"}
+		if not State.can_afford(militia_cost):
+			return {"step": "funds", "title": "首战备忘 · 筹措粮饷", "detail": "征募一伍乡勇需%s；先从账簿确认日结，必要时市易筹措。" % _format_cost(militia_cost), "tab": 1, "action": "查看账簿"}
+		var enemy := State.get_enemy_display()
+		return {"step": "recruit", "title": "首战备忘 · 补足军籍", "detail": "%s约%s，现有守军%d人。先征募一伍乡勇，不会推进日期。" % [enemy.name, enemy.range, State.get_army_count()], "tab": 2, "action": "前往军务"}
+	if State.buildings.wall == 0 and State.buildings.barracks == 0:
+		var can_build_defense := State.can_afford(State.building_cost("wall")) or State.can_afford(State.building_cost("barracks"))
+		if not can_build_defense:
+			return {"step": "funds", "title": "首战备忘 · 积蓄城资", "detail": "守军已经补足；接下来修城垣减伤或建兵营扩军。先从账簿安排缺少的物资。", "tab": 1, "action": "查看账簿"}
+		return {"step": "defense", "title": "首战备忘 · 建立防务", "detail": "来敌%d日后抵城。城垣直接降低伤亡；兵营提高军籍上限与训练，可择一先建。" % days_left, "tab": 0, "action": "查看城建"}
+	if not bool(State.enemy_army.get("scouted", false)):
+		return {"step": "scout", "title": "首战备忘 · 探明来敌", "detail": "防务已有根基。巡剿会探明真实编成，并有机会削敌、拖延行军，但也可能产生伤员。", "tab": 2, "action": "前往军务"}
+	var forecast := State.get_battle_forecast(60)
+	var win_percent := roundi(float(forecast.win_rate) * 100.0)
+	var forecast_text := "当前推演胜算约%d%%，预计伤亡%d～%d人。" % [win_percent, int(forecast.loss_low), int(forecast.loss_high)]
+	if win_percent < 60:
+		return {"step": "reinforce", "title": "首战备忘 · 风险仍高", "detail": forecast_text + "继续扩军、修墙或更换阵令，再决定是否推进日期。", "tab": 2, "action": "调整军务"}
+	return {"step": "ready", "title": "首战备忘 · 可以应战", "detail": forecast_text + "确认账簿能承担军粮军饷后，再用顶部按钮推进日期。", "tab": 2, "action": "查看推演"}
+
+func _add_opening_guidance() -> void:
+	var advice := _opening_guidance()
+	if advice.is_empty():
+		return
+	var card := _card(86)
+	card.add_theme_stylebox_override("panel", _style(Color(0.98, 0.94, 0.79, 0.96), 14, 1, Color(GOLD, 0.58), 9))
+	content_box.add_child(card)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 9)
+	card.add_child(row)
+	row.add_child(_glyph_badge("策", GOLD))
+	var stack := VBoxContainer.new()
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 2)
+	row.add_child(stack)
+	var title := Label.new()
+	title.text = str(advice.title)
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", INK)
+	stack.add_child(title)
+	var detail := Label.new()
+	detail.text = str(advice.detail)
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.add_theme_font_size_override("font_size", 10)
+	detail.add_theme_color_override("font_color", INK_SOFT)
+	stack.add_child(detail)
+	var target_tab := int(advice.tab)
+	var action := _action_button("已在此页" if target_tab == current_tab else str(advice.action))
+	action.custom_minimum_size = Vector2(76, 42)
+	action.disabled = target_tab == current_tab
+	action.pressed.connect(func():
+		current_tab = target_tab
+		Telemetry.track("opening_advice_followed", {"step": advice.step, "tab": target_tab, "day": State.current_day})
+		_update_tab_buttons()
+		content_scroll.scroll_vertical = 0
+		_render_tab()
+	)
+	row.add_child(action)
 
 func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
 	# Page cards contain day-sensitive forecasts, wounded counts and policy gains.
@@ -508,7 +575,7 @@ func _add_building_card(id: String) -> void:
 	var data: Dictionary = State.BUILDINGS[id]
 	var level: int = State.buildings[id]
 	var cost := State.building_cost(id)
-	var card := _card(96)
+	var card := _card(108)
 	content_box.add_child(card)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -524,8 +591,9 @@ func _add_building_card(id: String) -> void:
 	name_label.add_theme_color_override("font_color", INK)
 	text_stack.add_child(name_label)
 	var desc := Label.new()
-	desc.text = data.desc
-	desc.add_theme_font_size_override("font_size", 11)
+	desc.text = data.desc + "\n" + _format_building_effect(State.get_building_effect_preview(id))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 10)
 	desc.add_theme_color_override("font_color", INK_SOFT)
 	text_stack.add_child(desc)
 	var cost_label := Label.new()
@@ -540,6 +608,37 @@ func _add_building_card(id: String) -> void:
 		if State.upgrade_building(id): _render_tab()
 	)
 	row.add_child(action)
+
+func _format_building_effect(preview: Dictionary) -> String:
+	if preview.is_empty():
+		return ""
+	match str(preview.kind):
+		"farm", "woodcut", "quarry":
+			var unit: String = str(RESOURCE_META[str(preview.resource)].unit)
+			if bool(preview.has_next):
+				return "本季产出 %.1f → %.1f%s/日" % [float(preview.current), float(preview.next), unit]
+			return "本季产出 %.1f%s/日" % [float(preview.current), unit]
+		"house":
+			if bool(preview.has_next):
+				return "民口上限 %d → %d人 · 赋税 %.1f → %.1f枚/日" % [int(preview.population_cap), int(preview.next_population_cap), float(preview.current), float(preview.next)]
+			return "民口上限 %d人 · 赋税 %.1f枚/日" % [int(preview.population_cap), float(preview.current)]
+		"market":
+			if bool(preview.has_next):
+				return "赋税 %.1f → %.1f枚/日 · 市易价格同步改善" % [float(preview.current), float(preview.next)]
+			return "赋税 %.1f枚/日 · 市易价格已达最佳" % float(preview.current)
+		"warehouse":
+			if bool(preview.has_next):
+				return "仓容 粮%d→%d石 · 木石%d→%d · 财%d→%d枚" % [int(preview.grain), int(preview.next_grain), int(preview.material), int(preview.next_material), int(preview.coins), int(preview.next_coins)]
+			return "仓容 粮%d石 · 木石%d · 财%d枚" % [int(preview.grain), int(preview.material), int(preview.coins)]
+		"barracks":
+			if bool(preview.has_next):
+				return "军籍 %d → %d人 · 训练 +%d%% → +%d%%" % [int(preview.capacity), int(preview.next_capacity), int(preview.training), int(preview.next_training)]
+			return "军籍 %d人 · 训练 +%d%%" % [int(preview.capacity), int(preview.training)]
+		"wall":
+			if bool(preview.has_next):
+				return "守军承受敌方杀伤 %d%% → %d%%" % [int(preview.incoming), int(preview.next_incoming)]
+			return "守军承受敌方杀伤 %d%%" % int(preview.incoming)
+	return ""
 
 func _render_market() -> void:
 	_add_section_heading("邑中账簿", "所有生产、民食、军粮与军饷按日公开结算")
@@ -560,7 +659,7 @@ func _add_ledger_card(id: String, entry: Dictionary) -> void:
 			details.append("%s %+.1f%s" % [item[0], float(item[1]), unit])
 	var accent := JADE if float(entry.net) >= 0.0 else CINNABAR
 	content_box.add_child(_info_banner(
-		"%s %d%s · 本日 %+.1f%s" % [RESOURCE_META[id].name, floori(State.resources[id]), unit, float(entry.net), unit],
+		"%s %d / %d%s · 本日 %+.1f%s" % [RESOURCE_META[id].name, floori(State.resources[id]), floori(State.get_capacity(id)), unit, float(entry.net), unit],
 		"  ·  ".join(details),
 		accent
 	))
@@ -962,7 +1061,7 @@ func _show_settings() -> void:
 		_confirm_action("重新开始？", "当前自动进度将被新游戏覆盖。三个手动档位不会删除。", "重新开始", func():
 			State.reset_game()
 			_render_tab()
-			_show_settings()
+			_show_tutorial()
 		)
 	)
 	content.add_child(new_game)
@@ -1000,6 +1099,14 @@ func _show_settings() -> void:
 	content.add_child(clear_logs)
 
 	_add_settings_heading(content, "关于", "版本 %s · 离线单机 · 无广告与联网权限" % ProjectSettings.get_setting("application/config/version", "未知"))
+	var tutorial_button := _action_button("重看上任说明")
+	tutorial_button.custom_minimum_size.y = 46
+	tutorial_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tutorial_button.pressed.connect(func():
+		_play_chime()
+		_show_tutorial(true)
+	)
+	content.add_child(tutorial_button)
 	var licenses_button := _action_button("开源软件许可与鸣谢")
 	licenses_button.custom_minimum_size.y = 46
 	licenses_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1219,12 +1326,17 @@ func _format_save_time_with_bias(unix_time: float, utc_bias_minutes: int) -> Str
 	var date := Time.get_datetime_dict_from_unix_time(int(unix_time) + utc_bias_minutes * 60)
 	return "%04d-%02d-%02d  %02d:%02d" % [date.year, date.month, date.day, date.hour, date.minute]
 
-func _show_tutorial() -> void:
+func _show_tutorial(return_to_settings := false) -> void:
+	var finish := func():
+		State.mark_tutorial_seen()
+		if return_to_settings:
+			_show_settings()
 	_show_modal(
 		"青禾初托",
-		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n粮以石计、木以车计、石料以方计、财货以枚计。四时会改变收成、采集、赋税与冬日口粮，所有变化都会列入每日账本。\n\n军队按真实人数征募，来敌也有实际编成；城墙降低伤亡而不凭空增加军力。军务页可在持重、坚壁、雁行、锋矢四种阵令间选择，推演与真实守城使用同一规则。\n\n使用顶部时序控制暂停、正常、加速或精确推进一日。",
-		[{"text": "接掌城邑", "callback": func(): State.mark_tutorial_seen()}],
-		JADE
+		"周室式微，诸侯争衡。你受命治理河畔小邑「青禾」。\n\n此刻时序已经停下：不操作就不会过日。首支山泽盗将在第七日抵城，先依照「首战备忘」补兵、修防务并探明来敌，准备好再推进日期。\n\n粮以石、木以车、石料以方、财货以枚计；每日收支与军粮军饷都能在市易账簿逐项核对。",
+		[{"text": "返回设置" if return_to_settings else "从首战备忘开始", "callback": finish}],
+		JADE,
+		_show_settings if return_to_settings else Callable()
 	)
 
 func _on_event_started(event: Dictionary) -> void:

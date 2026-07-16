@@ -161,15 +161,19 @@ func _produce_resources(delta: float) -> void:
 		resources[key] = clampf(resources[key] + float(rates.get(key, 0.0)) * delta, 0.0, get_capacity(key))
 
 func get_daily_ledger() -> Dictionary:
+	return _daily_ledger_for(buildings, population)
+
+func _daily_ledger_for(building_levels: Dictionary, civilian_population: int) -> Dictionary:
 	var season := get_season_data()
 	var all_bonus := 1.22 if current_day <= int(buffs.get("all_until", 0)) else 1.0
 	var farm_bonus := 1.35 if current_day <= int(buffs.get("farm_until", 0)) else 1.0
-	var market_bonus := 1.0 + float(buildings.market) * 0.08
-	var grain_income: float = 20.0 * buildings.farm * farm_bonus * all_bonus * float(season.grain)
-	var wood_income: float = 9.0 * buildings.woodcut * all_bonus * float(season.wood)
-	var stone_income: float = 6.0 * buildings.quarry * all_bonus * float(season.stone)
-	var tax_income: float = (35.0 * buildings.house + 55.0 * buildings.market + population * 0.25) * market_bonus * all_bonus * float(season.coins)
-	var civilian_food := population / 15.0 * float(season.food)
+	var market_level := int(building_levels.get("market", 0))
+	var market_bonus := 1.0 + market_level * 0.08
+	var grain_income: float = 20.0 * int(building_levels.get("farm", 0)) * farm_bonus * all_bonus * float(season.grain)
+	var wood_income: float = 9.0 * int(building_levels.get("woodcut", 0)) * all_bonus * float(season.wood)
+	var stone_income: float = 6.0 * int(building_levels.get("quarry", 0)) * all_bonus * float(season.stone)
+	var tax_income: float = (35.0 * int(building_levels.get("house", 0)) + 55.0 * market_level + civilian_population * 0.25) * market_bonus * all_bonus * float(season.coins)
+	var civilian_food := civilian_population / 15.0 * float(season.food)
 	var army_food := 0.0
 	var army_pay := 0.0
 	for id in UNITS:
@@ -243,7 +247,9 @@ func advance_one_day() -> bool:
 	return true
 
 func get_capacity(resource_id: String) -> float:
-	var warehouse_level := float(buildings.warehouse)
+	return _capacity_for_level(resource_id, int(buildings.warehouse))
+
+func _capacity_for_level(resource_id: String, warehouse_level: int) -> float:
 	match resource_id:
 		"grain": return 1200.0 + warehouse_level * 800.0
 		"wood", "stone": return 350.0 + warehouse_level * 250.0
@@ -329,6 +335,40 @@ func building_cost(id: String) -> Dictionary:
 	for key in BUILDINGS[id].base:
 		out[key] = ceili(float(BUILDINGS[id].base[key]) * scale)
 	return out
+
+func get_building_effect_preview(id: String) -> Dictionary:
+	if not BUILDINGS.has(id):
+		return {}
+	var level := int(buildings[id])
+	var next_level := mini(level + 1, int(BUILDINGS[id].max))
+	var next_buildings: Dictionary = buildings.duplicate(true)
+	next_buildings[id] = next_level
+	var next_population := population
+	if id == "house" and next_level > level:
+		next_population = mini(90 + next_level * 60 - get_army_count() - get_wounded_count(), population + 5)
+	var current_ledger := _daily_ledger_for(buildings, population)
+	var next_ledger := _daily_ledger_for(next_buildings, next_population)
+	var preview := {"kind": id, "level": level, "next_level": next_level, "has_next": next_level > level}
+	match id:
+		"farm":
+			preview.merge({"resource": "grain", "current": current_ledger.grain.income, "next": next_ledger.grain.income})
+		"woodcut":
+			preview.merge({"resource": "wood", "current": current_ledger.wood.income, "next": next_ledger.wood.income})
+		"quarry":
+			preview.merge({"resource": "stone", "current": current_ledger.stone.income, "next": next_ledger.stone.income})
+		"house", "market":
+			preview.merge({"current": current_ledger.coins.income, "next": next_ledger.coins.income, "population_cap": get_population_cap(), "next_population_cap": 90 + next_level * 60})
+		"warehouse":
+			preview.merge({
+				"grain": _capacity_for_level("grain", level), "next_grain": _capacity_for_level("grain", next_level),
+				"material": _capacity_for_level("wood", level), "next_material": _capacity_for_level("wood", next_level),
+				"coins": _capacity_for_level("coins", level), "next_coins": _capacity_for_level("coins", next_level),
+			})
+		"barracks":
+			preview.merge({"capacity": 25 + level * 20, "next_capacity": 25 + next_level * 20, "training": level * 6, "next_training": next_level * 6})
+		"wall":
+			preview.merge({"incoming": roundi(maxf(0.52, 1.0 - level * 0.09) * 100.0), "next_incoming": roundi(maxf(0.52, 1.0 - next_level * 0.09) * 100.0)})
+	return preview
 
 func can_afford(cost: Dictionary) -> bool:
 	for key in cost:
@@ -1463,6 +1503,7 @@ func reset_game() -> void:
 	defense_order = "steady"
 	last_patrol_day = 0
 	patrol_delay_wave = 0
+	tutorial_seen = false
 	current_event = {}
 	last_event_id = ""
 	buffs = {"farm_until": 0, "all_until": 0}

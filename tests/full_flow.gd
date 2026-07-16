@@ -22,8 +22,17 @@ func _run() -> void:
 			last_day_visual = payload.duplicate(true)
 	)
 	state.reset_game()
+	_check(not state.tutorial_seen, "new game restores the first-run tutorial")
 	state.tutorial_seen = true
 	_fill_resources(state)
+	var farm_preview: Dictionary = state.get_building_effect_preview("farm")
+	var next_buildings: Dictionary = state.buildings.duplicate(true)
+	next_buildings.farm = int(state.buildings.farm) + 1
+	var next_ledger: Dictionary = state._daily_ledger_for(next_buildings, state.population)
+	_check(is_equal_approx(float(farm_preview.current), float(state.get_daily_ledger().grain.income)) and is_equal_approx(float(farm_preview.next), float(next_ledger.grain.income)), "building preview and daily ledger share the production calculation")
+	for id in state.BUILDINGS:
+		var preview: Dictionary = state.get_building_effect_preview(id)
+		_check(not preview.is_empty() and bool(preview.has_next), "building preview exposes the next effect for " + id)
 
 	# Every building reaches every level and remains within its declared maximum.
 	for id in state.BUILDINGS:

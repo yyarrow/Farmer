@@ -15,13 +15,39 @@ func _run() -> void:
 	root.get_node("Telemetry").previous_unclean_exit = false
 	state.reset_game()
 	state.tutorial_seen = true
-	for id in state.BUILDINGS:
-		state.buildings[id] = 5
 	var scene: PackedScene = load("res://main.tscn")
 	var ui = scene.instantiate()
 	root.add_child(ui)
 	await process_frame
 	await process_frame
+	var onboarding_image := root.get_viewport().get_texture().get_image()
+	if onboarding_image.is_empty() or onboarding_image.get_width() != 540 or onboarding_image.get_height() != 960:
+		failures.append("invalid opening advice frame")
+	elif onboarding_image.save_png("res://.qa/visual_onboarding_advice.png") != OK:
+		failures.append("cannot save opening advice frame")
+	ui._show_tutorial()
+	await create_timer(0.4).timeout
+	var tutorial_image := root.get_viewport().get_texture().get_image()
+	if tutorial_image.is_empty() or tutorial_image.get_width() != 540 or tutorial_image.get_height() != 960:
+		failures.append("invalid tutorial frame")
+	elif tutorial_image.save_png("res://.qa/visual_onboarding_intro.png") != OK:
+		failures.append("cannot save tutorial frame")
+	ui._dismiss_modal()
+	ui.current_tab = 1
+	ui._update_tab_buttons()
+	ui._render_tab()
+	await create_timer(0.3).timeout
+	var ledger_image := root.get_viewport().get_texture().get_image()
+	if ledger_image.is_empty() or ledger_image.get_width() != 540 or ledger_image.get_height() != 960:
+		failures.append("invalid ledger capacity frame")
+	elif ledger_image.save_png("res://.qa/visual_ledger_capacity.png") != OK:
+		failures.append("cannot save ledger capacity frame")
+	ui.current_tab = 0
+	ui._update_tab_buttons()
+	ui._render_tab()
+	state.attack_wave = 2
+	for id in state.BUILDINGS:
+		state.buildings[id] = 5
 	for capture in [[1, "spring"], [25, "autumn"], [37, "winter"]]:
 		state.current_day = int(capture[0])
 		state.next_attack_day = state.current_day + 6
@@ -181,7 +207,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 orders=2 policies=4 feedback=1 modals=4 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:
