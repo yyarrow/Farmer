@@ -20,7 +20,7 @@ func _ready() -> void:
 	session_started = Time.get_unix_time_from_system()
 	_write_session_state(false, "running")
 	track("app_start", {
-		"version": ProjectSettings.get_setting("application/config/version", "0.7.0"),
+		"version": ProjectSettings.get_setting("application/config/version", "0.8.0"),
 		"os": OS.get_name(),
 		"model": OS.get_model_name(),
 		"locale": OS.get_locale(),
@@ -138,7 +138,7 @@ func build_report(game_snapshot: Dictionary, save_slots: Array) -> String:
 	var report := {
 		"report_version": 1,
 		"generated_at": Time.get_datetime_string_from_system(false, true),
-		"app_version": ProjectSettings.get_setting("application/config/version", "0.7.0"),
+		"app_version": ProjectSettings.get_setting("application/config/version", "0.8.0"),
 		"device": {"os": OS.get_name(), "model": OS.get_model_name(), "locale": OS.get_locale()},
 		"session": session_id,
 		"previous_unclean_exit": previous_unclean_exit,

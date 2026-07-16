@@ -35,6 +35,8 @@ func _run() -> void:
 		_check(not preview.is_empty() and bool(preview.has_next), "building preview exposes the next effect for " + id)
 
 	# Every building reaches every level and remains within its declared maximum.
+	# This exhaustive fixture needs all eight building slots unlocked first.
+	state.chapter = state.get_max_city_level()
 	for id in state.BUILDINGS:
 		while int(state.buildings[id]) < int(state.BUILDINGS[id].max):
 			_fill_resources(state)

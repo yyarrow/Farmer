@@ -36,8 +36,8 @@ func finish_forced_choices() -> void:
 func _select_defense_order() -> void:
 	var target := "steady"
 	match policy:
-		"agrarian": target = "fortify"
-		"militarist": target = "sally"
+		"agrarian": target = "steady"
+		"militarist": target = "steady"
 		"balanced":
 			if int(state.units.archer) >= 10 and int(state.units.archer) * 3 >= state.get_army_count():
 				target = "volley"
@@ -98,9 +98,9 @@ func _act_agrarian() -> bool:
 			if _try_upgrade(id, int(economy_targets[id])):
 				return true
 	var wave := int(state.attack_wave)
-	var wall_target := mini(4, 1 + floori((wave - 1) / 2.0))
-	var barracks_target := mini(4, 1 + floori((wave - 1) / 2.0))
-	var army_target := mini(state.get_army_capacity(), 25 + (wave - 1) * 5)
+	var wall_target := mini(5, 1 + floori((wave - 1) / 2.0))
+	var barracks_target := mini(5, 1 + floori((wave - 1) / 2.0))
+	var army_target := mini(state.get_army_capacity(), 35 + (wave - 1) * 8)
 	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.58
 	if shortfall:
 		wall_target = mini(5, wall_target + 1)
@@ -174,7 +174,12 @@ func _act_greedy() -> bool:
 	return _try_liquidity_trade(360.0, 320.0)
 
 func _try_advance_chapter() -> bool:
-	if int(state.chapter) >= 3 or state.get_prosperity() < state.get_chapter_target():
+	if state.can_advance_era():
+		if state.advance_era():
+			_record("advance_era")
+			return true
+		return false
+	if int(state.chapter) >= state.get_max_city_level() or state.get_prosperity() < state.get_chapter_target():
 		return false
 	if state.advance_chapter():
 		_record("advance_chapter")
@@ -182,7 +187,7 @@ func _try_advance_chapter() -> bool:
 	return false
 
 func _try_policy(id: String) -> bool:
-	if int(policy_used_day.get(id, 0)) == int(state.current_day):
+	if int(state.current_day) - int(policy_used_day.get(id, -999)) < 3:
 		return false
 	var cost: Dictionary = state.get_policy_cost(id)
 	if cost.is_empty() or not state.get_policy_block_reason(id).is_empty() or not state.can_afford(cost):
@@ -218,7 +223,8 @@ func _try_recruit_best(target: int) -> bool:
 		return false
 	var candidates: Array[String] = []
 	var army_count := maxi(1, state.get_army_count())
-	if int(state.buildings.barracks) >= 3 and (policy == "militarist" or int(state.units.chariot) * 6 < army_count):
+	var wants_chariots: bool = int(state.units.chariot) * (4 if policy == "militarist" else 6) < army_count
+	if int(state.buildings.barracks) >= 3 and wants_chariots:
 		candidates.append("chariot")
 	if int(state.buildings.barracks) >= 2 and int(state.units.archer) * 3 < army_count:
 		candidates.append("archer")
@@ -280,8 +286,6 @@ func _event_choice(id: String) -> int:
 		"drought":
 			return 0 if state.can_afford({"wood": 28, "stone": 18}) else 1
 		"refugees":
-			if policy == "militarist":
-				return 1
 			return 0 if state.get_total_residents() + 20 <= state.get_population_cap() and float(state.resources.grain) >= 90.0 else 1
 		"merchant":
 			if policy in ["agrarian", "greedy"] and float(state.resources.coins) >= 900.0:

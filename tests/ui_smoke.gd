@@ -19,10 +19,8 @@ func _run() -> void:
 	for glyph in "敌军稳定伤亡粮木石币":
 		_check(ui.theme.default_font.has_char(glyph.unicode_at(0)), "bundled UI font covers %s" % glyph)
 	var missing_glyphs := {}
-	for file_name in DirAccess.get_files_at("res://src"):
-		if not file_name.ends_with(".gd"):
-			continue
-		for glyph in FileAccess.get_file_as_string("res://src/" + file_name):
+	for file_path in _gd_files_recursive("res://src"):
+		for glyph in FileAccess.get_file_as_string(file_path):
 			var codepoint := glyph.unicode_at(0)
 			if codepoint >= 128 and not ui.theme.default_font.has_char(codepoint):
 				missing_glyphs[glyph] = true
@@ -30,6 +28,7 @@ func _run() -> void:
 	await process_frame
 	_check(ui.content_box != null, "main content built")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
+	_check(_has_label_containing(ui.content_box, "里聚 · 建筑用地 4 / 6"), "building page explains occupied and available city lots")
 	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
 	_check(_has_label_containing(ui.content_box, "本季产出 20.0 → 40.0石/日"), "building card exposes the actual current and next production")
 	ui.current_tab = 1
@@ -61,6 +60,42 @@ func _run() -> void:
 		ui._render_tab()
 		await process_frame
 		_check(ui.content_box.get_child_count() > 0, "tab %d renders" % tab)
+	ui.current_tab = 3
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "春秋时代积累"), "governance page separates era progress from city level")
+	state.chapter = 2
+	state.changed.emit()
+	await process_frame
+	_check(is_equal_approx(ui.city_world.scale.x, 1.08) and ui.city_pan_hint.visible, "larger city expands the map and enables horizontal inspection")
+	var pan_before: float = ui._city_pan_x
+	var drag := InputEventScreenDrag.new()
+	drag.position = Vector2(200, 320)
+	drag.relative = Vector2(-18, 0)
+	ui._unhandled_input(drag)
+	_check(ui._city_pan_x < pan_before, "horizontal drag moves the expanded city map")
+	state.chapter = 3
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Warring States")
+	await process_frame
+	_check(str(ui.title_label.text).contains("战国") and is_equal_approx(ui.city_world.scale.x, 1.16), "era and preserved city scale refresh together")
+	_check(str(ui.city_background.texture.resource_path).contains("city_warring_states") and str(ui.city_visual_layer.world_state.era) == "warring_states", "era transition replaces the painted city and persistent visual state")
+	ui.current_tab = 0
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "武备营"), "building page uses Warring States catalog")
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "甲士") and _has_label_containing(ui.content_box, "劲弩士") and _has_label_containing(ui.content_box, "轻骑"), "military page uses Warring States unit catalog")
+	ui.current_tab = 3
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "战国新制已启用") and _has_label_containing(ui.content_box, "战国新制已定"), "terminal era is shown as complete instead of an inert zero bar")
+	state.reset_game()
+	state.tutorial_seen = true
+	state.set_time_speed(1.0)
+	await process_frame
 	ui.content_scroll.scroll_vertical = 10000
 	await process_frame
 	ui.tab_buttons[0].pressed.emit()
@@ -248,6 +283,15 @@ func _run() -> void:
 func _check(condition: bool, label: String) -> void:
 	if not condition:
 		failures.append(label)
+
+func _gd_files_recursive(directory: String) -> Array[String]:
+	var paths: Array[String] = []
+	for file_name in DirAccess.get_files_at(directory):
+		if file_name.ends_with(".gd"):
+			paths.append(directory.path_join(file_name))
+	for child_name in DirAccess.get_directories_at(directory):
+		paths.append_array(_gd_files_recursive(directory.path_join(child_name)))
+	return paths
 
 func _has_label(parent: Node, text_value: String) -> bool:
 	for node in parent.find_children("*", "Label", true, false):

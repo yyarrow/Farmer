@@ -20,19 +20,26 @@ static func event_definition(id: String, events: Array) -> Dictionary:
 			return event
 	return {}
 
+static func era_definition(data: Dictionary, context: Dictionary) -> Dictionary:
+	var id := str(data.get("era_id", context.default_era_id))
+	return context.eras.get(id, {})
+
 static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool:
-	var saved_buildings: Dictionary = context.initial_buildings.duplicate(true)
+	var era := era_definition(data, context)
+	if era.is_empty():
+		return false
+	var saved_buildings: Dictionary = era.initial_buildings.duplicate(true)
 	saved_buildings.merge(data.get("buildings", {}), true)
 	var warehouse_level := int(saved_buildings.warehouse)
-	var saved_resources: Dictionary = context.initial_resources.duplicate(true)
+	var saved_resources: Dictionary = era.initial_resources.duplicate(true)
 	saved_resources.merge(data.get("resources", {}), true)
 	for id in saved_resources:
 		if float(saved_resources[id]) > EconomySystem.capacity(id, warehouse_level) + 0.001:
 			return false
 
-	var saved_units: Dictionary = context.initial_units.duplicate(true)
+	var saved_units: Dictionary = era.initial_units.duplicate(true)
 	saved_units.merge(data.get("units", {}), true)
-	var saved_wounded: Dictionary = context.empty_units.duplicate(true)
+	var saved_wounded: Dictionary = era.empty_units.duplicate(true)
 	saved_wounded.merge(data.get("wounded", {}), true)
 	var army_total := BattleSystem.sum_force(saved_units)
 	var wounded_total := BattleSystem.sum_force(saved_wounded)
@@ -42,13 +49,13 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 	if army_total + wounded_total > EconomySystem.army_capacity(int(saved_buildings.barracks)):
 		return false
 
-	var queued_wounded: Dictionary = context.empty_units.duplicate(true)
+	var queued_wounded: Dictionary = era.empty_units.duplicate(true)
 	var saved_day := int(data.get("current_day", 1))
 	for entry in data.get("recovery_queue", []):
 		if int(entry.return_day) <= saved_day:
 			return false
 		queued_wounded[entry.unit] += int(entry.count)
-	for id in context.units:
+	for id in era.units:
 		if int(queued_wounded[id]) != int(saved_wounded[id]):
 			return false
 	if int(data.get("next_attack_day", 7)) <= saved_day:
@@ -68,8 +75,17 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 
 	var saved_event: Dictionary = data.get("current_event", {})
 	if not saved_event.is_empty():
-		var canonical_event := event_definition(str(saved_event.get("id", "")), context.events)
+		var canonical_event := event_definition(str(saved_event.get("id", "")), era.events)
 		if canonical_event.is_empty() or saved_event.get("options") != canonical_event.options:
+			return false
+	if int(data.get("format_version", 1)) >= 4:
+		var city_level := clampi(int(data.get("city_level", data.get("chapter", 1))), 1, era.city_levels.size())
+		var city_data: Dictionary = era.city_levels[city_level - 1]
+		var built_count := 0
+		for id in saved_buildings:
+			if int(saved_buildings[id]) > 0:
+				built_count += 1
+		if built_count > int(city_data.slots):
 			return false
 	return true
 
@@ -77,22 +93,34 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 	if data.is_empty() or not valid_number(data.get("format_version", 1), 1.0, float(context.format_version)):
 		return false
 	var format_version := int(data.get("format_version", 1))
-	if data.has("resources") and not valid_numeric_map(data.resources, context.resource_units.keys(), 0.0, 1000000000.0):
+	var era := era_definition(data, context)
+	if era.is_empty():
+		return false
+	if format_version >= 4:
+		if not data.has("era_id") or str(data.era_id) not in context.eras:
+			return false
+		if not valid_number(data.get("era_progress"), 0.0, float(era.era_growth.target)):
+			return false
+		if not valid_number(data.get("city_level", data.get("chapter")), 1.0, float(era.city_levels.size())):
+			return false
+	if data.has("resources") and not valid_numeric_map(data.resources, era.resource_units.keys(), 0.0, 1000000000.0):
 		return false
 	if data.has("buildings"):
 		if data.buildings is not Dictionary:
 			return false
 		for id in data.buildings:
-			if not context.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(context.buildings[id].max)):
+			if not era.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(era.buildings[id].max)):
 				return false
 	for roster_key in ["units", "wounded"]:
-		if data.has(roster_key) and not valid_numeric_map(data[roster_key], context.units.keys(), 0.0, 10000.0):
+		if data.has(roster_key) and not valid_numeric_map(data[roster_key], era.units.keys(), 0.0, 10000.0):
 			return false
 	var numeric_ranges := {
 		"population": [0.0, 1000000.0],
 		"morale": [0.0, 100.0],
 		"current_day": [1.0, 10000000.0],
-		"chapter": [1.0, 3.0],
+		"chapter": [1.0, float(era.city_levels.size())],
+		"city_level": [1.0, float(era.city_levels.size())],
+		"era_progress": [0.0, float(era.era_growth.target)],
 		"day_progress": [0.0, 1.0],
 		"next_attack_day": [1.0, 10000000.0],
 		"attack_wave": [1.0, 10000000.0],
@@ -105,7 +133,7 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 			return false
 	if data.has("tutorial_seen") and data.tutorial_seen is not bool:
 		return false
-	if data.has("defense_order") and str(data.defense_order) not in context.defense_orders:
+	if data.has("defense_order") and str(data.defense_order) not in era.defense_orders:
 		return false
 	if data.has("buffs") and not valid_numeric_map(data.buffs, ["farm_until", "all_until"], 0.0, 10000000.0):
 		return false
@@ -113,7 +141,7 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 		if data.recovery_queue is not Array or data.recovery_queue.size() > 1000:
 			return false
 		for entry in data.recovery_queue:
-			if entry is not Dictionary or str(entry.get("unit", "")) not in context.units:
+			if entry is not Dictionary or str(entry.get("unit", "")) not in era.units:
 				return false
 			if not valid_number(entry.get("count"), 1.0, 10000.0) or not valid_number(entry.get("return_day"), 1.0, 10000000.0):
 				return false
@@ -140,7 +168,7 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 		if data.current_event is not Dictionary:
 			return false
 		if not data.current_event.is_empty():
-			if event_definition(str(data.current_event.get("id", "")), context.events).is_empty() or data.current_event.get("options") is not Array:
+			if event_definition(str(data.current_event.get("id", "")), era.events).is_empty() or data.current_event.get("options") is not Array:
 				return false
 			if data.current_event.get("title") is not String or str(data.current_event.title).length() > 80:
 				return false
@@ -153,7 +181,7 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 		if data.last_event_id is not String:
 			return false
 		var valid_last_ids: Array[String] = [""]
-		for event in context.events:
+		for event in era.events:
 			valid_last_ids.append(str(event.id))
 		if str(data.last_event_id) not in valid_last_ids:
 			return false

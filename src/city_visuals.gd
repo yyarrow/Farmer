@@ -90,6 +90,9 @@ func _refresh_buildings() -> void:
 		if displayed_levels.get(id, -1) != level:
 			displayed_levels[id] = level
 			building_views[id].scale = Vector2.ONE * _scale_for_level(level)
+		var era_tint: Color = Color.WHITE.lerp(State.get_era_tint(), 0.38)
+		era_tint.a = 0.94
+		building_views[id].modulate = era_tint
 		veteran_banners[id].visible = level >= 3
 		master_banners[id].visible = level >= 5
 	_refresh_world_state()
@@ -97,6 +100,9 @@ func _refresh_buildings() -> void:
 func _refresh_world_state() -> void:
 	var army_count := State.get_army_count()
 	world_state = {
+		"era": State.era_id,
+		"city_level": State.chapter,
+		"building_slots": State.get_building_slot_count(),
 		"irrigation": State.current_day <= int(State.buffs.get("farm_until", 0)),
 		"all_buff": State.current_day <= int(State.buffs.get("all_until", 0)),
 		"civilian_markers": clampi(ceili(State.population / 35.0), 1, 5),
@@ -207,6 +213,14 @@ func play_event(kind: String, payload: Dictionary) -> void:
 			color = Color("#e6c56f")
 			glyph = "城邑焕新"
 			_flash_all_buildings()
+		"era":
+			color = Color("#b84b3f")
+			glyph = "%s新制" % str(payload.get("name", State.get_era_name()))
+			_flash_all_buildings()
+			_spawn_soldiers()
+		"slot_full":
+			color = Color("#c07a42")
+			glyph = "城内用地已满"
 		"load", "new_game":
 			_refresh_buildings()
 			glyph = "整顿城邑"
@@ -370,6 +384,7 @@ func _draw() -> void:
 func _draw_world_state() -> void:
 	if world_state.is_empty():
 		return
+	_draw_era_identity()
 	if bool(world_state.irrigation):
 		for row in 3:
 			var points := PackedVector2Array()
@@ -415,3 +430,22 @@ func _draw_world_state() -> void:
 		var pulse := 0.68 + sin(_world_time * (5.0 if bool(world_state.enemy_urgent) else 2.0)) * 0.22
 		draw_line(warning, warning + Vector2(0, -25), Color("#533a30"), 2.0)
 		draw_colored_polygon(PackedVector2Array([warning + Vector2(0, -25), warning + Vector2(15, -20), warning + Vector2(0, -14)]), Color(0.64, 0.20, 0.17, pulse))
+
+func _draw_era_identity() -> void:
+	if str(world_state.era) != "warring_states":
+		return
+	# Rammed-earth crenellations and rectangular army standards distinguish the
+	# denser Warring States city without replacing the established painted art.
+	var earth := Color(0.37, 0.24, 0.17, 0.66)
+	draw_line(Vector2(383, 248), Vector2(523, 248), earth, 4.0, true)
+	for x in range(390, 520, 16):
+		draw_rect(Rect2(x, 239, 9, 10), earth.lightened(0.09), true)
+	for base in [Vector2(405, 223), Vector2(451, 228), Vector2(492, 220)]:
+		draw_line(base, base + Vector2(0, -31), Color("#3e3027"), 2.0, true)
+		draw_colored_polygon(PackedVector2Array([base + Vector2(1, -30), base + Vector2(19, -27), base + Vector2(16, -16), base + Vector2(1, -18)]), Color("#963e35"))
+	var command_base := POSITIONS.barracks + Vector2(18, 116)
+	for i in 4:
+		var shield_pos := command_base + Vector2(i * 13, (i % 2) * 5)
+		draw_circle(shield_pos, 5.0, Color("#6f4933"))
+		draw_circle(shield_pos, 2.2, Color("#c69b58"))
+		draw_line(shield_pos + Vector2(5, 1), shield_pos + Vector2(13, -8), Color("#d2bd83"), 1.4, true)

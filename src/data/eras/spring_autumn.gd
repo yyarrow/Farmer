@@ -2,6 +2,25 @@ extends RefCounted
 
 const ID := "spring_autumn"
 const DISPLAY_NAME := "春秋"
+const NEXT_ID := "warring_states"
+
+const CITY_LEVELS := [
+	{"level": 1, "name": "里聚", "slots": 6, "advance_target": 140, "view_scale": 1.00},
+	{"level": 2, "name": "邑城", "slots": 7, "advance_target": 235, "view_scale": 1.08},
+	{"level": 3, "name": "大邑", "slots": 8, "advance_target": 340, "view_scale": 1.16},
+]
+
+const ERA_GROWTH := {
+	"target": 1000,
+	"minimum_city_level": 3,
+	"daily": 4,
+	"building_base": 14,
+	"city_level": 65,
+	"battle_victory": 58,
+	"patrol_victory": 10,
+}
+
+const VISUAL := {"tint": Color("#ffffff"), "background": "res://assets/art/city_spring.png", "map_hint": "左右拖动巡视城郭"}
 
 const SEASONS := [
 	{"id": "spring", "name": "春", "grain": 1.00, "wood": 1.00, "stone": 0.90, "coins": 1.00, "food": 1.00},
@@ -29,9 +48,9 @@ const BUILDINGS := {
 }
 
 const UNITS := {
-	"militia": {"name": "乡勇", "glyph": "勇", "batch": 5, "need": 0, "power": 1.0, "ranged": 0.0, "melee": 1.0, "exposure": 1.0, "cost": {"grain": 8, "coins": 120}, "grain_daily": 0.10, "coins_daily": 0.40},
-	"archer": {"name": "弓手", "glyph": "弓", "batch": 5, "need": 2, "power": 1.45, "ranged": 1.8, "melee": 0.55, "exposure": 0.62, "cost": {"grain": 12, "wood": 8, "coins": 320}, "grain_daily": 0.12, "coins_daily": 0.80},
-	"chariot": {"name": "车士", "glyph": "车", "batch": 5, "need": 3, "power": 2.20, "ranged": 0.0, "melee": 2.2, "exposure": 0.48, "cost": {"grain": 20, "wood": 12, "stone": 4, "coins": 650}, "grain_daily": 0.24, "coins_daily": 2.00},
+	"militia": {"name": "乡勇", "enemy_name": "戈卒", "glyph": "勇", "batch": 5, "need": 0, "power": 1.0, "ranged": 0.0, "melee": 1.0, "exposure": 1.0, "cost": {"grain": 8, "coins": 120}, "grain_daily": 0.10, "coins_daily": 0.40},
+	"archer": {"name": "弓手", "enemy_name": "弓手", "glyph": "弓", "batch": 5, "need": 2, "power": 1.45, "ranged": 1.8, "melee": 0.55, "exposure": 0.62, "cost": {"grain": 12, "wood": 8, "coins": 320}, "grain_daily": 0.12, "coins_daily": 0.80},
+	"chariot": {"name": "车士", "enemy_name": "车士", "glyph": "车", "batch": 5, "need": 3, "power": 2.20, "ranged": 0.0, "melee": 2.2, "exposure": 0.48, "cost": {"grain": 20, "wood": 12, "stone": 4, "coins": 650}, "grain_daily": 0.24, "coins_daily": 2.00},
 }
 
 # A standing order changes the next siege without inventing another power score.
@@ -76,3 +95,24 @@ static func initial_units() -> Dictionary:
 
 static func empty_units() -> Dictionary:
 	return {"militia": 0, "archer": 0, "chariot": 0}
+
+static func definition() -> Dictionary:
+	return {
+		"id": ID,
+		"display_name": DISPLAY_NAME,
+		"next_id": NEXT_ID,
+		"city_levels": CITY_LEVELS,
+		"era_growth": ERA_GROWTH,
+		"visual": VISUAL,
+		"seasons": SEASONS,
+		"resource_units": RESOURCE_UNITS,
+		"buildings": BUILDINGS,
+		"units": UNITS,
+		"defense_orders": DEFENSE_ORDERS,
+		"enemy_waves": ENEMY_WAVES,
+		"events": EVENTS,
+		"initial_resources": initial_resources(),
+		"initial_buildings": initial_buildings(),
+		"initial_units": initial_units(),
+		"empty_units": empty_units(),
+	}

@@ -7,12 +7,12 @@ const RESOURCE_META := {
 	"coins": {"name": "财", "glyph": "币", "unit": "枚"},
 }
 
-static func building_effect(preview: Dictionary) -> String:
+static func building_effect(preview: Dictionary, resource_units: Dictionary = RESOURCE_META) -> String:
 	if preview.is_empty():
 		return ""
 	match str(preview.kind):
 		"farm", "woodcut", "quarry":
-			var unit: String = str(RESOURCE_META[str(preview.resource)].unit)
+			var unit: String = str(resource_units[str(preview.resource)].unit)
 			if bool(preview.has_next):
 				return "本季产出 %.1f → %.1f%s/日" % [float(preview.current), float(preview.next), unit]
 			return "本季产出 %.1f%s/日" % [float(preview.current), unit]
@@ -38,11 +38,12 @@ static func building_effect(preview: Dictionary) -> String:
 			return "守军承受敌方杀伤 %d%%" % int(preview.incoming)
 	return ""
 
-static func cost(cost_data: Dictionary) -> String:
+static func cost(cost_data: Dictionary, resource_units: Dictionary = RESOURCE_META) -> String:
 	var parts: Array[String] = []
 	for id in ["grain", "wood", "stone", "coins"]:
 		if cost_data.has(id):
-			parts.append("%s%d%s" % [RESOURCE_META[id].name, int(cost_data[id]), RESOURCE_META[id].unit])
+			var meta: Dictionary = resource_units[id]
+			parts.append("%s%d%s" % [meta.get("short", meta.get("name", id)), int(cost_data[id]), meta.unit])
 	return "  ".join(parts)
 
 static func chinese_number(value: int) -> String:
@@ -87,13 +88,12 @@ static func battle_breakdown(result: Dictionary, unit_definitions: Dictionary) -
 		var injured := int(result.wounded.get(id, 0))
 		if before > 0 or dead + injured > 0:
 			player_parts.append("%s %d亡 %d伤 %d余" % [unit_definitions[id].name, dead, injured, int(result.player_survivors.get(id, 0))])
-	var enemy_names := {"militia": "戈卒", "archer": "弓手", "chariot": "车士"}
 	var enemy_parts: Array[String] = []
 	for id in unit_definitions:
 		var before := int(result.enemy_before.get(id, 0))
 		var lost := int(result.enemy_losses_by_type.get(id, 0))
 		if before > 0 or lost > 0:
-			enemy_parts.append("%s %d损 %d余" % [enemy_names[id], lost, int(result.enemy_survivors.get(id, 0))])
+			enemy_parts.append("%s %d损 %d余" % [unit_definitions[id].get("enemy_name", unit_definitions[id].name), lost, int(result.enemy_survivors.get(id, 0))])
 	var player_text := " · ".join(player_parts.slice(0, 2))
 	if player_parts.size() > 2:
 		player_text += "\n　　　" + " · ".join(player_parts.slice(2))

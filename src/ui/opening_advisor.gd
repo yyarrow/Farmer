@@ -12,9 +12,9 @@ static func guidance(state: Node) -> Dictionary:
 		if roster_used + int(state.UNITS.militia.batch) > state.get_army_capacity():
 			return {"step": "recover", "title": "首战备忘 · 安置伤卒", "detail": "伤员仍占军籍，待其归队或升级兵营扩充军籍后再征募。来敌%d日后抵城。" % days_left, "tab": 2, "action": "查看伤营"}
 		if not state.can_afford(militia_cost):
-			return {"step": "funds", "title": "首战备忘 · 筹措粮饷", "detail": "征募一伍乡勇需%s；先从账簿确认日结，必要时市易筹措。" % Presentation.cost(militia_cost), "tab": 1, "action": "查看账簿"}
+			return {"step": "funds", "title": "首战备忘 · 筹措粮饷", "detail": "征募一伍%s需%s；先从账簿确认日结，必要时市易筹措。" % [state.UNITS.militia.name, Presentation.cost(militia_cost, state.RESOURCE_UNITS)], "tab": 1, "action": "查看账簿"}
 		var enemy: Dictionary = state.get_enemy_display()
-		return {"step": "recruit", "title": "首战备忘 · 补足军籍", "detail": "%s约%s，现有守军%d人。先征募一伍乡勇，不会推进日期。" % [enemy.name, enemy.range, state.get_army_count()], "tab": 2, "action": "前往军务"}
+		return {"step": "recruit", "title": "首战备忘 · 补足军籍", "detail": "%s约%s，现有守军%d人。先征募一伍%s，不会推进日期。" % [enemy.name, enemy.range, state.get_army_count(), state.UNITS.militia.name], "tab": 2, "action": "前往军务"}
 	if state.buildings.wall == 0 and state.buildings.barracks == 0:
 		var can_build_defense: bool = state.can_afford(state.building_cost("wall")) or state.can_afford(state.building_cost("barracks"))
 		if not can_build_defense:

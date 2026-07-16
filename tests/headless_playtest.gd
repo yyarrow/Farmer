@@ -96,8 +96,20 @@ func _run_once(policy: String, seed: int, target_day: int) -> Dictionary:
 	var min_grain := float(state.resources.grain)
 	var min_coins := float(state.resources.coins)
 	var run_errors: Array[String] = []
+	var era_transition: Dictionary = {}
 	while int(state.current_day) < target_day:
 		player.act_day()
+		if era_transition.is_empty() and state.era_id == "warring_states":
+			era_transition = {
+				"day": int(state.current_day),
+				"city_level": int(state.chapter),
+				"army": state.get_army_count(),
+				"units": state.units.duplicate(true),
+				"wall": int(state.buildings.wall),
+				"barracks": int(state.buildings.barracks),
+				"population": int(state.population),
+				"morale": float(state.morale),
+			}
 		_collect_invariants(policy, seed, run_errors)
 		var ledger: Dictionary = state.get_daily_ledger()
 		negative_grain_days += 1 if float(ledger.grain.net) < 0.0 else 0
@@ -156,8 +168,11 @@ func _run_once(policy: String, seed: int, target_day: int) -> Dictionary:
 		"min_coins": min_coins,
 		"stable": stable,
 		"grain_cover_days": grain_cover_days,
+		"era_transition": era_transition,
 		"final": {
 			"day": int(state.current_day),
+			"era_id": state.era_id,
+			"era_progress": int(state.era_progress),
 			"chapter": int(state.chapter),
 			"wave": int(state.attack_wave),
 			"population": int(state.population),
@@ -245,6 +260,8 @@ func _collect_invariants(policy: String, seed: int, errors: Array[String]) -> vo
 	for id in state.BUILDINGS:
 		if int(state.buildings[id]) < 0 or int(state.buildings[id]) > int(state.BUILDINGS[id].max):
 			_append_unique(errors, "building %s outside bounds" % id)
+	if state.get_built_building_count() > state.get_building_slot_count():
+		_append_unique(errors, "constructed buildings exceed city lots")
 	var queued := {"militia": 0, "archer": 0, "chariot": 0}
 	for entry in state.recovery_queue:
 		var unit := str(entry.get("unit", ""))
@@ -265,7 +282,7 @@ func _check_snapshot_roundtrip(errors: Array[String]) -> void:
 	var before: Dictionary = state.get_snapshot()
 	state._apply_snapshot(before, false)
 	var after: Dictionary = state.get_snapshot()
-	for key in ["resources", "buildings", "units", "wounded", "recovery_queue", "population", "morale", "current_day", "chapter", "day_progress", "next_attack_day", "attack_wave", "enemy_army", "last_patrol_day", "patrol_delay_wave", "buffs"]:
+	for key in ["era_id", "era_progress", "city_level", "resources", "buildings", "units", "wounded", "recovery_queue", "population", "morale", "current_day", "chapter", "day_progress", "next_attack_day", "attack_wave", "enemy_army", "last_patrol_day", "patrol_delay_wave", "buffs"]:
 		if before.get(key) != after.get(key):
 			_append_unique(errors, "snapshot roundtrip changed %s on day %d" % [key, int(state.current_day)])
 
@@ -281,6 +298,8 @@ func _aggregate(policy: String, results: Array[Dictionary], target_day: int) -> 
 	var adequate_army_runs := 0
 	var food_secure_runs := 0
 	var recovered_streak_runs := 0
+	var warring_states_runs := 0
+	var era_transition_days: Array = []
 	var totals := {
 		"battles": 0.0, "defeats": 0.0, "casualties": 0.0, "killed": 0.0, "wounded": 0.0,
 		"negative_grain_days": 0.0, "negative_coin_days": 0.0, "critical_days": 0.0,
@@ -305,6 +324,9 @@ func _aggregate(policy: String, results: Array[Dictionary], target_day: int) -> 
 		adequate_army_runs += 1 if int(result.final.army) >= 10 else 0
 		food_secure_runs += 1 if float(result.grain_cover_days) >= 3.0 else 0
 		recovered_streak_runs += 1 if int(result.ending_defeat_streak) < 2 else 0
+		warring_states_runs += 1 if str(result.final.era_id) == "warring_states" else 0
+		if not result.era_transition.is_empty():
+			era_transition_days.append(float(result.era_transition.day))
 		totals.battles += int(result.battles)
 		totals.defeats += defeats
 		totals.casualties += int(result.casualties)
@@ -355,6 +377,8 @@ func _aggregate(policy: String, results: Array[Dictionary], target_day: int) -> 
 		"first_siege_win_rate": snappedf(float(first_wins) / maxf(1.0, first_battles), 0.0001),
 		"no_defeat_run_rate": snappedf(float(no_defeat_runs) / maxf(1.0, runs), 0.0001),
 		"stable_run_rate": snappedf(float(stable_runs) / maxf(1.0, runs), 0.0001),
+		"warring_states_rate": snappedf(float(warring_states_runs) / maxf(1.0, runs), 0.0001),
+		"average_era_transition_day": snappedf(_average(era_transition_days), 0.01),
 		"readiness_rates": {
 			"morale": snappedf(float(healthy_morale_runs) / maxf(1.0, runs), 0.0001),
 			"army": snappedf(float(adequate_army_runs) / maxf(1.0, runs), 0.0001),
@@ -383,6 +407,9 @@ func _analyze_balance(reports: Dictionary, probes: Dictionary, target_day: int) 
 			warnings.append("重军策略的首战或长期稳定性明显低于均衡策略，额外军备投入回报不足")
 		if float(reports.militarist.averages.negative_grain_days) > target_day * 0.20 or float(reports.militarist.averages.negative_coin_days) > target_day * 0.20:
 			warnings.append("重军策略长期净产出为负，军备维持成本可能过重")
+	for normal_policy in ["balanced", "agrarian", "militarist"]:
+		if reports.has(normal_policy) and float(reports[normal_policy].stable_run_rate) < 0.50:
+			warnings.append("%s第%d日稳定率仅 %.1f%%，正常经营路线不可持续" % [reports[normal_policy].name, target_day, float(reports[normal_policy].stable_run_rate) * 100.0])
 	if reports.has("greedy") and reports.has("balanced"):
 		if float(reports.greedy.stable_run_rate) >= float(reports.balanced.stable_run_rate):
 			warnings.append("不设防策略稳定率不低于均衡策略，防务回报不足")
@@ -425,17 +452,19 @@ func _to_markdown(report: Dictionary) -> String:
 		"- 稳定口径：%s" % str(report.stable_definition),
 		"- 耗时：%.2f 秒" % float(report.elapsed_seconds),
 		"",
-		"| 策略 | 首战胜率 | 全部守城胜率 | 无败绩局 | 第%d日稳定率 | 平均守城 | 平均伤亡 | 终局军籍 | 终局民心 |" % int(config.days),
-		"| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+		"| 策略 | 首战胜率 | 全部守城胜率 | 无败绩局 | 第%d日稳定率 | 进入战国 | 更迭日 | 平均守城 | 平均伤亡 | 终局军籍 | 终局民心 |" % int(config.days),
+		"| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
 	])
 	for policy in config.policies:
 		var data: Dictionary = report.policies[policy]
-		lines.append("| %s | %.1f%% | %.1f%% | %.1f%% | %.1f%% | %.2f | %.2f人 | %.1f人 | %.1f |" % [
+		lines.append("| %s | %.1f%% | %.1f%% | %.1f%% | %.1f%% | %.1f%% | %.1f | %.2f | %.2f人 | %.1f人 | %.1f |" % [
 			data.name,
 			float(data.first_siege_win_rate) * 100.0,
 			float(data.siege_win_rate) * 100.0,
 			float(data.no_defeat_run_rate) * 100.0,
 			float(data.stable_run_rate) * 100.0,
+			float(data.warring_states_rate) * 100.0,
+			float(data.average_era_transition_day),
 			float(data.averages.battles),
 			float(data.averages.casualties),
 			float(data.averages.final_army),
@@ -472,12 +501,14 @@ func _to_markdown(report: Dictionary) -> String:
 func _print_summary(report: Dictionary, paths: Dictionary) -> void:
 	for policy in report.config.policies:
 		var data: Dictionary = report.policies[policy]
-		print("HEADLESS_CASE %s runs=%d first=%.1f%% all=%.1f%% stable=%.1f%% battles=%.2f casualties=%.2f" % [
+		print("HEADLESS_CASE %s runs=%d first=%.1f%% all=%.1f%% stable=%.1f%% warring=%.1f%% era_day=%.1f battles=%.2f casualties=%.2f" % [
 			data.name,
 			int(data.runs),
 			float(data.first_siege_win_rate) * 100.0,
 			float(data.siege_win_rate) * 100.0,
 			float(data.stable_run_rate) * 100.0,
+			float(data.warring_states_rate) * 100.0,
+			float(data.average_era_transition_day),
 			float(data.averages.battles),
 			float(data.averages.casualties),
 		])

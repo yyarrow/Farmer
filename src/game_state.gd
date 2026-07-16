@@ -1,6 +1,6 @@
 extends Node
 
-const EraCatalog = preload("res://src/data/eras/spring_autumn.gd")
+const EraRegistry = preload("res://src/data/era_registry.gd")
 const BattleSystem = preload("res://src/systems/battle_system.gd")
 const EconomySystem = preload("res://src/systems/economy_system.gd")
 const ProgressionSystem = preload("res://src/systems/progression_system.gd")
@@ -20,25 +20,28 @@ const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
 const AUTO_SAVE_PATH := "user://saves/autosave.json"
 const SLOT_COUNT := 3
-const FORMAT_VERSION := 3
+const FORMAT_VERSION := 4
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
 const MAX_ENEMY_TIER := 8
 const FINAL_ENEMY_WAVE := 13
 const DAYS_PER_SEASON := 12
-const SEASONS := EraCatalog.SEASONS
-const RESOURCE_UNITS := EraCatalog.RESOURCE_UNITS
-const BUILDINGS := EraCatalog.BUILDINGS
-const UNITS := EraCatalog.UNITS
-const DEFENSE_ORDERS := EraCatalog.DEFENSE_ORDERS
-const ENEMY_WAVES := EraCatalog.ENEMY_WAVES
-const EVENTS := EraCatalog.EVENTS
+var era_id := EraRegistry.DEFAULT_ID
+var era_progress := 0
+var era_definition := EraRegistry.definition(EraRegistry.DEFAULT_ID)
+var SEASONS: Array = era_definition.seasons
+var RESOURCE_UNITS: Dictionary = era_definition.resource_units
+var BUILDINGS: Dictionary = era_definition.buildings
+var UNITS: Dictionary = era_definition.units
+var DEFENSE_ORDERS: Dictionary = era_definition.defense_orders
+var ENEMY_WAVES: Array = era_definition.enemy_waves
+var EVENTS: Array = era_definition.events
 
-var resources := EraCatalog.initial_resources()
-var buildings := EraCatalog.initial_buildings()
-var units := EraCatalog.initial_units()
-var wounded := EraCatalog.empty_units()
+var resources: Dictionary = era_definition.initial_resources.duplicate(true)
+var buildings: Dictionary = era_definition.initial_buildings.duplicate(true)
+var units: Dictionary = era_definition.initial_units.duplicate(true)
+var wounded: Dictionary = era_definition.empty_units.duplicate(true)
 var recovery_queue: Array = []
 var population := 110
 var morale := 70.0
@@ -72,7 +75,7 @@ func _ready() -> void:
 	if enemy_army.is_empty():
 		enemy_army = _make_enemy_army(attack_wave)
 	set_process(true)
-	Telemetry.track("game_state_ready", {"day": current_day, "chapter": chapter, "format": FORMAT_VERSION})
+	Telemetry.track("game_state_ready", {"day": current_day, "chapter": chapter, "era": era_id, "format": FORMAT_VERSION})
 
 func _process(delta: float) -> void:
 	var simulation_delta := delta * get_effective_time_speed()
@@ -113,6 +116,91 @@ func _produce_resources(delta: float) -> void:
 	var rates := get_rates()
 	for key in resources:
 		resources[key] = clampf(resources[key] + float(rates.get(key, 0.0)) * delta, 0.0, get_capacity(key))
+
+func _configure_era(id: String) -> void:
+	era_id = id if EraRegistry.has(id) else EraRegistry.DEFAULT_ID
+	era_definition = EraRegistry.definition(era_id)
+	SEASONS = era_definition.seasons
+	RESOURCE_UNITS = era_definition.resource_units
+	BUILDINGS = era_definition.buildings
+	UNITS = era_definition.units
+	DEFENSE_ORDERS = era_definition.defense_orders
+	ENEMY_WAVES = era_definition.enemy_waves
+	EVENTS = era_definition.events
+	if not DEFENSE_ORDERS.has(defense_order):
+		defense_order = "steady"
+
+func get_era_name() -> String:
+	return str(era_definition.display_name)
+
+func get_next_era_id() -> String:
+	return str(era_definition.next_id)
+
+func get_next_era_name() -> String:
+	var next_id := get_next_era_id()
+	return str(EraRegistry.definition(next_id).display_name) if EraRegistry.has(next_id) else ""
+
+func get_era_progress_target() -> int:
+	return int(era_definition.era_growth.target)
+
+func get_city_level_data(level := -1) -> Dictionary:
+	if level < 1:
+		level = chapter
+	var levels: Array = era_definition.city_levels
+	return levels[clampi(int(level) - 1, 0, levels.size() - 1)]
+
+func get_city_level_name() -> String:
+	return str(get_city_level_data().name)
+
+func get_max_city_level() -> int:
+	return era_definition.city_levels.size()
+
+func get_building_slot_count() -> int:
+	return int(get_city_level_data().slots)
+
+func get_built_building_count() -> int:
+	var count := 0
+	for id in BUILDINGS:
+		if int(buildings.get(id, 0)) > 0:
+			count += 1
+	return count
+
+func get_open_building_slots() -> int:
+	return maxi(0, get_building_slot_count() - get_built_building_count())
+
+func get_city_view_scale() -> float:
+	return float(get_city_level_data().view_scale)
+
+func get_city_map_hint() -> String:
+	return str(era_definition.visual.map_hint)
+
+func get_city_background_path() -> String:
+	return str(era_definition.visual.background)
+
+func get_era_tint() -> Color:
+	return era_definition.visual.tint
+
+func can_advance_era() -> bool:
+	return not get_next_era_id().is_empty() and era_progress >= get_era_progress_target() and chapter >= int(era_definition.era_growth.minimum_city_level)
+
+func get_era_advance_block_reason() -> String:
+	if get_next_era_id().is_empty():
+		return "%s新制已臻完备，继续整饬城邑、积蓄国力" % get_era_name()
+	if chapter < int(era_definition.era_growth.minimum_city_level):
+		return "城池需达到%s" % str(get_city_level_data(int(era_definition.era_growth.minimum_city_level)).name)
+	if era_progress < get_era_progress_target():
+		return "时代积累尚差%d" % (get_era_progress_target() - era_progress)
+	return ""
+
+func _add_era_progress(amount: int, source: String) -> void:
+	if amount <= 0 or get_next_era_id().is_empty():
+		return
+	var before := era_progress
+	era_progress = mini(get_era_progress_target(), era_progress + amount)
+	if era_progress != before:
+		if source == "active_day" and floori(float(before) * 10.0 / get_era_progress_target()) == floori(float(era_progress) * 10.0 / get_era_progress_target()):
+			return
+		Telemetry.track("era_progress_gained", {"era": era_id, "source": source, "amount": era_progress - before, "progress": era_progress, "target": get_era_progress_target(), "day": current_day})
 
 func get_daily_ledger() -> Dictionary:
 	return _daily_ledger_for(buildings, population)
@@ -256,7 +344,7 @@ func get_prosperity() -> int:
 	return ProgressionSystem.prosperity(buildings, population, get_army_count(), chapter)
 
 func get_chapter_target() -> int:
-	return ProgressionSystem.city_tier_target(chapter)
+	return int(get_city_level_data().advance_target)
 
 func building_cost(id: String) -> Dictionary:
 	return EconomySystem.building_cost(BUILDINGS[id], int(buildings[id]))
@@ -308,7 +396,7 @@ func spend(cost: Dictionary) -> bool:
 		visual_event.emit("shortage", {"cost": cost})
 		return false
 	for key in cost:
-		resources[key] -= float(cost[key])
+		resources[key] = maxf(0.0, float(resources[key]) - float(cost[key]))
 	return true
 
 func upgrade_building(id: String) -> bool:
@@ -318,6 +406,10 @@ func upgrade_building(id: String) -> bool:
 	if level >= int(BUILDINGS[id].max):
 		notice.emit("此建筑已臻完善")
 		return false
+	if level == 0 and get_open_building_slots() <= 0:
+		notice.emit("城内用地已满，请先提升城池等级")
+		visual_event.emit("slot_full", {"building": id, "city_level": chapter})
+		return false
 	var cost := building_cost(id)
 	if not spend(cost):
 		return false
@@ -326,6 +418,7 @@ func upgrade_building(id: String) -> bool:
 		population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 5)
 	if id == "barracks":
 		morale = minf(100.0, morale + 4.0)
+	_add_era_progress(int(era_definition.era_growth.building_base) + int(buildings[id]) * 4, "building")
 	changed.emit()
 	var event_kind := "build" if level == 0 else "upgrade"
 	notice.emit(("建成 " if level == 0 else "升级 ") + BUILDINGS[id].name)
@@ -474,6 +567,7 @@ func patrol() -> bool:
 	var delayed := false
 	var field_victory := false
 	if won:
+		_add_era_progress(int(era_definition.era_growth.patrol_victory), "patrol_victory")
 		enemy_losses = rng.randi_range(2, 5)
 		var lost := _deal_losses(enemy_army, enemy_losses, rng)
 		enemy_losses = _sum_force(lost)
@@ -507,9 +601,10 @@ func patrol() -> bool:
 
 func _advance_day(completed_ledger: Dictionary = {}) -> void:
 	current_day += 1
+	_add_era_progress(int(era_definition.era_growth.daily), "active_day")
 	var recovered := _recover_wounded()
 	var ledger := completed_ledger if not completed_ledger.is_empty() else get_daily_ledger()
-	last_day_report = "第%d日账：粮 %+.1f石  木 %+.1f车  石 %+.1f方  财 %+.0f枚" % [current_day, ledger.grain.net, ledger.wood.net, ledger.stone.net, ledger.coins.net]
+	last_day_report = "第%d日账：%s %+.1f%s  %s %+.1f%s  %s %+.1f%s  %s %+.0f%s" % [current_day, RESOURCE_UNITS.grain.short, ledger.grain.net, RESOURCE_UNITS.grain.unit, RESOURCE_UNITS.wood.short, ledger.wood.net, RESOURCE_UNITS.wood.unit, RESOURCE_UNITS.stone.short, ledger.stone.net, RESOURCE_UNITS.stone.unit, RESOURCE_UNITS.coins.short, ledger.coins.net, RESOURCE_UNITS.coins.unit]
 	var civil_food := maxf(1.0, population / 15.0)
 	if resources.grain > civil_food * 5.0 and get_total_residents() < get_population_cap() and morale >= 55.0:
 		population += 1
@@ -762,7 +857,7 @@ func _next_attack_interval(won: bool) -> int:
 func get_enemy_display() -> Dictionary:
 	var total := _sum_force(enemy_army)
 	if bool(enemy_army.get("scouted", false)):
-		return {"name": enemy_army.name, "known": true, "total": total, "range": "%d人" % total, "composition": "戈卒%d  弓手%d  车士%d" % [enemy_army.militia, enemy_army.archer, enemy_army.chariot]}
+		return {"name": enemy_army.name, "known": true, "total": total, "range": "%d人" % total, "composition": "%s%d  %s%d  %s%d" % [UNITS.militia.enemy_name, enemy_army.militia, UNITS.archer.enemy_name, enemy_army.archer, UNITS.chariot.enemy_name, enemy_army.chariot]}
 	var low := maxi(1, floori(total * 0.78))
 	var high := ceili(total * 1.22)
 	return {"name": enemy_army.name, "known": false, "total": total, "range": "%d～%d人" % [low, high], "composition": "编成未明，巡剿可探查"}
@@ -805,6 +900,7 @@ func _resolve_siege() -> void:
 	_add_wounded(result.wounded)
 	var loss_text := "阵亡%d人，负伤%d人；敌军折损%d人。" % [result.killed_total, result.wounded_total, result.enemy_losses]
 	if bool(result.won):
+		_add_era_progress(int(era_definition.era_growth.battle_victory) + mini(18, resolved_wave * 2), "battle_victory")
 		var spoils := 180.0 + attack_wave * 40.0
 		resources.coins = minf(get_capacity("coins"), resources.coins + spoils)
 		morale = minf(100.0, morale + 7.0)
@@ -854,12 +950,11 @@ func _apply_field_losses(count: int, killed_ratio: float) -> Dictionary:
 	return {"lost": lost, "killed": killed, "wounded": injured}
 
 func _loss_summary(losses: Dictionary, enemy := false) -> String:
-	var names := {"militia": "戈卒", "archer": "弓手", "chariot": "车士"} if enemy else {"militia": "乡勇", "archer": "弓手", "chariot": "车士"}
 	var parts: Array[String] = []
 	for id in UNITS:
 		var count := int(losses.get(id, 0))
 		if count > 0:
-			parts.append("%s%d" % [names[id], count])
+			parts.append("%s%d" % [UNITS[id].enemy_name if enemy else UNITS[id].name, count])
 	return "、".join(parts) if not parts.is_empty() else "无"
 
 func _casualty_summary(killed: Dictionary, injured: Dictionary) -> String:
@@ -884,13 +979,14 @@ func _merge_force_counts(target: Dictionary, addition: Dictionary) -> void:
 	BattleSystem.merge_force_counts(target, addition, UNITS)
 
 func advance_chapter() -> bool:
+	if chapter >= get_max_city_level():
+		notice.emit("%s时期的城池规模已至上限" % get_era_name())
+		return false
 	if get_prosperity() < get_chapter_target():
 		notice.emit("繁荣度尚不足以扩建城邑")
 		return false
-	if chapter >= 3:
-		notice.emit("青禾已成一方强邑")
-		return false
 	chapter += 1
+	_add_era_progress(int(era_definition.era_growth.city_level), "city_level")
 	set_time_speed(0.0, "chapter_advanced")
 	resources.coins = minf(get_capacity("coins"), resources.coins + 1200.0)
 	resources.grain = minf(get_capacity("grain"), resources.grain + 150.0)
@@ -898,11 +994,48 @@ func advance_chapter() -> bool:
 	next_attack_day = mini(next_attack_day, current_day + 4)
 	patrol_delay_wave = 0
 	enemy_army = _make_enemy_army(attack_wave)
-	notice.emit("城邑晋升：邻国开始派出更完整的军队")
+	notice.emit("城池晋升为%s：新增建筑用地已经开放" % get_city_level_name())
 	changed.emit()
 	visual_event.emit("chapter", {"chapter": chapter})
 	Audio.play_sfx("upgrade")
 	Telemetry.track("chapter_advanced", {"chapter": chapter, "prosperity": get_prosperity()})
+	save_game()
+	return true
+
+func advance_era() -> bool:
+	var block_reason := get_era_advance_block_reason()
+	if not block_reason.is_empty():
+		notice.emit(block_reason)
+		return false
+	var previous_era := era_id
+	var next_era := get_next_era_id()
+	set_time_speed(0.0, "era_advanced")
+	_configure_era(next_era)
+	era_progress = 0
+	for id in BUILDINGS:
+		if not buildings.has(id):
+			buildings[id] = 0
+	for id in UNITS:
+		if not units.has(id):
+			units[id] = 0
+		if not wounded.has(id):
+			wounded[id] = 0
+	defense_order = "steady"
+	attack_wave = 1
+	patrol_delay_wave = 0
+	last_patrol_day = 0
+	next_attack_day = current_day + 7
+	enemy_army = _make_enemy_army(attack_wave)
+	morale = minf(100.0, morale + 8.0)
+	resources.coins = minf(get_capacity("coins"), resources.coins + 1200.0)
+	resources.grain = minf(get_capacity("grain"), resources.grain + 180.0)
+	current_event = {}
+	last_event_id = ""
+	changed.emit()
+	visual_event.emit("era", {"from": previous_era, "to": era_id, "name": get_era_name()})
+	Audio.play_sfx("upgrade")
+	Telemetry.track("era_advanced", {"from": previous_era, "to": era_id, "day": current_day, "city_level": chapter})
+	notice.emit("时代更迭：青禾进入%s，新军制与城建体系已经启用" % get_era_name())
 	save_game()
 	return true
 
@@ -930,6 +1063,9 @@ func load_game() -> void:
 func get_snapshot() -> Dictionary:
 	return {
 		"format_version": FORMAT_VERSION,
+		"era_id": era_id,
+		"era_progress": era_progress,
+		"city_level": chapter,
 		"resources": resources.duplicate(true),
 		"buildings": buildings.duplicate(true),
 		"units": units.duplicate(true),
@@ -955,7 +1091,7 @@ func get_snapshot() -> Dictionary:
 	}
 
 func _upgrade_snapshot(data: Dictionary) -> Dictionary:
-	var result := SaveMigrator.upgrade(data, FORMAT_VERSION, UNITS, EraCatalog.empty_units(), Callable(self, "_make_enemy_army"))
+	var result := SaveMigrator.upgrade(data, FORMAT_VERSION, EraRegistry.DEFAULT_ID, EraRegistry.definition(EraRegistry.DEFAULT_ID))
 	if bool(result.migrated):
 		Telemetry.track("save_format_migrated", {"from": result.from, "to": FORMAT_VERSION})
 	return result.data
@@ -968,19 +1104,21 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	if not _is_valid_save_data(snapshot):
 		Telemetry.track_error("save_migration_rejected", "迁移后的存档状态不一致")
 		return
-	resources = EraCatalog.initial_resources()
+	_configure_era(str(snapshot.get("era_id", EraRegistry.DEFAULT_ID)))
+	era_progress = int(snapshot.get("era_progress", 0))
+	resources = era_definition.initial_resources.duplicate(true)
 	resources.merge(snapshot.get("resources", {}), true)
-	buildings = EraCatalog.initial_buildings()
+	buildings = era_definition.initial_buildings.duplicate(true)
 	buildings.merge(snapshot.get("buildings", {}), true)
-	units = EraCatalog.initial_units()
+	units = era_definition.initial_units.duplicate(true)
 	units.merge(snapshot.get("units", {}), true)
-	wounded = EraCatalog.empty_units()
+	wounded = era_definition.empty_units.duplicate(true)
 	wounded.merge(snapshot.get("wounded", {}), true)
 	recovery_queue = snapshot.get("recovery_queue", []).duplicate(true)
 	population = int(snapshot.get("population", 110))
 	morale = float(snapshot.get("morale", 70.0))
 	current_day = int(snapshot.get("current_day", 1))
-	chapter = int(snapshot.get("chapter", 1))
+	chapter = int(snapshot.get("city_level", snapshot.get("chapter", 1)))
 	day_progress = float(snapshot.get("day_progress", 0.0))
 	next_attack_day = int(snapshot.get("next_attack_day", 7))
 	attack_wave = int(snapshot.get("attack_wave", 1))
@@ -1070,7 +1208,7 @@ func list_save_slots() -> Array:
 		if data.is_empty():
 			slots.append({"slot": slot, "exists": false})
 		else:
-			slots.append({"slot": slot, "exists": true, "day": int(data.get("current_day", 1)), "chapter": int(data.get("chapter", 1)), "prosperity": int(data.get("prosperity", 0)), "saved_at": float(data.get("saved_at", 0.0))})
+			slots.append({"slot": slot, "exists": true, "day": int(data.get("current_day", 1)), "chapter": int(data.get("city_level", data.get("chapter", 1))), "era_id": str(data.get("era_id", EraRegistry.DEFAULT_ID)), "era_name": str(EraRegistry.definition(str(data.get("era_id", EraRegistry.DEFAULT_ID))).display_name), "prosperity": int(data.get("prosperity", 0)), "saved_at": float(data.get("saved_at", 0.0))})
 	return slots
 
 func _slot_path(slot: int) -> String:
@@ -1099,15 +1237,8 @@ func _save_validation_context() -> Dictionary:
 	return {
 		"format_version": FORMAT_VERSION,
 		"max_enemy_tier": MAX_ENEMY_TIER,
-		"resource_units": RESOURCE_UNITS,
-		"buildings": BUILDINGS,
-		"units": UNITS,
-		"defense_orders": DEFENSE_ORDERS,
-		"events": EVENTS,
-		"initial_resources": EraCatalog.initial_resources(),
-		"initial_buildings": EraCatalog.initial_buildings(),
-		"initial_units": EraCatalog.initial_units(),
-		"empty_units": EraCatalog.empty_units(),
+		"default_era_id": EraRegistry.DEFAULT_ID,
+		"eras": EraRegistry.definitions(),
 	}
 
 func _is_consistent_current_save(data: Dictionary) -> bool:
@@ -1136,10 +1267,12 @@ func _migrate_legacy_save() -> void:
 		Telemetry.track("legacy_save_migrated", {"format": data.get("format_version", 1)})
 
 func reset_game() -> void:
-	resources = EraCatalog.initial_resources()
-	buildings = EraCatalog.initial_buildings()
-	units = EraCatalog.initial_units()
-	wounded = EraCatalog.empty_units()
+	_configure_era(EraRegistry.DEFAULT_ID)
+	era_progress = 0
+	resources = era_definition.initial_resources.duplicate(true)
+	buildings = era_definition.initial_buildings.duplicate(true)
+	units = era_definition.initial_units.duplicate(true)
+	wounded = era_definition.empty_units.duplicate(true)
 	recovery_queue = []
 	population = 110
 	morale = 70.0

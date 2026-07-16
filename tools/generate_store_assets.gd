@@ -56,6 +56,7 @@ func _run() -> void:
 		["res://.qa/visual_winter_max.png", "res://store/screenshots/03-winter-city.png"],
 		["res://.qa/visual_military_scouted.png", "res://store/screenshots/04-military-intelligence.png"],
 		["res://.qa/visual_policy_active_bottom.png", "res://store/screenshots/05-governance-policy.png"],
+		["res://.qa/visual_warring_city.png", "res://store/screenshots/06-warring-city.png"],
 	]:
 		var screenshot := Image.load_from_file(item[0])
 		if screenshot.is_empty():
@@ -68,7 +69,7 @@ func _run() -> void:
 			push_error("cannot save store screenshot: " + item[1])
 			quit(1)
 			return
-	print("STORE_ASSETS_OK icon=512x512 feature=1024x500 screenshots=5x1080x1920")
+	print("STORE_ASSETS_OK icon=512x512 feature=1024x500 screenshots=6x1080x1920")
 	quit(0)
 
 func _build_feature_graphic(canvas: Control) -> void:

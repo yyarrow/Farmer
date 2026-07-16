@@ -37,9 +37,14 @@ var toast_label: Label
 var modal_layer: Control
 var _modal_back_action: Callable
 var _toast_tween: Tween
+var city_world: Control
 var city_background: TextureRect
 var city_visual_layer: Control
+var city_pan_hint: Label
 var _displayed_season := ""
+var _displayed_era := ""
+var _displayed_city_scale := 0.0
+var _city_pan_x := 0.0
 
 func _ready() -> void:
 	theme = UiFont.make_theme()
@@ -63,6 +68,23 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_handle_back_request()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if State.get_city_view_scale() <= 1.001 or modal_layer:
+		return
+	var drag_delta := 0.0
+	var pointer_y := -1.0
+	if event is InputEventScreenDrag:
+		drag_delta = event.relative.x
+		pointer_y = event.position.y
+	elif event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+		drag_delta = event.relative.x
+		pointer_y = event.position.y
+	if is_zero_approx(drag_delta) or pointer_y < 184.0 or pointer_y > 525.0:
+		return
+	_city_pan_x += drag_delta
+	_apply_city_view(false)
+	get_viewport().set_input_as_handled()
 
 func _handle_back_request() -> void:
 	if modal_layer and is_instance_valid(modal_layer):
@@ -97,34 +119,41 @@ func _show_exit_confirmation() -> void:
 	)
 
 func _build_scene() -> void:
+	city_world = Control.new()
+	city_world.name = "CityWorld"
+	city_world.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	city_world.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(city_world)
+
 	city_background = TextureRect.new()
 	city_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	city_background.texture = load("res://assets/art/city_spring.png")
 	city_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	city_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	city_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(city_background)
+	city_world.add_child(city_background)
 
 	var warm_wash := ColorRect.new()
 	warm_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	warm_wash.color = Color(0.96, 0.82, 0.48, 0.055)
 	warm_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(warm_wash)
+	city_world.add_child(warm_wash)
 
 	var ambient := Node2D.new()
 	ambient.set_script(load("res://src/ambient_layer.gd"))
 	ambient.z_index = 1
-	add_child(ambient)
+	city_world.add_child(ambient)
 
 	city_visual_layer = Control.new()
 	city_visual_layer.name = "CityVisuals"
 	city_visual_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	city_visual_layer.set_script(load("res://src/city_visuals.gd"))
 	city_visual_layer.z_index = 2
-	add_child(city_visual_layer)
+	city_world.add_child(city_visual_layer)
 
 	_build_top_panel()
 	_build_map_markers()
+	_build_city_pan_hint()
 	_build_threat_strip()
 	_build_bottom_panel()
 	_build_toast()
@@ -288,8 +317,26 @@ func _build_map_markers() -> void:
 			_render_tab()
 			_show_toast("%s：%s" % [State.BUILDINGS[captured_id].name, State.BUILDINGS[captured_id].desc])
 		)
-		add_child(button)
+		city_world.add_child(button)
 		marker_buttons[id] = button
+
+func _build_city_pan_hint() -> void:
+	city_pan_hint = Label.new()
+	city_pan_hint.anchor_left = 0.5
+	city_pan_hint.anchor_right = 0.5
+	city_pan_hint.anchor_top = 0.525
+	city_pan_hint.anchor_bottom = 0.525
+	city_pan_hint.offset_left = -92
+	city_pan_hint.offset_right = 92
+	city_pan_hint.offset_bottom = 24
+	city_pan_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	city_pan_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	city_pan_hint.add_theme_font_size_override("font_size", 10)
+	city_pan_hint.add_theme_color_override("font_color", Color("#f8e8bb"))
+	city_pan_hint.add_theme_stylebox_override("normal", _style(Color(0.10, 0.14, 0.11, 0.72), 10, 1, Color(GOLD, 0.24), 3))
+	city_pan_hint.z_index = 9
+	city_pan_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(city_pan_hint)
 
 func _build_threat_strip() -> void:
 	var panel := PanelContainer.new()
@@ -431,14 +478,15 @@ func _play_chime(_frequency := 520.0) -> void:
 func _refresh_dynamic() -> void:
 	var ledger := State.get_daily_ledger()
 	for id in resource_labels:
-		resource_labels[id].text = "%s %d%s\n%+.1f/日" % [RESOURCE_META[id].glyph, floori(State.resources[id]), RESOURCE_META[id].unit, float(ledger[id].net)]
-	var stage_names := ["", "垦荒", "成邑", "一方之城"]
-	title_label.text = "青禾邑 · %s" % stage_names[mini(State.chapter, stage_names.size() - 1)]
+		var meta: Dictionary = _resource_meta(id)
+		resource_labels[id].text = "%s %d%s\n%+.1f/日" % [meta.glyph, floori(State.resources[id]), meta.unit, float(ledger[id].net)]
+	title_label.text = "青禾邑 · %s·%s" % [State.get_era_name(), State.get_city_level_name()]
 	population_label.text = "%d户 · 民%d · 军%d · 心%d" % [State.get_households(), State.population, State.get_army_count(), roundi(State.morale)]
 	var time_text := "停" if State.get_effective_time_speed() <= 0.0 else "%d×" % roundi(State.get_effective_time_speed())
 	var calendar := State.get_calendar()
 	day_label.text = "%d年·%s%d日·%s" % [calendar.year, calendar.season_name, calendar.day, time_text]
 	_apply_season_tone(str(calendar.season))
+	_apply_city_view()
 	day_bar.value = State.day_progress * 100.0
 	for speed in time_buttons:
 		time_buttons[speed].button_pressed = is_equal_approx(float(speed), State.time_speed)
@@ -452,10 +500,39 @@ func _refresh_dynamic() -> void:
 		var level: int = State.buildings[id]
 		marker_buttons[id].text = "%s · %s" % [State.BUILDINGS[id].name, ("未" if level == 0 else _cn_number(level))]
 
-func _apply_season_tone(season: String) -> void:
-	if season == _displayed_season or not city_background:
+func _resource_meta(id: String) -> Dictionary:
+	var source: Dictionary = State.RESOURCE_UNITS.get(id, RESOURCE_META.get(id, {}))
+	return {
+		"name": source.get("short", source.get("name", id)),
+		"glyph": source.get("glyph", id.left(1)),
+		"unit": source.get("unit", ""),
+	}
+
+func _apply_city_view(recenter_on_change := true) -> void:
+	if not city_world:
 		return
+	var view_scale := State.get_city_view_scale()
+	var viewport_width := size.x if size.x > 1.0 else 540.0
+	var min_x := viewport_width - viewport_width * view_scale
+	if recenter_on_change and not is_equal_approx(_displayed_city_scale, view_scale):
+		_displayed_city_scale = view_scale
+		_city_pan_x = min_x * 0.5
+	_city_pan_x = clampf(_city_pan_x, min_x, 0.0)
+	city_world.scale = Vector2.ONE * view_scale
+	city_world.position = Vector2(_city_pan_x, 184.0 * (1.0 - view_scale))
+	city_pan_hint.visible = view_scale > 1.001
+	city_pan_hint.text = "左 · %s · 右" % State.get_city_map_hint()
+
+func _apply_season_tone(season: String) -> void:
+	if (season == _displayed_season and State.era_id == _displayed_era) or not city_background:
+		return
+	var era_changed := State.era_id != _displayed_era
 	_displayed_season = season
+	_displayed_era = State.era_id
+	if era_changed:
+		var background_path := State.get_city_background_path()
+		if ResourceLoader.exists(background_path):
+			city_background.texture = load(background_path)
 	Audio.set_music_season(season)
 	var tones := {
 		"spring": Color(1.0, 1.0, 1.0),
@@ -464,7 +541,7 @@ func _apply_season_tone(season: String) -> void:
 		"winter": Color(0.82, 0.91, 1.0),
 	}
 	var tween := get_tree().create_tween()
-	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE), 0.8)
+	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE) * State.get_era_tint(), 0.8)
 
 func _update_tab_buttons() -> void:
 	for i in tab_buttons.size():
@@ -532,7 +609,12 @@ func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
 		_render_tab()
 
 func _render_buildings() -> void:
-	_add_section_heading("营造城邑", "升级建筑，建立稳定的生产循环")
+	_add_section_heading("营造城邑", "选择空地建造，再逐阶升级；城池扩建会开放更多用地")
+	content_box.add_child(_info_banner(
+		"%s · 建筑用地 %d / %d" % [State.get_city_level_name(), State.get_built_building_count(), State.get_building_slot_count()],
+		"尚余%d处空地 · %s" % [State.get_open_building_slots(), State.get_city_map_hint()],
+		JADE if State.get_open_building_slots() > 0 else GOLD
+	))
 	for id in State.BUILDINGS:
 		_add_building_card(id)
 
@@ -562,12 +644,13 @@ func _add_building_card(id: String) -> void:
 	desc.add_theme_color_override("font_color", INK_SOFT)
 	text_stack.add_child(desc)
 	var cost_label := Label.new()
-	cost_label.text = "已满级" if level >= int(data.max) else _format_cost(cost)
+	var slot_blocked := level == 0 and State.get_open_building_slots() <= 0
+	cost_label.text = "已满级" if level >= int(data.max) else ("用地已满，先晋升城池" if slot_blocked else _format_cost(cost))
 	cost_label.add_theme_font_size_override("font_size", 11)
-	cost_label.add_theme_color_override("font_color", CINNABAR if not State.can_afford(cost) else JADE)
+	cost_label.add_theme_color_override("font_color", CINNABAR if slot_blocked or not State.can_afford(cost) else JADE)
 	text_stack.add_child(cost_label)
 	var action := _action_button("建造" if level == 0 else "升级")
-	action.disabled = level >= int(data.max)
+	action.disabled = level >= int(data.max) or slot_blocked
 	action.pressed.connect(func():
 		_play_chime(600.0)
 		if State.upgrade_building(id): _render_tab()
@@ -575,7 +658,7 @@ func _add_building_card(id: String) -> void:
 	row.add_child(action)
 
 func _format_building_effect(preview: Dictionary) -> String:
-	return UiPresentation.building_effect(preview)
+	return UiPresentation.building_effect(preview, State.RESOURCE_UNITS)
 
 func _render_market() -> void:
 	_add_section_heading("邑中账簿", "所有生产、民食、军粮与军饷按日公开结算")
@@ -589,14 +672,15 @@ func _render_market() -> void:
 	_add_trade_card("商队运石", "buy_stone")
 
 func _add_ledger_card(id: String, entry: Dictionary) -> void:
-	var unit: String = RESOURCE_META[id].unit
+	var meta := _resource_meta(id)
+	var unit: String = meta.unit
 	var details: Array[String] = []
 	for item in entry.details:
 		if absf(float(item[1])) >= 0.01:
 			details.append("%s %+.1f%s" % [item[0], float(item[1]), unit])
 	var accent := JADE if float(entry.net) >= 0.0 else CINNABAR
 	content_box.add_child(_info_banner(
-		"%s %d / %d%s · 本日 %+.1f%s" % [RESOURCE_META[id].name, floori(State.resources[id]), floori(State.get_capacity(id)), unit, float(entry.net), unit],
+		"%s %d / %d%s · 本日 %+.1f%s" % [meta.name, floori(State.resources[id]), floori(State.get_capacity(id)), unit, float(entry.net), unit],
 		"  ·  ".join(details),
 		accent
 	))
@@ -720,14 +804,14 @@ func _add_unit_card(id: String) -> void:
 	row.add_child(stack)
 	var name_label := Label.new()
 	var unit_name := "%s  %d人" % [data.name, count]
-	if id == "chariot":
+	if id == "chariot" and State.era_id == "spring_autumn":
 		unit_name += "（%d乘齐备）" % floori(count / 5.0)
 	name_label.text = unit_name
 	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.add_theme_color_override("font_color", INK)
 	stack.add_child(name_label)
 	var detail := Label.new()
-	detail.text = "每征一伍%d人 · 军力/人 %.2f\n日耗 粮%.2f石 财%.2f枚 · %s%s" % [data.batch, data.power, data.grain_daily, data.coins_daily, ("需兵营%d级 · " % int(data.need) if int(data.need) > 0 else ""), _format_cost(data.cost)]
+	detail.text = "每征一伍%d人 · 军力/人 %.2f\n日耗 %s%.2f%s %s%.2f%s · %s%s" % [data.batch, data.power, State.RESOURCE_UNITS.grain.short, data.grain_daily, State.RESOURCE_UNITS.grain.unit, State.RESOURCE_UNITS.coins.short, data.coins_daily, State.RESOURCE_UNITS.coins.unit, ("需%s%d级 · " % [State.BUILDINGS.barracks.name, int(data.need)] if int(data.need) > 0 else ""), _format_cost(data.cost)]
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
@@ -748,10 +832,25 @@ func _army_ledger_cost(details: Array) -> float:
 	return total
 
 func _render_governance() -> void:
-	_add_section_heading("邑宰案牍", "权衡民生、生产与军备，方可长治久安")
+	_add_section_heading("邑宰案牍", "城池规模与时代积累分别成长，发展和征战共同推动新制")
 	var prosperity := State.get_prosperity()
 	var target := State.get_chapter_target()
-	content_box.add_child(_progress_card("城邑繁荣", prosperity, target, "建筑、人口与军队共同提升繁荣度"))
+	content_box.add_child(_progress_card(
+		"%s · 城池等级%d" % [State.get_city_level_name(), State.chapter],
+		mini(prosperity, target), target,
+		"繁荣%d · 建筑用地%d处 · 建筑、人口与军队共同提升" % [prosperity, State.get_building_slot_count()]
+	))
+	if State.get_next_era_id().is_empty():
+		content_box.add_child(_progress_card(
+			"%s新制已启用" % State.get_era_name(), 1, 1,
+			"当前时代路线已经完成，继续经营并扩建城池"
+		))
+	else:
+		content_box.add_child(_progress_card(
+			"%s时代积累" % State.get_era_name(),
+			State.era_progress, State.get_era_progress_target(),
+			"主动推进日期、营造城池、巡剿与守城胜利都会积累"
+		))
 	_add_policy_card("兴修水利", "三日粮秣增产35%", "irrigate", "渠")
 	var relief_preview := State.get_policy_preview("tax_relief")
 	_add_policy_card("轻徭薄赋", "民口+%d · 民心+%.0f" % [relief_preview.population_gain, relief_preview.morale_gain], "tax_relief", "民")
@@ -765,17 +864,18 @@ func _render_governance() -> void:
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(stack)
 	var name_label := Label.new()
-	name_label.text = "晋升城邑" if State.chapter < 3 else "一方强邑"
+	var city_at_max := State.chapter >= State.get_max_city_level()
+	name_label.text = "扩建为下一阶城池" if not city_at_max else "%s城池已臻完善" % State.get_era_name()
 	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.add_theme_color_override("font_color", INK)
 	stack.add_child(name_label)
 	var detail := Label.new()
-	detail.text = "达到繁荣目标后获得物资，后续敌军编成也会升级" if State.chapter < 3 else "你已将青禾经营为乱世中的安宁之城"
+	detail.text = "达到繁荣目标后开放建筑用地，城景也会扩大" if not city_at_max else "继续发展与征战，积累进入下一时代所需的制度经验"
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)
-	var action := _action_button("晋升" if State.chapter < 3 else "完成")
-	action.disabled = State.chapter >= 3 or prosperity < target
+	var action := _action_button("扩建" if not city_at_max else "已完成")
+	action.disabled = city_at_max or prosperity < target
 	action.pressed.connect(func():
 		_play_chime(740.0)
 		if State.advance_chapter():
@@ -783,6 +883,48 @@ func _render_governance() -> void:
 			_render_tab()
 	)
 	row.add_child(action)
+
+	var era_card := _card(92)
+	content_box.add_child(era_card)
+	var era_row := HBoxContainer.new()
+	era_row.add_theme_constant_override("separation", 10)
+	era_card.add_child(era_row)
+	era_row.add_child(_glyph_badge("史", GOLD))
+	var era_stack := VBoxContainer.new()
+	era_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	era_row.add_child(era_stack)
+	var era_title := Label.new()
+	var next_era_name := State.get_next_era_name()
+	era_title.text = "进入%s" % next_era_name if not next_era_name.is_empty() else "%s新制已定" % State.get_era_name()
+	era_title.add_theme_font_size_override("font_size", 15)
+	era_title.add_theme_color_override("font_color", INK)
+	era_stack.add_child(era_title)
+	var era_detail := Label.new()
+	var era_block := State.get_era_advance_block_reason()
+	era_detail.text = "积累完成。进入新制后，兵种、城建、敌军与资源称谓都会更新。" if era_block.is_empty() else era_block
+	era_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	era_detail.add_theme_font_size_override("font_size", 10)
+	era_detail.add_theme_color_override("font_color", INK_SOFT)
+	era_stack.add_child(era_detail)
+	var era_action := _action_button("更迭" if not next_era_name.is_empty() else "已完备")
+	era_action.disabled = not State.can_advance_era()
+	era_action.pressed.connect(func():
+		var commit_era := func():
+			if State.advance_era():
+				_show_era_transition_modal()
+				_render_tab()
+		_show_modal(
+			"进入%s？" % State.get_next_era_name(),
+			"这是一次时代跃迁。青禾的城池、人口、资源和军队人数会保留，但兵种名称、训练强度、建筑体系、阵令与来敌将切换为新配置。",
+			[
+				{"text": "暂缓更迭", "callback": func(): pass},
+				{"text": "启用新制", "callback": commit_era},
+			],
+			GOLD,
+			_dismiss_modal
+		)
+	)
+	era_row.add_child(era_action)
 
 func _add_policy_card(title: String, effect: String, id: String, glyph: String) -> void:
 	var cost := State.get_policy_cost(id)
@@ -1127,7 +1269,7 @@ func _add_save_slot_row(parent: VBoxContainer, data: Dictionary) -> void:
 	stack.add_child(title)
 	var detail := Label.new()
 	if bool(data.exists):
-		detail.text = "第 %d 日 · 城邑阶 %d · 繁荣 %d\n%s" % [data.day, data.chapter, data.prosperity, _format_save_time(float(data.saved_at))]
+		detail.text = "%s · 第 %d 日 · 城池等级 %d · 繁荣 %d\n%s" % [data.get("era_name", "春秋"), data.day, data.chapter, data.prosperity, _format_save_time(float(data.saved_at))]
 	else:
 		detail.text = "空档位"
 	detail.add_theme_font_size_override("font_size", 10)
@@ -1232,8 +1374,20 @@ func _battle_breakdown(result: Dictionary) -> String:
 	return UiPresentation.battle_breakdown(result, State.UNITS)
 
 func _show_chapter_modal() -> void:
-	var texts := ["", "", "青禾已由村聚成长为真正的城邑。商旅渐多，邻国也开始注视这里。", "城垣坚固，仓廪充实。你在乱世中守住了一方生民。"]
-	_show_modal("邑格晋升", texts[State.chapter], [{"text": "继续经营", "callback": func(): pass}], GOLD)
+	_show_modal(
+		"城池扩建 · %s" % State.get_city_level_name(),
+		"青禾的城郭与建筑用地已经扩展。当前可容纳%d处建筑，城景可左右拖动巡视；繁荣与时代积累仍会分别增长。" % State.get_building_slot_count(),
+		[{"text": "巡视新城", "callback": func(): pass}],
+		GOLD
+	)
+
+func _show_era_transition_modal() -> void:
+	_show_modal(
+		"时代更迭 · %s" % State.get_era_name(),
+		"诸侯兼并，军制与县邑治理日益严密。青禾保留既有城池、人口与军队规模，同时启用%s时期的新兵种、建筑称谓、阵令、资源称谓与敌军配置。" % State.get_era_name(),
+		[{"text": "整顿新制", "callback": func(): pass}],
+		CINNABAR
+	)
 
 func _show_modal(title: String, body: String, buttons: Array, accent: Color, back_action: Callable = Callable()) -> void:
 	State.set_modal_paused(true)
@@ -1297,7 +1451,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color, bac
 		layout.add_child(button)
 
 func _format_cost(cost: Dictionary) -> String:
-	return UiPresentation.cost(cost)
+	return UiPresentation.cost(cost, State.RESOURCE_UNITS)
 
 func _cn_number(value: int) -> String:
 	return UiPresentation.chinese_number(value)

@@ -67,6 +67,9 @@ func _run() -> void:
 	state.reset_game()
 
 	state.resources = {"grain": 5000.0, "wood": 5000.0, "stone": 5000.0, "coins": 5000.0}
+	state.resources.wood = 9.9995
+	_check(state.spend({"wood": 10.0}) and state.resources.wood == 0.0, "payment tolerance never leaves a negative floating-point remainder")
+	state.resources.wood = 5000.0
 	_check(state.upgrade_building("market"), "build market")
 	_check(state.buildings.market == 1, "market level updated")
 	var grain_before_trade: float = state.resources.grain

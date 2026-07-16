@@ -46,6 +46,7 @@ func _run() -> void:
 	ui._update_tab_buttons()
 	ui._render_tab()
 	state.attack_wave = 2
+	state.chapter = 3
 	for id in state.BUILDINGS:
 		state.buildings[id] = 5
 	for capture in [[1, "spring"], [25, "autumn"], [37, "winter"]]:
@@ -203,11 +204,46 @@ func _run() -> void:
 		failures.append("invalid battle report frame")
 	elif battle_image.save_png("res://.qa/visual_battle_report.png") != OK:
 		failures.append("cannot save battle report frame")
+	ui._dismiss_modal()
+	state.chapter = 3
+	state.era_progress = state.get_era_progress_target()
+	if not state.advance_era():
+		failures.append("cannot enter Warring States for visual capture")
+	ui.current_tab = 0
+	ui._update_tab_buttons()
+	ui._render_tab()
+	await create_timer(2.7).timeout
+	var warring_city_image := root.get_viewport().get_texture().get_image()
+	if warring_city_image.is_empty() or warring_city_image.get_width() != 540 or warring_city_image.get_height() != 960:
+		failures.append("invalid Warring States city frame")
+	elif warring_city_image.save_png("res://.qa/visual_warring_city.png") != OK:
+		failures.append("cannot save Warring States city frame")
+	ui.current_tab = 2
+	ui._update_tab_buttons()
+	state.enemy_army.scouted = true
+	ui._render_tab()
+	await create_timer(0.4).timeout
+	var warring_military_image := root.get_viewport().get_texture().get_image()
+	if warring_military_image.is_empty() or warring_military_image.get_width() != 540 or warring_military_image.get_height() != 960:
+		failures.append("invalid Warring States military frame")
+	elif warring_military_image.save_png("res://.qa/visual_warring_military.png") != OK:
+		failures.append("cannot save Warring States military frame")
+	ui.current_tab = 3
+	ui._update_tab_buttons()
+	ui._render_tab()
+	await process_frame
+	ui.content_scroll.scroll_vertical = 10000
+	await create_timer(0.4).timeout
+	var warring_governance_image := root.get_viewport().get_texture().get_image()
+	if warring_governance_image.is_empty() or warring_governance_image.get_width() != 540 or warring_governance_image.get_height() != 960:
+		failures.append("invalid Warring States governance frame")
+	elif warring_governance_image.save_png("res://.qa/visual_warring_governance.png") != OK:
+		failures.append("cannot save Warring States governance frame")
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 intelligence=2 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 eras=2 intelligence=3 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:
