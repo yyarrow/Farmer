@@ -509,12 +509,15 @@ func patrol() -> bool:
 	enemy_army.scouted = true
 	var player_losses := 0
 	var enemy_losses := 0
+	var player_loss_detail := {}
+	var enemy_losses_by_type := {"militia": 0, "archer": 0, "chariot": 0}
 	var delayed := false
 	var field_victory := false
 	if won:
 		enemy_losses = rng.randi_range(2, 5)
 		var lost := _deal_losses(enemy_army, enemy_losses, rng)
 		enemy_losses = _sum_force(lost)
+		enemy_losses_by_type = lost
 		if patrol_delay_wave != attack_wave:
 			next_attack_day += 1
 			patrol_delay_wave = attack_wave
@@ -525,20 +528,20 @@ func patrol() -> bool:
 			attack_wave += 1
 			next_attack_day = current_day + _next_attack_interval(true)
 			enemy_army = _make_enemy_army(attack_wave)
-			notice.emit("巡剿大捷：歼敌%d人，下一支敌军已在集结" % enemy_losses)
+			notice.emit("巡剿大捷：歼敌%d人（%s），下一支敌军已在集结" % [enemy_losses, _loss_summary(lost, true)])
 		else:
-			notice.emit("巡剿得胜：敌军折损%d人%s" % [enemy_losses, "，行军延误一日" if delayed else ""])
-		visual_event.emit("patrol_win", {"enemy_losses": enemy_losses, "delayed": delayed, "field_victory": field_victory})
+			notice.emit("巡剿得胜：敌军折损%d人（%s）%s" % [enemy_losses, _loss_summary(lost, true), "，行军延误一日" if delayed else ""])
+		visual_event.emit("patrol_win", {"enemy_losses": enemy_losses, "enemy_losses_by_type": lost, "delayed": delayed, "field_victory": field_victory})
 		Audio.play_sfx("battle_win")
 	else:
 		player_losses = rng.randi_range(1, 3)
-		_apply_field_losses(player_losses, 0.20)
+		player_loss_detail = _apply_field_losses(player_losses, 0.20)
 		morale = maxf(20.0, morale - 5.0)
-		notice.emit("巡剿失利：%d人伤亡，但已探明敌军编成" % player_losses)
-		visual_event.emit("patrol_loss", {"player_losses": player_losses})
+		notice.emit("巡剿失利：%s，但已探明敌军编成" % _casualty_summary(player_loss_detail.killed, player_loss_detail.wounded))
+		visual_event.emit("patrol_loss", {"player_losses": player_losses, "killed": player_loss_detail.killed, "wounded": player_loss_detail.wounded})
 		Audio.play_sfx("battle_loss")
 	changed.emit()
-	Telemetry.track("patrol_resolved", {"won": won, "chance": chance, "player_losses": player_losses, "enemy_losses": enemy_losses, "delayed": delayed, "field_victory": field_victory, "enemy": enemy_army.duplicate(true)})
+	Telemetry.track("patrol_resolved", {"won": won, "chance": chance, "player_losses": player_losses, "player_loss_detail": player_loss_detail, "enemy_losses": enemy_losses, "enemy_losses_by_type": enemy_losses_by_type, "delayed": delayed, "field_victory": field_victory, "enemy": enemy_army.duplicate(true)})
 	save_game()
 	return true
 
@@ -889,6 +892,8 @@ func _simulate_battle(player_force: Dictionary, player_morale: float, enemy_forc
 		"enemy_power": _force_power(enemy_before, float(enemy_force.get("morale", 50.0)), enemy_training),
 		"player_losses": _sum_force(player_losses_by_type),
 		"enemy_losses": _sum_force(enemy_losses_by_type),
+		"player_losses_by_type": player_losses_by_type,
+		"enemy_losses_by_type": enemy_losses_by_type,
 		"killed": killed,
 		"wounded": injured,
 		"killed_total": _sum_force(killed),
@@ -944,15 +949,36 @@ func _add_wounded(injured: Dictionary) -> void:
 		wounded[id] += count
 		recovery_queue.append({"unit": id, "count": count, "return_day": current_day + rng.randi_range(2, 4)})
 
-func _apply_field_losses(count: int, killed_ratio: float) -> void:
+func _apply_field_losses(count: int, killed_ratio: float) -> Dictionary:
 	var force := units.duplicate(true)
 	var lost := _deal_losses(force, count, rng)
 	units = force
+	var killed := {"militia": 0, "archer": 0, "chariot": 0}
 	var injured := {"militia": 0, "archer": 0, "chariot": 0}
 	for id in UNITS:
 		var dead := _stochastic_round(int(lost[id]) * killed_ratio, rng)
+		killed[id] = dead
 		injured[id] = int(lost[id]) - dead
 	_add_wounded(injured)
+	return {"lost": lost, "killed": killed, "wounded": injured}
+
+func _loss_summary(losses: Dictionary, enemy := false) -> String:
+	var names := {"militia": "戈卒", "archer": "弓手", "chariot": "车士"} if enemy else {"militia": "乡勇", "archer": "弓手", "chariot": "车士"}
+	var parts: Array[String] = []
+	for id in UNITS:
+		var count := int(losses.get(id, 0))
+		if count > 0:
+			parts.append("%s%d" % [names[id], count])
+	return "、".join(parts) if not parts.is_empty() else "无"
+
+func _casualty_summary(killed: Dictionary, injured: Dictionary) -> String:
+	var parts: Array[String] = []
+	for id in UNITS:
+		var dead := int(killed.get(id, 0))
+		var wounded_count := int(injured.get(id, 0))
+		if dead + wounded_count > 0:
+			parts.append("%s亡%d伤%d" % [UNITS[id].name, dead, wounded_count])
+	return "、".join(parts) if not parts.is_empty() else "无人伤亡"
 
 func _deal_losses(force: Dictionary, requested: int, sim_rng: RandomNumberGenerator) -> Dictionary:
 	var lost := {"militia": 0, "archer": 0, "chariot": 0}

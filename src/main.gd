@@ -1264,12 +1264,37 @@ func _event_option_caption(id: String, index: int, base: String) -> String:
 func _on_battle_finished(result: Dictionary) -> void:
 	var title := "城头凯歌" if result.won else "烽火入郭"
 	var body := "%s来敌%d人。守军奉「%s」阵令，战前我军力%d、敌军力%d。\n\n%s" % [result.enemy_name, result.enemy_total, result.defense_order_name, result.player_power, result.enemy_power, result.loss_text]
+	var breakdown := _battle_breakdown(result)
+	if not breakdown.is_empty():
+		body += "\n\n" + breakdown
 	if result.rounds.size() > 0:
 		var round_lines: Array[String] = []
 		for round_data in result.rounds:
 			round_lines.append("第%d阵：我损%d / 敌损%d" % [round_data.round, round_data.player_losses, round_data.enemy_losses])
 		body += "\n\n" + "  ".join(round_lines)
 	_show_modal(title, body, [{"text": "整顿城邑", "callback": func(): _render_tab()}], JADE if result.won else CINNABAR)
+
+func _battle_breakdown(result: Dictionary) -> String:
+	if not result.has("player_losses_by_type") or not result.has("enemy_losses_by_type"):
+		return ""
+	var player_parts: Array[String] = []
+	for id in State.UNITS:
+		var before := int(result.player_before.get(id, 0))
+		var dead := int(result.killed.get(id, 0))
+		var injured := int(result.wounded.get(id, 0))
+		if before > 0 or dead + injured > 0:
+			player_parts.append("%s %d亡 %d伤 %d余" % [State.UNITS[id].name, dead, injured, int(result.player_survivors.get(id, 0))])
+	var enemy_names := {"militia": "戈卒", "archer": "弓手", "chariot": "车士"}
+	var enemy_parts: Array[String] = []
+	for id in State.UNITS:
+		var before := int(result.enemy_before.get(id, 0))
+		var lost := int(result.enemy_losses_by_type.get(id, 0))
+		if before > 0 or lost > 0:
+			enemy_parts.append("%s %d损 %d余" % [enemy_names[id], lost, int(result.enemy_survivors.get(id, 0))])
+	var player_text := " · ".join(player_parts.slice(0, 2))
+	if player_parts.size() > 2:
+		player_text += "\n　　　" + " · ".join(player_parts.slice(2))
+	return "我军：" + player_text + "\n敌军：" + " · ".join(enemy_parts)
 
 func _show_chapter_modal() -> void:
 	var texts := ["", "", "青禾已由村聚成长为真正的城邑。商旅渐多，邻国也开始注视这里。", "城垣坚固，仓廪充实。你在乱世中守住了一方生民。"]

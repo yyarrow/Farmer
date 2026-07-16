@@ -146,10 +146,23 @@ func _run() -> void:
 	_check(not battle_results.is_empty() and bool(battle_results[-1].won), "high defense wins siege")
 	_check(str(battle_results[-1].defense_order_name) == "持重", "battle report records the order actually used")
 	_check(int(battle_results[-1].player_losses) == int(battle_results[-1].killed_total) + int(battle_results[-1].wounded_total), "battle losses reconcile")
+	for id in state.UNITS:
+		_check(int(battle_results[-1].player_losses_by_type[id]) == int(battle_results[-1].killed[id]) + int(battle_results[-1].wounded[id]), "player casualty types reconcile for " + id)
+		_check(int(battle_results[-1].player_before[id]) == int(battle_results[-1].player_survivors[id]) + int(battle_results[-1].player_losses_by_type[id]), "player roster reconciles for " + id)
+		_check(int(battle_results[-1].enemy_before[id]) == int(battle_results[-1].enemy_survivors[id]) + int(battle_results[-1].enemy_losses_by_type[id]), "enemy roster reconciles for " + id)
 	state.units.militia = 0
 	state.wounded.militia = 5
 	state.recovery_queue = [{"unit": "militia", "count": 5, "return_day": state.current_day}]
 	_check(state._recover_wounded() == 5 and state.units.militia == 5 and state.wounded.militia == 0, "wounded recovery reports and restores exact people")
+	state.units = {"militia": 10, "archer": 5, "chariot": 5}
+	state.wounded = {"militia": 0, "archer": 0, "chariot": 0}
+	state.recovery_queue = []
+	state.rng.seed = 91827
+	var field_detail: Dictionary = state._apply_field_losses(3, 0.20)
+	_check(state._sum_force(field_detail.lost) == 3, "field losses return exact per-type totals")
+	for id in state.UNITS:
+		_check(int(field_detail.lost[id]) == int(field_detail.killed[id]) + int(field_detail.wounded[id]), "field casualties reconcile for " + id)
+	_check(state.get_army_count() == 17 and state.get_wounded_count() == state._sum_force(field_detail.wounded), "field losses update active and wounded rosters")
 	_check(int(battle_results[-1].enemy_losses) > 0, "battle inflicts real enemy casualties")
 	battle_results.clear()
 	state.units = {"militia": 0, "archer": 0, "chariot": 0}

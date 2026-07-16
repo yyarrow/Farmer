@@ -55,6 +55,17 @@ func _run() -> void:
 	ui._render_tab()
 	await process_frame
 	_check(_has_label_containing(ui.content_box, "阵令「坚壁」") and _has_label_containing(ui.content_box, "胜算约") and _has_label_containing(ui.content_box, "预计伤亡"), "scouting unlocks an order-specific battle forecast")
+	var breakdown: String = ui._battle_breakdown({
+		"player_before": {"militia": 10, "archer": 5, "chariot": 0},
+		"player_survivors": {"militia": 7, "archer": 4, "chariot": 0},
+		"player_losses_by_type": {"militia": 3, "archer": 1, "chariot": 0},
+		"killed": {"militia": 1, "archer": 0, "chariot": 0},
+		"wounded": {"militia": 2, "archer": 1, "chariot": 0},
+		"enemy_before": {"militia": 12, "archer": 4, "chariot": 0},
+		"enemy_survivors": {"militia": 8, "archer": 3, "chariot": 0},
+		"enemy_losses_by_type": {"militia": 4, "archer": 1, "chariot": 0},
+	})
+	_check(breakdown.contains("乡勇 1亡 2伤 7余") and breakdown.contains("戈卒 4损 8余"), "battle report exposes per-type dead, wounded, losses and survivors")
 	state.enemy_army.scouted = false
 	state.resources.grain = 12.0
 	_check(ui._event_option_caption("drought", 1, "赈济").contains("粮-12石 民心-4"), "event button exposes stock-limited disaster outcome")
