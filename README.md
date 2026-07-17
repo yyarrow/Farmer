@@ -1,6 +1,6 @@
 # 青禾邑
 
-一款完全离线的安卓竖屏单机游戏，将种田经营、城邑建造、放置收益与轻量战争策略结合在一起。当前成长线由春秋、战国延伸至秦、汉，重点是乱世经营中的取舍，而不是复杂微操。
+一款完全离线的安卓竖屏单机游戏，将种田经营、城邑建造、放置收益与轻量战争策略结合在一起。当前成长线贯通春秋、战国、秦、汉、三国、晋与南北朝，重点是乱世经营中的取舍，而不是复杂微操。
 
 ## 已实现
 
@@ -13,9 +13,9 @@
 - 按兵种结算并在战报中逐项对账的阵亡、伤员、余部与敌损；伤员 2～4 日康复并消耗伤营粮药
 - 旱灾、水患、寒赈、流民、商队、百工、流言、征粮、斥候与丰收十类随机事件，且不会连续重复
 - 城池等级与时代积累两条独立成长线；每个时代的城池阶段会逐步开放 6～10 个建筑用地
-- 主城随城池等级扩大并可左右拖动巡视；春秋、战国、秦、汉拥有独立绘卷背景，以及各自的城建、资源、军制、阵令、敌军与事件文案
+- 主城随城池等级扩大并可左右拖动巡视；已实现的七个时代均有独立绘卷背景，以及各自的城建、资源、军制、阵令、敌军与事件文案
 - 发展、主动推进日期、巡剿与守城共同积累时代进度；时代更迭保留城池、人口、物资与军队规模
-- 稳定内部兵种/资源 ID 与可配置呈现分离；秦以锐士、弩卒、骑士和委输载粟为核心，汉以材官、蹶张士、边郡骑士和传舍转输为核心
+- 稳定内部兵种/资源 ID 与可配置呈现分离；三国以军屯转饷，晋以州郡转输，南北朝以镇戍转饷，兵种、单位、辎重和建筑均随时代换制
 - 离线收益和自动本地存档
 - 首战前按实际状态推进的非阻塞备忘：补兵、建防、侦察、推演；重新开局会恢复说明，也可从设置随时重看
 - 暂停、1×、2×、推进一日及事件/敌袭自动停时
@@ -52,6 +52,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/medieval_battle_balance.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=250 --days=180
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3
@@ -60,7 +61,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，当前版本 `0.9.0`，最低 Android 7.0。旧版存档读取时会依次迁移为按人计数的军籍/资源制和 v4 时代/城池双成长存档；既有进度默认归入春秋并按日期、城建、城池与战绩推导时代积累。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.10.0`，最低 Android 7.0。旧版存档读取时会依次迁移为按人计数的军籍/资源制和 v4 时代/城池双成长存档；既有进度默认归入春秋并按日期、城建、城池与战绩推导时代积累。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 首次生成本机发布签名并构建不可调试的 ARM64 正式 APK：
 

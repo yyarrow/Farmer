@@ -428,18 +428,18 @@ func _draw_world_state() -> void:
 		draw_colored_polygon(PackedVector2Array([warning + Vector2(0, -25), warning + Vector2(15, -20), warning + Vector2(0, -14)]), Color(0.64, 0.20, 0.17, pulse))
 
 func _draw_era_identity() -> void:
-	var era := str(world_state.era)
-	if era not in ["warring_states", "qin", "han"]:
+	var identity: Dictionary = State.era_definition.visual.get("identity", {})
+	if identity.is_empty():
 		return
-	# Rammed-earth crenellations and rectangular army standards distinguish the
-	# denser Warring States city without replacing the established painted art.
-	var earth := Color(0.37, 0.24, 0.17, 0.66) if era != "qin" else Color(0.20, 0.17, 0.15, 0.72)
+	# Era definitions choose the overlaid wall, standard and one small military
+	# motif; the painted background remains the primary visual identity.
+	var earth: Color = identity.get("earth", Color(0.37, 0.24, 0.17, 0.66))
 	draw_line(Vector2(383, 248), Vector2(523, 248), earth, 4.0, true)
 	for x in range(390, 520, 16):
 		draw_rect(Rect2(x, 239, 9, 10), earth.lightened(0.09), true)
 	for base in [Vector2(405, 223), Vector2(451, 228), Vector2(492, 220)]:
 		draw_line(base, base + Vector2(0, -31), Color("#3e3027"), 2.0, true)
-		var standard := Color("#26211f") if era == "qin" else (Color("#a84b39") if era == "han" else Color("#963e35"))
+		var standard: Color = identity.get("standard", Color("#963e35"))
 		draw_colored_polygon(PackedVector2Array([base + Vector2(1, -30), base + Vector2(19, -27), base + Vector2(16, -16), base + Vector2(1, -18)]), standard)
 	var command_base := POSITIONS.barracks + Vector2(18, 116)
 	for i in 4:
@@ -447,11 +447,24 @@ func _draw_era_identity() -> void:
 		draw_circle(shield_pos, 5.0, Color("#6f4933"))
 		draw_circle(shield_pos, 2.2, Color("#c69b58"))
 		draw_line(shield_pos + Vector2(5, 1), shield_pos + Vector2(13, -8), Color("#d2bd83"), 1.4, true)
-	if era == "qin":
-		for x in range(398, 516, 24):
-			draw_rect(Rect2(x, 251, 14, 4), Color(0.11, 0.10, 0.09, 0.62), true)
-	elif era == "han":
-		for base in [Vector2(402, 220), Vector2(506, 219)]:
-			draw_line(base + Vector2(-7, 0), base + Vector2(-7, 24), Color("#70482f"), 2.0)
-			draw_line(base + Vector2(7, 0), base + Vector2(7, 24), Color("#70482f"), 2.0)
-			draw_line(base + Vector2(-10, 5), base + Vector2(10, 5), Color("#a7503e"), 3.0)
+	match str(identity.get("motif", "rammed_earth")):
+		"qin_road":
+			for x in range(398, 516, 24):
+				draw_rect(Rect2(x, 251, 14, 4), Color(0.11, 0.10, 0.09, 0.62), true)
+		"han_que":
+			for base in [Vector2(402, 220), Vector2(506, 219)]:
+				draw_line(base + Vector2(-7, 0), base + Vector2(-7, 24), Color("#70482f"), 2.0)
+				draw_line(base + Vector2(7, 0), base + Vector2(7, 24), Color("#70482f"), 2.0)
+				draw_line(base + Vector2(-10, 5), base + Vector2(10, 5), Color("#a7503e"), 3.0)
+		"palisade":
+			for x in range(390, 522, 12):
+				draw_line(Vector2(x, 255), Vector2(x + 2, 244), Color("#51463b"), 1.5)
+		"river_gate":
+			draw_arc(Vector2(451, 247), 16.0, PI, TAU, 12, Color("#765541"), 3.0)
+			draw_line(Vector2(435, 247), Vector2(435, 257), Color("#765541"), 2.0)
+			draw_line(Vector2(467, 247), Vector2(467, 257), Color("#765541"), 2.0)
+		"cataphract":
+			for i in 3:
+				var horse := POSITIONS.barracks + Vector2(20 + i * 15, 139 + (i % 2) * 4)
+				draw_rect(Rect2(horse - Vector2(6, 3), Vector2(13, 7)), Color("#766b5d"), true)
+				draw_circle(horse + Vector2(7, -2), 3.5, Color("#655a4d"))

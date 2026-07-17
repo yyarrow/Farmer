@@ -84,7 +84,7 @@ func _act_balanced() -> bool:
 	return _try_liquidity_trade(240.0, 220.0)
 
 func _act_agrarian() -> bool:
-	if float(state.morale) < 42.0 and _try_policy("reward_army"):
+	if float(state.morale) < 52.0 and _try_policy("reward_army"):
 		return true
 	if _try_advance_chapter():
 		return true
@@ -192,7 +192,7 @@ func _try_advance_chapter() -> bool:
 
 func _era_army_base() -> int:
 	var index := maxi(0, EraRegistry.ORDER.find(state.era_id))
-	return [25, 45, 68, 88][mini(index, 3)]
+	return int(state.era_definition.economy.army_base) + index * 16
 
 func _try_policy(id: String) -> bool:
 	if int(state.current_day) - int(policy_used_day.get(id, -999)) < 3:

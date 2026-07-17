@@ -4,7 +4,7 @@ const SpringAutumn = preload("res://src/data/eras/spring_autumn.gd")
 
 const ID := "han"
 const DISPLAY_NAME := "汉"
-const NEXT_ID := ""
+const NEXT_ID := "three_kingdoms"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "里邑", "slots": 6, "advance_target": 270, "view_scale": 1.00},
@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 1950, "minimum_city_level": 5, "daily": 7, "building_base": 21, "city_level": 105, "battle_victory": 82, "patrol_victory": 16}
-const VISUAL := {"tint": Color("#ffe9cf"), "background": "res://assets/art/city_han.png", "map_hint": "汉郡城坊与厩苑铺展，可左右拖动巡视武库、太仓和传舍"}
+const VISUAL := {"tint": Color("#ffe9cf"), "background": "res://assets/art/city_han.png", "map_hint": "汉郡城坊与厩苑铺展，可左右拖动巡视武库、太仓和传舍", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#a84b39"), "motif": "han_que"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

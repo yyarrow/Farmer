@@ -70,7 +70,26 @@ func _run() -> void:
 	_check(state.advance_era(), "Qin transition enters Han")
 	_check(state.era_id == "han" and state.UNITS.militia.name == "材官" and state.UNITS.archer.name == "蹶张士" and state.UNITS.chariot.name == "边郡骑士", "Han unit catalog becomes active")
 	_check(state.BUILDINGS.barracks.name == "武库营" and state.RESOURCE_UNITS.coins.name == "五铢钱" and state.get_logistics_status().name == "传舍转输", "Han buildings, currency, and logistics become active")
-	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_han"), "Han is the current finite end of the implemented chain")
+	_check(state.get_next_era_id() == "three_kingdoms" and str(state.get_city_background_path()).contains("city_han"), "Han exposes Three Kingdoms as its configured successor")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Han transition enters Three Kingdoms")
+	_check(state.era_id == "three_kingdoms" and state.UNITS.archer.name == "强弩士" and state.BUILDINGS.farm.name == "军屯阡陌", "Three Kingdoms activates military farming and strong-crossbow catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "魏五铢" and state.get_logistics_status().name == "军屯转饷" and str(state.get_city_background_path()).contains("city_three_kingdoms"), "Three Kingdoms activates currency, logistics, and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Three Kingdoms transition enters Jin")
+	_check(state.era_id == "jin" and state.UNITS.chariot.name == "具装骑" and state.BUILDINGS.house.name == "侨户里坊", "Jin activates armored cavalry and refugee-registration catalogs")
+	_check(state.get_logistics_status().name == "州郡转输" and str(state.get_city_background_path()).contains("city_jin"), "Jin activates logistics and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Jin transition enters Northern and Southern Dynasties")
+	_check(state.era_id == "northern_southern" and state.UNITS.chariot.name == "甲骑具装" and state.BUILDINGS.house.name == "三长里坊", "Northern and Southern Dynasties activates cataphracts and three-elders household catalog")
+	_check(state.RESOURCE_UNITS.coins.name == "永安五铢" and state.get_logistics_status().name == "镇戍转饷", "Northern and Southern Dynasties activates currency and garrison logistics")
+	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_northern_southern"), "Northern and Southern Dynasties is the current finite end of the implemented chain")
 
 	state.reset_game()
 	var v3_snapshot: Dictionary = state.get_snapshot()
@@ -128,7 +147,11 @@ func _check_era_definitions() -> void:
 			var city: Dictionary = era.city_levels[level_index]
 			_check(int(city.level) == level_index + 1 and int(city.slots) >= previous_slots, "%s city levels are ordered and never lose lots" % era_id)
 			previous_slots = int(city.slots)
-	_check(EraRegistry.next_id("spring_autumn") == "warring_states" and EraRegistry.next_id("warring_states") == "qin" and EraRegistry.next_id("qin") == "han" and EraRegistry.next_id("han").is_empty(), "era chain is explicit and finite")
+	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern"]
+	_check(EraRegistry.ORDER == expected_chain, "era chain order is explicit")
+	for index in expected_chain.size() - 1:
+		_check(EraRegistry.next_id(expected_chain[index]) == expected_chain[index + 1], "%s links to %s" % [expected_chain[index], expected_chain[index + 1]])
+	_check(EraRegistry.next_id(expected_chain[-1]).is_empty(), "era chain has a finite implemented end")
 
 func _check(condition: bool, label: String) -> void:
 	if not condition:

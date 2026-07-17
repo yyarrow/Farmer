@@ -5,9 +5,12 @@ const SpringAutumn = preload("res://src/data/eras/spring_autumn.gd")
 const WarringStates = preload("res://src/data/eras/warring_states.gd")
 const Qin = preload("res://src/data/eras/qin.gd")
 const Han = preload("res://src/data/eras/han.gd")
+const ThreeKingdoms = preload("res://src/data/eras/three_kingdoms.gd")
+const Jin = preload("res://src/data/eras/jin.gd")
+const NorthernSouthern = preload("res://src/data/eras/northern_southern.gd")
 
 const DEFAULT_ID := SpringAutumn.ID
-const ORDER := [SpringAutumn.ID, WarringStates.ID, Qin.ID, Han.ID]
+const ORDER := [SpringAutumn.ID, WarringStates.ID, Qin.ID, Han.ID, ThreeKingdoms.ID, Jin.ID, NorthernSouthern.ID]
 
 static func has(id: String) -> bool:
 	return id in ORDER
@@ -15,6 +18,12 @@ static func has(id: String) -> bool:
 static func definition(id: String) -> Dictionary:
 	var raw: Dictionary
 	match id:
+		NorthernSouthern.ID:
+			raw = NorthernSouthern.definition()
+		Jin.ID:
+			raw = Jin.definition()
+		ThreeKingdoms.ID:
+			raw = ThreeKingdoms.definition()
 		Han.ID:
 			raw = Han.definition()
 		Qin.ID:
