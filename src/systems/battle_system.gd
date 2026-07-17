@@ -39,8 +39,11 @@ static func simulate(
 			break
 		var player_ranged := int(player.archer) * float(unit_definitions.archer.ranged) * 0.055 * morale_factor(player_current_morale) * player_training * ranged_multiplier * sim_rng.randf_range(0.90, 1.10)
 		var enemy_ranged := int(enemy.archer) * float(unit_definitions.archer.ranged) * 0.055 * morale_factor(enemy_current_morale) * enemy_training * wall_cover * incoming_multiplier * sim_rng.randf_range(0.90, 1.10)
-		var player_melee_strength: float = player.militia * 1.0 + player.archer * 0.35 + player.chariot * 2.2
-		var enemy_melee_strength: float = enemy.militia * 1.0 + enemy.archer * 0.35 + enemy.chariot * 2.2
+		var player_melee_strength := 0.0
+		var enemy_melee_strength := 0.0
+		for id in unit_definitions:
+			player_melee_strength += int(player.get(id, 0)) * float(unit_definitions[id].melee)
+			enemy_melee_strength += int(enemy.get(id, 0)) * float(unit_definitions[id].melee)
 		var player_clash: float = player_melee_strength * 0.047 * morale_factor(player_current_morale) * player_training * melee_multiplier * sim_rng.randf_range(0.90, 1.10)
 		var enemy_clash: float = enemy_melee_strength * 0.047 * morale_factor(enemy_current_morale) * enemy_training * wall_cover * incoming_multiplier * sim_rng.randf_range(0.90, 1.10)
 		var player_round_losses := mini(sum_force(player), stochastic_round(enemy_ranged + enemy_clash, sim_rng))

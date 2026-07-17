@@ -4,7 +4,7 @@ const SpringAutumn = preload("res://src/data/eras/spring_autumn.gd")
 
 const ID := "warring_states"
 const DISPLAY_NAME := "战国"
-const NEXT_ID := ""
+const NEXT_ID := "qin"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "县聚", "slots": 6, "advance_target": 190, "view_scale": 1.00},
@@ -59,7 +59,7 @@ const DEFENSE_ORDERS := {
 }
 
 const ENEMY_WAVES := [
-	{"name": "边邑甲兵", "militia": 45, "archer": 16, "chariot": 5, "morale": 62.0, "training": 1.02},
+	{"name": "边邑甲兵", "militia": 48, "archer": 18, "chariot": 5, "morale": 64.0, "training": 1.04},
 	{"name": "变法新军", "militia": 54, "archer": 22, "chariot": 5, "morale": 68.0, "training": 1.08},
 	{"name": "合纵偏师", "militia": 60, "archer": 26, "chariot": 10, "morale": 72.0, "training": 1.12},
 	{"name": "连横锐卒", "militia": 68, "archer": 32, "chariot": 10, "morale": 76.0, "training": 1.16},
@@ -68,6 +68,42 @@ const ENEMY_WAVES := [
 ]
 
 const EVENTS := SpringAutumn.EVENTS
+
+const TERMS := {
+	"population": "编户",
+	"army": "县卒",
+	"army_registry": "军籍",
+	"army_food": "军粮",
+	"army_pay": "军饷",
+	"tax": "赋入",
+	"ledger_title": "府库计簿",
+	"market_title": "刀布互市",
+	"military_title": "武备整军",
+	"patrol_name": "出郭巡边",
+	"governance_title": "县廷治事",
+	"build_tab": "营城", "trade_tab": "互市", "military_tab": "武备", "governance_tab": "县政",
+	"era_progress": "兼并之势",
+}
+
+const LOGISTICS := {
+	"name": "辎车转运",
+	"desc": "府库、材官署与互市共同支撑辎车；轻骑与劲弩所需转运更重",
+	"base_capacity": 48.0,
+	"warehouse_capacity": 27.0,
+	"woodcut_capacity": 9.0,
+	"market_capacity": 5.0,
+	"load": {"militia": 1.0, "archer": 1.35, "chariot": 2.1},
+	"patrol_cost": {"grain": 7, "coins": 55},
+}
+const ECONOMY := {"production": {"grain": 1.04, "wood": 1.05, "stone": 1.06, "coins": 1.05}, "army_base": 27, "army_per_barracks": 21, "population_base": 95, "population_per_house": 62}
+
+const TRADE_LABELS := {"sell_grain": "军粮出廪", "buy_grain": "商旅籴粮", "sell_wood": "材木发卖", "buy_stone": "购入版筑料", "action": "互市"}
+const POLICIES := {
+	"irrigate": {"name": "修治沟洫", "effect": "三日军粮增产35%", "glyph": "洫"},
+	"tax_relief": {"name": "宽赋安民", "effect": "编户与民心上升", "glyph": "户"},
+	"reward_army": {"name": "飨士厉兵", "effect": "民心上升，伤卒提前归队", "glyph": "飨"},
+}
+const NARRATIVE := {"transition": "诸侯兼并，县邑军政日益严密。青禾保留旧有规模，改用战国编户、武备、刀布互市与辎车转运之制。"}
 
 static func initial_resources() -> Dictionary:
 	return {"grain": 420.0, "wood": 150.0, "stone": 100.0, "coins": 1800.0}
@@ -96,6 +132,12 @@ static func definition() -> Dictionary:
 		"defense_orders": DEFENSE_ORDERS,
 		"enemy_waves": ENEMY_WAVES,
 		"events": EVENTS,
+		"terms": TERMS,
+		"logistics": LOGISTICS,
+		"economy": ECONOMY,
+		"trade_labels": TRADE_LABELS,
+		"policies": POLICIES,
+		"narrative": NARRATIVE,
 		"initial_resources": initial_resources(),
 		"initial_buildings": initial_buildings(),
 		"initial_units": initial_units(),

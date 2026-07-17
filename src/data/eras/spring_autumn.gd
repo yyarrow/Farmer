@@ -50,7 +50,7 @@ const BUILDINGS := {
 const UNITS := {
 	"militia": {"name": "乡勇", "enemy_name": "戈卒", "glyph": "勇", "batch": 5, "need": 0, "power": 1.0, "ranged": 0.0, "melee": 1.0, "exposure": 1.0, "cost": {"grain": 8, "coins": 120}, "grain_daily": 0.10, "coins_daily": 0.40},
 	"archer": {"name": "弓手", "enemy_name": "弓手", "glyph": "弓", "batch": 5, "need": 2, "power": 1.45, "ranged": 1.8, "melee": 0.55, "exposure": 0.62, "cost": {"grain": 12, "wood": 8, "coins": 320}, "grain_daily": 0.12, "coins_daily": 0.80},
-	"chariot": {"name": "车士", "enemy_name": "车士", "glyph": "车", "batch": 5, "need": 3, "power": 2.20, "ranged": 0.0, "melee": 2.2, "exposure": 0.48, "cost": {"grain": 20, "wood": 12, "stone": 4, "coins": 650}, "grain_daily": 0.24, "coins_daily": 2.00},
+	"chariot": {"name": "车士", "enemy_name": "车士", "glyph": "车", "count_unit": "人", "batch_label": "伍", "formation_size": 5, "formation_unit": "乘", "batch": 5, "need": 3, "power": 2.20, "ranged": 0.0, "melee": 2.2, "exposure": 0.48, "cost": {"grain": 20, "wood": 12, "stone": 4, "coins": 650}, "grain_daily": 0.24, "coins_daily": 2.00},
 }
 
 # A standing order changes the next siege without inventing another power score.

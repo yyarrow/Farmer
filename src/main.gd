@@ -412,10 +412,10 @@ func _build_bottom_panel() -> void:
 	tabs.custom_minimum_size.y = 44
 	tabs.add_theme_constant_override("separation", 5)
 	layout.add_child(tabs)
-	for data in [["城建", "筑"], ["市易", "易"], ["军务", "戈"], ["政事", "策"]]:
+	for data in [["build_tab", "城建", "筑"], ["trade_tab", "市易", "易"], ["military_tab", "军务", "戈"], ["governance_tab", "政事", "策"]]:
 		var index := tab_buttons.size()
 		var tab := Button.new()
-		tab.text = "%s  %s" % [data[1], data[0]]
+		tab.text = "%s  %s" % [data[2], State.term(data[0], data[1])]
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.add_theme_font_size_override("font_size", 14)
 		tab.add_theme_stylebox_override("normal", _style(Color(0.36, 0.37, 0.27, 0.11), 11, 0, Color.TRANSPARENT, 4))
@@ -495,7 +495,8 @@ func _refresh_dynamic() -> void:
 	threat_label.text = "%s · %d日后抵城" % [enemy.name, State.days_until_attack()]
 	threat_bar.max_value = 7
 	threat_bar.value = 7 - clampi(State.days_until_attack(), 0, 7)
-	power_label.text = "我军 %d / 敌军 %s\n%s" % [State.get_army_power(), str(State.get_enemy_power()) if enemy.known else "未明", enemy.range]
+	power_label.text = "%s %d / 敌军 %s\n%s" % [State.term("army", "守军"), State.get_army_power(), str(State.get_enemy_power()) if enemy.known else "未明", enemy.range]
+	_update_tab_buttons()
 	for id in marker_buttons:
 		var level: int = State.buildings[id]
 		marker_buttons[id].text = "%s · %s" % [State.BUILDINGS[id].name, ("未" if level == 0 else _cn_number(level))]
@@ -544,8 +545,10 @@ func _apply_season_tone(season: String) -> void:
 	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE) * State.get_era_tint(), 0.8)
 
 func _update_tab_buttons() -> void:
+	var tab_specs := [["build_tab", "城建", "筑"], ["trade_tab", "市易", "易"], ["military_tab", "军务", "戈"], ["governance_tab", "政事", "策"]]
 	for i in tab_buttons.size():
 		var tab := tab_buttons[i]
+		tab.text = "%s  %s" % [tab_specs[i][2], State.term(tab_specs[i][0], tab_specs[i][1])]
 		tab.button_pressed = i == current_tab
 		tab.add_theme_color_override("font_color", Color.WHITE if i == current_tab else INK)
 		tab.add_theme_stylebox_override("normal", _style(JADE if i == current_tab else Color(0.36, 0.37, 0.27, 0.11), 11, 0, Color.TRANSPARENT, 4))
@@ -649,7 +652,7 @@ func _add_building_card(id: String) -> void:
 	cost_label.add_theme_font_size_override("font_size", 11)
 	cost_label.add_theme_color_override("font_color", CINNABAR if slot_blocked or not State.can_afford(cost) else JADE)
 	text_stack.add_child(cost_label)
-	var action := _action_button("建造" if level == 0 else "升级")
+	var action := _action_button(State.term("build_action", "建造") if level == 0 else State.term("upgrade_action", "升级"))
 	action.disabled = level >= int(data.max) or slot_blocked
 	action.pressed.connect(func():
 		_play_chime(600.0)
@@ -658,18 +661,16 @@ func _add_building_card(id: String) -> void:
 	row.add_child(action)
 
 func _format_building_effect(preview: Dictionary) -> String:
-	return UiPresentation.building_effect(preview, State.RESOURCE_UNITS)
+	return UiPresentation.building_effect(preview, State.RESOURCE_UNITS, State.TERMS)
 
 func _render_market() -> void:
-	_add_section_heading("邑中账簿", "所有生产、民食、军粮与军饷按日公开结算")
+	_add_section_heading(State.term("ledger_title", "邑中账簿"), State.term("ledger_desc", "所有生产、民食、军粮与军饷按日公开结算"))
 	var ledger := State.get_daily_ledger()
 	for id in ["grain", "wood", "stone", "coins"]:
 		_add_ledger_card(id, ledger[id])
-	_add_section_heading("陶朱之市", "市集等级越高价格越有利；仓容不足时整笔不成交、不扣款")
-	_add_trade_card("粟米出仓", "sell_grain")
-	_add_trade_card("购入军粮", "buy_grain")
-	_add_trade_card("木材发卖", "sell_wood")
-	_add_trade_card("商队运石", "buy_stone")
+	_add_section_heading(State.term("market_title", "陶朱之市"), State.term("market_desc", "市集等级越高价格越有利；仓容不足时整笔不成交、不扣款"))
+	for trade_id in ["sell_grain", "buy_grain", "sell_wood", "buy_stone"]:
+		_add_trade_card(State.get_trade_label(trade_id), trade_id)
 
 func _add_ledger_card(id: String, entry: Dictionary) -> void:
 	var meta := _resource_meta(id)
@@ -706,7 +707,7 @@ func _add_trade_card(title: String, id: String) -> void:
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)
-	var button := _action_button("交易")
+	var button := _action_button(State.get_trade_label("action"))
 	button.pressed.connect(func():
 		_play_chime(640.0)
 		if State.trade(id): _render_tab()
@@ -714,19 +715,21 @@ func _add_trade_card(title: String, id: String) -> void:
 	row.add_child(button)
 
 func _render_military() -> void:
-	_add_section_heading("戎车既饬", "军籍、军粮、伤员与来敌编成均可追溯")
+	_add_section_heading(State.term("military_title", "戎车既饬"), State.term("military_desc", "军籍、军粮、伤员、辎重与来敌编成均可追溯"))
 	var enemy := State.get_enemy_display()
 	var enemy_detail := "%s · 距城%d日 · %s\n%s" % [enemy.name, State.days_until_attack(), enemy.range, enemy.composition]
-	content_box.add_child(_info_banner("来敌军情", enemy_detail, CINNABAR))
+	content_box.add_child(_info_banner(State.term("enemy_intel", "来敌军情"), enemy_detail, CINNABAR))
 	_add_defense_order_card()
 	if bool(enemy.known):
 		var forecast := State.get_battle_forecast(100)
-		var forecast_text := "阵令「%s」 · 我军力%d / 敌军力%d\n胜算约%d%% · 预计伤亡%d～%d人" % [State.get_defense_order_data().name, State.get_army_power(), State.get_enemy_power(), roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high]
-		content_box.add_child(_info_banner("守城推演", forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
+		var forecast_text := "%s「%s」 · 我军力%d / 敌军力%d\n胜算约%d%% · 预计伤亡%d～%d%s" % [State.term("defense_order", "阵令"), State.get_defense_order_data().name, State.get_army_power(), State.get_enemy_power(), roundi(float(forecast.win_rate) * 100.0), forecast.loss_low, forecast.loss_high, State.term("population_unit", "人")]
+		content_box.add_child(_info_banner(State.term("battle_forecast", "守城推演"), forecast_text, JADE if float(forecast.win_rate) >= 0.60 else CINNABAR))
 	else:
-		content_box.add_child(_info_banner("守城推演", "阵令「%s」 · 我军力%d · 敌军约%s\n军情不足：巡剿或反侦后显示胜算与预计伤亡" % [State.get_defense_order_data().name, State.get_army_power(), enemy.range], GOLD))
+		content_box.add_child(_info_banner(State.term("battle_forecast", "守城推演"), "%s「%s」 · 我军力%d · 敌军约%s\n军情不足：巡剿或反侦后显示胜算与预计伤亡" % [State.term("defense_order", "阵令"), State.get_defense_order_data().name, State.get_army_power(), enemy.range], GOLD))
 	var ledger := State.get_daily_ledger()
-	content_box.add_child(_info_banner("军籍与伤营", "%d/%d人 · 其中伤员%d人 · 日耗粮%.1f石、军饷%.0f枚" % [State.get_army_count() + State.get_wounded_count(), State.get_army_capacity(), State.get_wounded_count(), _army_ledger_cost(ledger.grain.details), _army_ledger_cost(ledger.coins.details)], GOLD))
+	content_box.add_child(_info_banner(State.term("roster", "军籍与伤营"), "%d/%d%s · 其中%s%d%s · 日耗%s%.1f%s、%s%.0f%s" % [State.get_army_count() + State.get_wounded_count(), State.get_army_capacity(), State.term("population_unit", "人"), State.term("wounded", "伤员"), State.get_wounded_count(), State.term("population_unit", "人"), State.term("provisions", "军粮"), _army_ledger_cost(ledger.grain.details), State.RESOURCE_UNITS.grain.unit, State.term("pay", "军饷"), _army_ledger_cost(ledger.coins.details), State.RESOURCE_UNITS.coins.unit], GOLD))
+	var logistics := State.get_logistics_status()
+	content_box.add_child(_info_banner("%s · %s" % [logistics.name, logistics.state], "负载%.0f / 承载%.0f%s · 战斗效能%d%%\n%s" % [logistics.load, logistics.capacity, logistics.unit, roundi(float(logistics.factor) * 100.0), logistics.desc], JADE if float(logistics.factor) >= 0.999 else (GOLD if float(logistics.factor) >= 0.85 else CINNABAR)))
 	for id in State.UNITS:
 		_add_unit_card(id)
 	var patrol_card := _card(82)
@@ -739,16 +742,16 @@ func _render_military() -> void:
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(stack)
 	var label := Label.new()
-	label.text = "出城巡剿"
+	label.text = State.term("patrol_name", "出城巡剿")
 	label.add_theme_font_size_override("font_size", 14)
 	label.add_theme_color_override("font_color", INK)
 	stack.add_child(label)
 	var detail := Label.new()
-	detail.text = "每日至多一次 · 粮6石 财40枚 · 侦察并削减真实敌军"
+	detail.text = "每日至多一次 · %s · 侦察并削减真实敌军" % _format_cost(State.LOGISTICS.patrol_cost)
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)
-	var action := _action_button("出征")
+	var action := _action_button(State.term("patrol_action", "出征"))
 	action.pressed.connect(func():
 		_play_chime(390.0)
 		if State.patrol(): _render_tab()
@@ -763,7 +766,7 @@ func _add_defense_order_card() -> void:
 	stack.add_theme_constant_override("separation", 5)
 	card.add_child(stack)
 	var title := Label.new()
-	title.text = "守城阵令 · 当前「%s」" % active.name
+	title.text = "%s · 当前「%s」" % [State.term("defense_order", "守城阵令"), active.name]
 	title.add_theme_font_size_override("font_size", 14)
 	title.add_theme_color_override("font_color", INK)
 	stack.add_child(title)
@@ -803,20 +806,20 @@ func _add_unit_card(id: String) -> void:
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(stack)
 	var name_label := Label.new()
-	var unit_name := "%s  %d人" % [data.name, count]
-	if id == "chariot" and State.era_id == "spring_autumn":
-		unit_name += "（%d乘齐备）" % floori(count / 5.0)
+	var unit_name := "%s  %d%s" % [data.name, count, str(data.get("count_unit", State.term("population_unit", "人")))]
+	if data.has("formation_size") and int(data.formation_size) > 0:
+		unit_name += "（%d%s齐备）" % [floori(float(count) / int(data.formation_size)), str(data.get("formation_unit", "队"))]
 	name_label.text = unit_name
 	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.add_theme_color_override("font_color", INK)
 	stack.add_child(name_label)
 	var detail := Label.new()
-	detail.text = "每征一伍%d人 · 军力/人 %.2f\n日耗 %s%.2f%s %s%.2f%s · %s%s" % [data.batch, data.power, State.RESOURCE_UNITS.grain.short, data.grain_daily, State.RESOURCE_UNITS.grain.unit, State.RESOURCE_UNITS.coins.short, data.coins_daily, State.RESOURCE_UNITS.coins.unit, ("需%s%d级 · " % [State.BUILDINGS.barracks.name, int(data.need)] if int(data.need) > 0 else ""), _format_cost(data.cost)]
+	detail.text = "每%s一%s%d%s · 军力/%s %.2f\n日耗 %s%.2f%s %s%.2f%s · %s%s" % [State.term("recruit_verb", "征募"), str(data.get("batch_label", "伍")), data.batch, str(data.get("count_unit", State.term("population_unit", "人"))), str(data.get("count_unit", State.term("population_unit", "人"))), data.power, State.RESOURCE_UNITS.grain.short, data.grain_daily, State.RESOURCE_UNITS.grain.unit, State.RESOURCE_UNITS.coins.short, data.coins_daily, State.RESOURCE_UNITS.coins.unit, ("需%s%d级 · " % [State.BUILDINGS.barracks.name, int(data.need)] if int(data.need) > 0 else ""), _format_cost(data.cost)]
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)
-	var recruit_button := _action_button("征募")
+	var recruit_button := _action_button(State.term("recruit_action", "征募"))
 	recruit_button.disabled = State.buildings.barracks < int(data.need)
 	recruit_button.pressed.connect(func():
 		_play_chime(440.0)
@@ -827,12 +830,12 @@ func _add_unit_card(id: String) -> void:
 func _army_ledger_cost(details: Array) -> float:
 	var total := 0.0
 	for item in details:
-		if str(item[0]) in ["军籍粮秣", "军饷"]:
+		if str(item[0]) in [State.term("army_food", "军籍粮秣"), State.term("army_pay", "军饷")]:
 			total += absf(float(item[1]))
 	return total
 
 func _render_governance() -> void:
-	_add_section_heading("邑宰案牍", "城池规模与时代积累分别成长，发展和征战共同推动新制")
+	_add_section_heading(State.term("governance_title", "邑宰案牍"), State.term("governance_desc", "城池规模与时代积累分别成长，发展和征战共同推动新制"))
 	var prosperity := State.get_prosperity()
 	var target := State.get_chapter_target()
 	content_box.add_child(_progress_card(
@@ -847,15 +850,18 @@ func _render_governance() -> void:
 		))
 	else:
 		content_box.add_child(_progress_card(
-			"%s时代积累" % State.get_era_name(),
+			"%s%s" % [State.get_era_name(), State.term("era_progress", "时代积累")],
 			State.era_progress, State.get_era_progress_target(),
 			"主动推进日期、营造城池、巡剿与守城胜利都会积累"
 		))
-	_add_policy_card("兴修水利", "三日粮秣增产35%", "irrigate", "渠")
+	var irrigation: Dictionary = State.get_policy_data("irrigate")
+	_add_policy_card(irrigation.name, irrigation.effect, "irrigate", irrigation.glyph)
 	var relief_preview := State.get_policy_preview("tax_relief")
-	_add_policy_card("轻徭薄赋", "民口+%d · 民心+%.0f" % [relief_preview.population_gain, relief_preview.morale_gain], "tax_relief", "民")
+	var relief: Dictionary = State.get_policy_data("tax_relief")
+	_add_policy_card(relief.name, "%s+%d · 民心+%.0f" % [State.term("population", "民口"), relief_preview.population_gain, relief_preview.morale_gain], "tax_relief", relief.glyph)
 	var reward_preview := State.get_policy_preview("reward_army")
-	_add_policy_card("犒赏三军", "民心+%.0f · %d名伤员可提前归队" % [reward_preview.morale_gain, reward_preview.expedited_wounded], "reward_army", "赏")
+	var reward: Dictionary = State.get_policy_data("reward_army")
+	_add_policy_card(reward.name, "民心+%.0f · %d%s%s可提前归队" % [reward_preview.morale_gain, reward_preview.expedited_wounded, State.term("population_unit", "人"), State.term("wounded", "伤员")], "reward_army", reward.glyph)
 	var advance := _card(82)
 	content_box.add_child(advance)
 	var row := HBoxContainer.new()
@@ -1358,8 +1364,8 @@ func _event_option_caption(id: String, index: int, base: String) -> String:
 	return UiPresentation.event_option_caption(State, id, index, base)
 
 func _on_battle_finished(result: Dictionary) -> void:
-	var title := "城头凯歌" if result.won else "烽火入郭"
-	var body := "%s来敌%d人。守军奉「%s」阵令，战前我军力%d、敌军力%d。\n\n%s" % [result.enemy_name, result.enemy_total, result.defense_order_name, result.player_power, result.enemy_power, result.loss_text]
+	var title := State.term("victory_title", "城头凯歌") if result.won else State.term("defeat_title", "烽火入郭")
+	var body := "%s来敌%d%s。%s奉「%s」%s，战前我军力%d、敌军力%d。\n\n%s" % [result.enemy_name, result.enemy_total, State.term("population_unit", "人"), State.term("army", "守军"), result.defense_order_name, State.term("defense_order", "阵令"), result.player_power, result.enemy_power, result.loss_text]
 	var breakdown := _battle_breakdown(result)
 	if not breakdown.is_empty():
 		body += "\n\n" + breakdown
@@ -1384,7 +1390,7 @@ func _show_chapter_modal() -> void:
 func _show_era_transition_modal() -> void:
 	_show_modal(
 		"时代更迭 · %s" % State.get_era_name(),
-		"诸侯兼并，军制与县邑治理日益严密。青禾保留既有城池、人口与军队规模，同时启用%s时期的新兵种、建筑称谓、阵令、资源称谓与敌军配置。" % State.get_era_name(),
+		State.get_transition_text(),
 		[{"text": "整顿新制", "callback": func(): pass}],
 		CINNABAR
 	)

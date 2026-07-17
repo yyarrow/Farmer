@@ -1,5 +1,6 @@
 extends RefCounted
 
+const EraRegistry = preload("res://src/data/era_registry.gd")
 const MAX_ACTIONS_PER_DAY := 4
 
 var state: Node
@@ -36,23 +37,26 @@ func finish_forced_choices() -> void:
 func _select_defense_order() -> void:
 	var target := "steady"
 	match policy:
-		"agrarian": target = "steady"
+		"agrarian": target = "fortify"
 		"militarist": target = "steady"
 		"balanced":
-			if int(state.units.archer) >= 10 and int(state.units.archer) * 3 >= state.get_army_count():
+			var under_pressure: bool = float(state.morale) < 52.0 or state.get_army_power() < roundi(state.get_enemy_power() * 1.10)
+			if under_pressure:
+				target = "fortify"
+			elif int(state.units.archer) >= 10 and int(state.units.archer) * 3 >= state.get_army_count():
 				target = "volley"
 	if target != state.defense_order and state.set_defense_order(target):
 		_record("order_%s" % target)
 
 func _act_balanced() -> bool:
-	if float(state.morale) < 48.0 and _try_policy("reward_army"):
+	if float(state.morale) < 58.0 and _try_policy("reward_army"):
 		return true
 	if _try_advance_chapter():
 		return true
 	var wave := int(state.attack_wave)
 	var wall_target := mini(5, 1 + floori((wave - 1) / 2.0))
 	var barracks_target := mini(5, 1 + floori(wave / 2.0))
-	var army_target := mini(state.get_army_capacity(), 25 + (wave - 1) * 7)
+	var army_target := mini(state.get_army_capacity(), _era_army_base() + (wave - 1) * 7)
 	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.68
 	if shortfall:
 		wall_target = mini(5, wall_target + 1)
@@ -100,8 +104,8 @@ func _act_agrarian() -> bool:
 	var wave := int(state.attack_wave)
 	var wall_target := mini(5, 1 + floori((wave - 1) / 2.0))
 	var barracks_target := mini(5, 1 + floori((wave - 1) / 2.0))
-	var army_target := mini(state.get_army_capacity(), 35 + (wave - 1) * 8)
-	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.58
+	var army_target := mini(state.get_army_capacity(), _era_army_base() + 10 + (wave - 1) * 8)
+	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.65
 	if shortfall:
 		wall_target = mini(5, wall_target + 1)
 		barracks_target = mini(5, barracks_target + 1)
@@ -128,7 +132,7 @@ func _act_militarist() -> bool:
 	var barracks_target := mini(5, wave + 1)
 	var core_wall_target := mini(5, wave)
 	var core_barracks_target := mini(5, wave)
-	var army_target := mini(state.get_army_capacity(), 35 + (wave - 1) * 10)
+	var army_target := mini(state.get_army_capacity(), _era_army_base() + 12 + (wave - 1) * 10)
 	var shortfall: bool = state.days_until_attack() <= 3 and _forecast_win_rate() < 0.78
 	if _try_upgrade("wall", core_wall_target):
 		return true
@@ -185,6 +189,10 @@ func _try_advance_chapter() -> bool:
 		_record("advance_chapter")
 		return true
 	return false
+
+func _era_army_base() -> int:
+	var index := maxi(0, EraRegistry.ORDER.find(state.era_id))
+	return [25, 45, 68, 88][mini(index, 3)]
 
 func _try_policy(id: String) -> bool:
 	if int(state.current_day) - int(policy_used_day.get(id, -999)) < 3:
@@ -245,9 +253,10 @@ func _try_patrol(limit_per_wave: int) -> bool:
 	var wave := int(state.attack_wave)
 	if int(patrols_by_wave.get(wave, 0)) >= limit_per_wave:
 		return false
-	if int(state.last_patrol_day) == int(state.current_day) or state.get_army_count() < 10:
+	var minimum := int(state.LOGISTICS.patrol_minimum)
+	if int(state.last_patrol_day) == int(state.current_day) or state.get_army_count() < minimum:
 		return false
-	if float(state.resources.grain) < 6.0 or float(state.resources.coins) < 40.0:
+	if not state.can_afford(state.LOGISTICS.patrol_cost):
 		return false
 	var enemy_before: int = state._sum_force(state.enemy_army)
 	var wave_before := int(state.attack_wave)

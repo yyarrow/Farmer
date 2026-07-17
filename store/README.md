@@ -14,6 +14,8 @@
 | `screenshots/04-military-intelligence.png` | 1080×1920，RGB PNG | 军务页展示侦察后的敌我兵力、守城阵令、精确胜算与预计伤亡。 |
 | `screenshots/05-governance-policy.png` | 1080×1920，RGB PNG | 政事页展示轻徭薄赋、犒赏三军的资源成本、实际收益与城邑晋升。 |
 | `screenshots/06-warring-city.png` | 1080×1920，RGB PNG | 战国县城总览，展示扩展后的夯土城郭、密集坊署、赤旗军阵与战国建筑称谓。 |
+| `screenshots/07-qin-city.png` | 1080×1920，RGB PNG | 秦代关塞重城，展示县廷、县仓、市亭、委输载粟与秦制城建称谓。 |
+| `screenshots/08-han-city.png` | 1080×1920，RGB PNG | 汉代边郡雄城，展示里坊、市肆、太仓、武库营与传舍转输。 |
 
 替代文字均少于 140 个字符，可直接填写到 Play Console 的对应素材项。
 
@@ -25,7 +27,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot \
   --display-driver macos --rendering-driver opengl3
 ```
 
-脚本以 `assets/icon.svg` 和 `.qa/visual_*.png` 为来源；先运行 `tests/visual_capture.gd` 可更新六张实际游戏截图。所有商店素材都被 Android 导出预设排除，不会增大安装包。
+脚本以 `assets/icon.svg` 和 `.qa/visual_*.png` 为来源；先运行 `tests/visual_capture.gd` 可更新八张实际游戏截图。所有商店素材都被 Android 导出预设排除，不会增大安装包。
 
 ## 文案与合规
 

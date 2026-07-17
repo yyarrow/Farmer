@@ -34,7 +34,7 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 	var saved_resources: Dictionary = era.initial_resources.duplicate(true)
 	saved_resources.merge(data.get("resources", {}), true)
 	for id in saved_resources:
-		if float(saved_resources[id]) > EconomySystem.capacity(id, warehouse_level) + 0.001:
+		if float(saved_resources[id]) > EconomySystem.capacity(id, warehouse_level, era.economy) + 0.001:
 			return false
 
 	var saved_units: Dictionary = era.initial_units.duplicate(true)
@@ -44,9 +44,9 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 	var army_total := BattleSystem.sum_force(saved_units)
 	var wounded_total := BattleSystem.sum_force(saved_wounded)
 	var saved_population := int(data.get("population", 110))
-	if saved_population < 40 or saved_population + army_total + wounded_total > EconomySystem.population_cap(int(saved_buildings.house)):
+	if saved_population < 40 or saved_population + army_total + wounded_total > EconomySystem.population_cap(int(saved_buildings.house), era.economy):
 		return false
-	if army_total + wounded_total > EconomySystem.army_capacity(int(saved_buildings.barracks)):
+	if army_total + wounded_total > EconomySystem.army_capacity(int(saved_buildings.barracks), era.economy):
 		return false
 
 	var queued_wounded: Dictionary = era.empty_units.duplicate(true)

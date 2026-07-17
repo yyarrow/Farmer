@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.8.0`（versionCode `9`）
+当前候选版本：`0.9.0`（versionCode `10`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -15,6 +15,9 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd --audio-driver Dummy
 python3 tests/audio_assets.py
 python3 tests/store_assets.py
@@ -22,13 +25,12 @@ python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现 `STATE_SMOKE_OK`、`ARCHITECTURE_CONTRACT_OK`、`FULL_FLOW_OK`、`BALANCE_SIM_OK`、`ORDER_BALANCE_OK`、`UI_SMOKE_OK`、`AUDIO_ASSETS_OK`、`STORE_ASSETS_OK`、`ANDROID_LINT_GATE_OK` 和 `VISUAL_CAPTURE_OK`。Android lint 闸门固定核对 Godot 4.7 模板的 20 条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，需人工检查文字无截断、开场说明、首战备忘、容量账簿、退出确认、最长事件与最长战报弹窗不遮挡关键操作、春秋冬色调可辨认、建筑 0—5 级均有可见差异，并核对建筑当前/下一阶效果可读、侦察前不显示胜算/伤亡、侦察后才解锁精确推演、四种阵令的选择态和说明完整、可施行政令显示实际收益、无效果政令显示原因且按钮不可用。
+所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对春秋、战国、秦、汉主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致，时代提示不遮挡商店截图。
 
 长期平衡复核：
 
 ```bash
-HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=1000 --days=60 --policy=all --seed=20260715 --strict
-HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=250 --days=180 --policy=all --seed=20260715 --strict
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=100 --days=320 --seed=20260717 --strict
 ```
 
 要求零状态不变量错误；均衡、屯田、尚武三种策略均可持续发展，贪进策略明显更危险，尚武策略不得在首战与整体守城胜率上同时劣于均衡策略。
@@ -77,6 +79,8 @@ python3 tools/build_release_aab.py --universal-apk
 
 2026 年 7 月 16 日的 `0.8.0` 本地候选验证结果：AAB 44.0 MiB，SHA-256 `2c755a17b50cfca68d6004a49a94ff5f5f19dc086d2a32bab91a5ad1cd666236`；独立 APK 44.1 MiB，SHA-256 `e8cb9a116befb3efac984e336ea9de349f44e2105f566b5c76522f88540c119c`；上传证书延续为 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB 通过 bundletool、arm64 单架构、16 KiB 页面/ZIP 对齐与 RELRO 验证；APK 通过版本9/0.8.0、包名、竖屏、权限、签名、主题图标、字体许可和开发文件排除检查。真实540×960渲染新增春秋三级城池缩放、横向巡视、战国精绘主城、战国军务与时代完成页；字体递归扫描覆盖全部子目录文案。无界面严格长测运行1000局×180日，全部进入战国，平衡警告和状态错误均为0；跨时代专项另完成12000次战国首战推演。ADB 检查时没有已启动设备；为遵守本轮仅修改仓库文件的边界，没有启动或改写仓库外 AVD，因此本段不把包结构验证写成新一轮实机证据。
 
+2026年7月17日的`0.9.0`秦汉候选验证结果：AAB 48.2 MiB，SHA-256 `59bc0f143c01c02314bfcf98bd4581536e04bd3f015da3f97ef366020ab668b9`；独立 APK 48.3 MiB，SHA-256 `c7d37f483684770e7f951f65e09e1b4d8f46d738513ad8c84073766282c7a8c0`；上传证书延续为 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB通过bundletool、arm64单架构、16 KiB页面对齐与RELRO验证；APK通过版本10/0.9.0、包名、竖屏、权限、签名、主题图标和开发文件排除检查。真实540×960渲染覆盖四时代，并为秦汉各生成无遮挡的城建/军务画面和商店截图。秦汉六格专项共18000次战斗推演；四策略共400局×320日长期测试平衡警告0、状态错误0，三条正常路线抵达汉的比例为95%—100%。
+
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
 本地 AAB 工程闸门已经通过；正式公开发布仍必须先上传 Play Console 内部测试轨道，并用 Play 实际分发的安装包完成冷启动、存档、战斗、音量、暂停/恢复和诊断导出实机检查。
@@ -106,7 +110,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 ## 5. 商店资料与合规
 
-`store/` 已包含 512×512 应用图标、六张 1080×1920 实机比例截图、1024×500 宣传图、中文短说明和完整说明、版本说明、隐私政策正文及图片替代文字。截图覆盖三季城景、战国城郭、侦察推演和政令经营；素材规格与重新生成命令见 `store/README.md`，Play Console 填写顺序见 `store/play-console-checklist.md`。
+`store/` 已包含 512×512 应用图标、八张 1080×1920 实机比例截图、1024×500 宣传图、中文短说明和完整说明、版本说明、隐私政策正文及图片替代文字。截图覆盖三季城景、战国/秦/汉城郭、侦察推演和政令经营；素材规格与重新生成命令见 `store/README.md`，Play Console 填写顺序见 `store/play-console-checklist.md`。
 
 公开发布前仍需发布主体人工完成：在 Play Console 完成开发者身份验证并登记 `com.qinghe.farmer` 包名，填写法定名称和客服邮箱、把隐私政策部署到无需登录的公开 HTTPS 地址、回答内容分级和目标年龄问卷、确认数据安全表、确认版权/商标归属、选择价格和国家/地区，并通过内部测试轨道。Android 开发者验证将从 2026 年 9 月起首先在新加坡、泰国、巴西和印度尼西亚实施，详见 Google 的 [Play Console 验证指南](https://developer.android.com/developer-verification/guides/pdf-guides/pdc-guide.pdf)。当前游戏离线运行，不请求联网权限；存档、设置和诊断均留在应用私有目录，诊断只能由玩家主动复制分享。
 

@@ -79,6 +79,7 @@ func _run() -> void:
 	_check(state.advance_era(), "UI fixture advances into Warring States")
 	await process_frame
 	_check(str(ui.title_label.text).contains("战国") and is_equal_approx(ui.city_world.scale.x, 1.16), "era and preserved city scale refresh together")
+	_check(str(ui.tab_buttons[0].text).contains("营城") and str(ui.tab_buttons[1].text).contains("互市"), "Warring States replaces primary tab vocabulary")
 	_check(str(ui.city_background.texture.resource_path).contains("city_warring_states") and str(ui.city_visual_layer.world_state.era) == "warring_states", "era transition replaces the painted city and persistent visual state")
 	ui.current_tab = 0
 	ui._render_tab()
@@ -91,7 +92,31 @@ func _run() -> void:
 	ui.current_tab = 3
 	ui._render_tab()
 	await process_frame
-	_check(_has_label_containing(ui.content_box, "战国新制已启用") and _has_label_containing(ui.content_box, "战国新制已定"), "terminal era is shown as complete instead of an inert zero bar")
+	_check(_has_label_containing(ui.content_box, "进入秦"), "Warring States governance exposes Qin as the next configured era")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Qin")
+	await process_frame
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(str(ui.title_label.text).contains("秦") and _has_label_containing(ui.content_box, "县尉勒卒") and _has_label_containing(ui.content_box, "弩卒") and _has_label_containing(ui.content_box, "委输载粟"), "Qin UI replaces military, logistics, and title vocabulary")
+	_check(str(ui.tab_buttons[0].text).contains("县工") and str(ui.tab_buttons[2].text).contains("县尉"), "Qin replaces primary tab vocabulary")
+	_check(str(ui.city_background.texture.resource_path).contains("city_qin"), "Qin UI replaces the painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Han")
+	await process_frame
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(str(ui.title_label.text).contains("汉") and _has_label_containing(ui.content_box, "都尉治兵") and _has_label_containing(ui.content_box, "蹶张士") and _has_label_containing(ui.content_box, "传舍转输"), "Han UI replaces military, logistics, and title vocabulary")
+	_check(str(ui.tab_buttons[1].text).contains("平准") and str(ui.tab_buttons[3].text).contains("郡政"), "Han replaces primary tab vocabulary")
+	_check(str(ui.city_background.texture.resource_path).contains("city_han"), "Han UI replaces the painted city")
+	ui.current_tab = 3
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "汉新制已启用") and _has_label_containing(ui.content_box, "汉新制已定"), "terminal era is shown as complete instead of an inert zero bar")
 	state.reset_game()
 	state.tutorial_seen = true
 	state.set_time_speed(1.0)

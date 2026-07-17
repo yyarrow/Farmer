@@ -37,6 +37,10 @@ var UNITS: Dictionary = era_definition.units
 var DEFENSE_ORDERS: Dictionary = era_definition.defense_orders
 var ENEMY_WAVES: Array = era_definition.enemy_waves
 var EVENTS: Array = era_definition.events
+var TERMS: Dictionary = era_definition.terms
+var LOGISTICS: Dictionary = era_definition.logistics
+var TRADE_LABELS: Dictionary = era_definition.trade_labels
+var POLICIES: Dictionary = era_definition.policies
 
 var resources: Dictionary = era_definition.initial_resources.duplicate(true)
 var buildings: Dictionary = era_definition.initial_buildings.duplicate(true)
@@ -127,11 +131,27 @@ func _configure_era(id: String) -> void:
 	DEFENSE_ORDERS = era_definition.defense_orders
 	ENEMY_WAVES = era_definition.enemy_waves
 	EVENTS = era_definition.events
+	TERMS = era_definition.terms
+	LOGISTICS = era_definition.logistics
+	TRADE_LABELS = era_definition.trade_labels
+	POLICIES = era_definition.policies
 	if not DEFENSE_ORDERS.has(defense_order):
 		defense_order = "steady"
 
 func get_era_name() -> String:
 	return str(era_definition.display_name)
+
+func term(id: String, fallback := "") -> String:
+	return str(TERMS.get(id, fallback if not fallback.is_empty() else id))
+
+func get_transition_text() -> String:
+	return str(era_definition.narrative.transition)
+
+func get_trade_label(id: String) -> String:
+	return str(TRADE_LABELS.get(id, id))
+
+func get_policy_data(id: String) -> Dictionary:
+	return POLICIES.get(id, {})
 
 func get_next_era_id() -> String:
 	return str(era_definition.next_id)
@@ -214,7 +234,9 @@ func _daily_ledger_for(building_levels: Dictionary, civilian_population: int) ->
 		get_wounded_count(),
 		current_day,
 		buffs,
-		UNITS
+		UNITS,
+		TERMS,
+		era_definition.economy
 	)
 
 func get_calendar() -> Dictionary:
@@ -278,10 +300,10 @@ func get_capacity(resource_id: String) -> float:
 	return _capacity_for_level(resource_id, int(buildings.warehouse))
 
 func _capacity_for_level(resource_id: String, warehouse_level: int) -> float:
-	return EconomySystem.capacity(resource_id, warehouse_level)
+	return EconomySystem.capacity(resource_id, warehouse_level, era_definition.economy)
 
 func get_population_cap() -> int:
-	return EconomySystem.population_cap(int(buildings.house))
+	return EconomySystem.population_cap(int(buildings.house), era_definition.economy)
 
 func get_households() -> int:
 	return ceili(float(population + get_army_count() + get_wounded_count()) / 5.0)
@@ -290,13 +312,37 @@ func get_total_residents() -> int:
 	return population + get_army_count() + get_wounded_count()
 
 func get_army_capacity() -> int:
-	return EconomySystem.army_capacity(int(buildings.barracks))
+	return EconomySystem.army_capacity(int(buildings.barracks), era_definition.economy)
 
 func get_army_count() -> int:
-	return int(units.militia) + int(units.archer) + int(units.chariot)
+	var total := 0
+	for id in UNITS:
+		total += int(units.get(id, 0))
+	return total
 
 func get_wounded_count() -> int:
-	return int(wounded.militia) + int(wounded.archer) + int(wounded.chariot)
+	var total := 0
+	for id in UNITS:
+		total += int(wounded.get(id, 0))
+	return total
+
+func get_logistics_status(force: Dictionary = {}, include_wounded := true) -> Dictionary:
+	var capacity := float(LOGISTICS.base_capacity)
+	capacity += int(buildings.get("warehouse", 0)) * float(LOGISTICS.warehouse_capacity)
+	capacity += int(buildings.get("woodcut", 0)) * float(LOGISTICS.woodcut_capacity)
+	capacity += int(buildings.get("market", 0)) * float(LOGISTICS.market_capacity)
+	var load := 0.0
+	var active_force: Dictionary = units if force.is_empty() else force
+	for id in UNITS:
+		load += (int(active_force.get(id, 0)) + (int(wounded.get(id, 0)) if include_wounded else 0)) * float(LOGISTICS.load.get(id, 1.0))
+	var ratio := capacity / maxf(1.0, load)
+	var factor := clampf(ratio, 0.82, 1.0)
+	var state_label := str(LOGISTICS.ready)
+	if ratio < 0.85:
+		state_label = str(LOGISTICS.critical)
+	elif ratio < 1.0:
+		state_label = str(LOGISTICS.strained)
+	return {"name": str(LOGISTICS.name), "unit": str(LOGISTICS.unit), "desc": str(LOGISTICS.desc), "capacity": capacity, "load": load, "ratio": ratio, "factor": factor, "state": state_label}
 
 func get_training() -> float:
 	return 1.0 + buildings.barracks * 0.06
@@ -308,7 +354,7 @@ func _force_power(force: Dictionary, force_morale: float, training: float) -> in
 	return BattleSystem.force_power(force, force_morale, training, UNITS)
 
 func get_army_power() -> int:
-	return _force_power(units, morale, get_training())
+	return _force_power(units, morale, get_training() * float(get_logistics_status().factor))
 
 func get_defense() -> int:
 	return get_army_power()
@@ -322,7 +368,7 @@ func set_defense_order(id: String) -> bool:
 	var previous := defense_order
 	defense_order = id
 	changed.emit()
-	notice.emit("守城阵令改为「%s」" % DEFENSE_ORDERS[id].name)
+	notice.emit("%s改为「%s」" % [term("defense_order", "守城阵令"), DEFENSE_ORDERS[id].name])
 	visual_event.emit("defense_order", {"order": id, "previous": previous})
 	Audio.play_sfx("command")
 	Telemetry.track("defense_order_changed", {"from": previous, "to": id, "day": current_day, "wave": attack_wave, "army": units.duplicate()})
@@ -358,7 +404,7 @@ func get_building_effect_preview(id: String) -> Dictionary:
 	next_buildings[id] = next_level
 	var next_population := population
 	if id == "house" and next_level > level:
-		next_population = mini(EconomySystem.population_cap(next_level) - get_army_count() - get_wounded_count(), population + 5)
+		next_population = mini(EconomySystem.population_cap(next_level, era_definition.economy) - get_army_count() - get_wounded_count(), population + 5)
 	var current_ledger := _daily_ledger_for(buildings, population)
 	var next_ledger := _daily_ledger_for(next_buildings, next_population)
 	var preview := {"kind": id, "level": level, "next_level": next_level, "has_next": next_level > level}
@@ -370,7 +416,7 @@ func get_building_effect_preview(id: String) -> Dictionary:
 		"quarry":
 			preview.merge({"resource": "stone", "current": current_ledger.stone.income, "next": next_ledger.stone.income})
 		"house", "market":
-			preview.merge({"current": current_ledger.coins.income, "next": next_ledger.coins.income, "population_cap": get_population_cap(), "next_population_cap": EconomySystem.population_cap(next_level)})
+			preview.merge({"current": current_ledger.coins.income, "next": next_ledger.coins.income, "population_cap": get_population_cap(), "next_population_cap": EconomySystem.population_cap(next_level, era_definition.economy)})
 		"warehouse":
 			preview.merge({
 				"grain": _capacity_for_level("grain", level), "next_grain": _capacity_for_level("grain", next_level),
@@ -378,7 +424,7 @@ func get_building_effect_preview(id: String) -> Dictionary:
 				"coins": _capacity_for_level("coins", level), "next_coins": _capacity_for_level("coins", next_level),
 			})
 		"barracks":
-			preview.merge({"capacity": EconomySystem.army_capacity(level), "next_capacity": EconomySystem.army_capacity(next_level), "training": level * 6, "next_training": next_level * 6})
+			preview.merge({"capacity": EconomySystem.army_capacity(level, era_definition.economy), "next_capacity": EconomySystem.army_capacity(next_level, era_definition.economy), "training": level * 6, "next_training": next_level * 6})
 		"wall":
 			preview.merge({"incoming": roundi(maxf(0.52, 1.0 - level * 0.09) * 100.0), "next_incoming": roundi(maxf(0.52, 1.0 - next_level * 0.09) * 100.0)})
 	return preview
@@ -433,14 +479,14 @@ func recruit(id: String) -> bool:
 		return false
 	var data: Dictionary = UNITS[id]
 	if buildings.barracks < int(data.need):
-		notice.emit("兵营需要达到 %d 级" % int(data.need))
+		notice.emit("%s需要达到 %d 级" % [BUILDINGS.barracks.name, int(data.need)])
 		return false
 	var batch := int(data.batch)
 	if get_army_count() + get_wounded_count() + batch > get_army_capacity():
-		notice.emit("军籍已满，请升级兵营")
+		notice.emit("%s已满，请升级%s" % [term("army_registry", "军籍"), BUILDINGS.barracks.name])
 		return false
 	if population - batch < 40:
-		notice.emit("民间丁口不足，无法继续征募")
+		notice.emit("%s丁口不足，无法继续%s" % [term("population", "民间"), term("recruit_verb", "征募")])
 		return false
 	if not spend(data.cost):
 		return false
@@ -448,7 +494,7 @@ func recruit(id: String) -> bool:
 	units[id] += batch
 	morale = maxf(35.0, morale - 0.5)
 	changed.emit()
-	notice.emit("征募一伍%s：%d人转入军籍" % [data.name, batch])
+	notice.emit("%s一%s%s：%d%s转入%s" % [term("recruit_verb", "征募"), str(data.get("batch_label", "伍")), data.name, batch, str(data.get("count_unit", term("population_unit", "人"))), term("army_registry", "军籍")])
 	visual_event.emit("recruit", {"unit": id, "count": units[id], "batch": batch})
 	Audio.play_sfx("recruit")
 	Telemetry.track("unit_recruited", {"unit": id, "batch": batch, "count": units[id], "army_power": get_army_power(), "daily_upkeep": get_daily_ledger()})
@@ -474,7 +520,7 @@ func trade(kind: String) -> bool:
 	for resource in quote.gain:
 		resources[resource] += float(quote.gain[resource])
 	changed.emit()
-	notice.emit("市易完成")
+	notice.emit("%s完成" % str(TRADE_LABELS.action))
 	visual_event.emit("trade", {"trade": kind})
 	Audio.play_sfx("trade")
 	Telemetry.track("trade_completed", {"kind": kind, "quote": quote, "resources": resources.duplicate()})
@@ -529,16 +575,14 @@ func enact_policy(id: String) -> bool:
 	match id:
 		"irrigate":
 			buffs.farm_until = current_day + 3
-			notice.emit("水利修成：三日内粮秣增产")
 		"tax_relief":
 			population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 15)
 			morale = minf(100.0, morale + 12.0)
-			notice.emit("轻徭薄赋：民心与民口上升")
 		"reward_army":
 			morale = minf(100.0, morale + 18.0)
 			for entry in recovery_queue:
 				entry.return_day = maxi(current_day + 1, int(entry.return_day) - 1)
-			notice.emit("犒赏三军：士气大振，伤员恢复加快")
+	notice.emit(str(POLICIES[id].notice))
 	changed.emit()
 	visual_event.emit("policy", {"policy": id})
 	Audio.play_sfx("event")
@@ -550,10 +594,11 @@ func patrol() -> bool:
 	if last_patrol_day == current_day:
 		notice.emit("今日已派出巡骑")
 		return false
-	if get_army_count() < 10:
-		notice.emit("至少需要十名可战士卒才能出城巡剿")
+	var patrol_minimum := int(LOGISTICS.patrol_minimum)
+	if get_army_count() < patrol_minimum:
+		notice.emit("至少需要%d%s可战%s才能%s" % [patrol_minimum, term("population_unit", "人"), term("army", "士卒"), term("patrol_name", "出城巡剿")])
 		return false
-	if not spend({"grain": 6, "coins": 40}):
+	if not spend(LOGISTICS.patrol_cost):
 		return false
 	last_patrol_day = current_day
 	var scout_power := maxf(1.0, get_enemy_power() * 0.55)
@@ -582,16 +627,16 @@ func patrol() -> bool:
 			attack_wave += 1
 			next_attack_day = current_day + _next_attack_interval(true)
 			enemy_army = _make_enemy_army(attack_wave)
-			notice.emit("巡剿大捷：歼敌%d人（%s），下一支敌军已在集结" % [enemy_losses, _loss_summary(lost, true)])
+			notice.emit("%s大捷：歼敌%d%s（%s），下一支敌军已在集结" % [term("patrol_name", "巡剿"), enemy_losses, term("population_unit", "人"), _loss_summary(lost, true)])
 		else:
-			notice.emit("巡剿得胜：敌军折损%d人（%s）%s" % [enemy_losses, _loss_summary(lost, true), "，行军延误一日" if delayed else ""])
+			notice.emit("%s得胜：敌军折损%d%s（%s）%s" % [term("patrol_name", "巡剿"), enemy_losses, term("population_unit", "人"), _loss_summary(lost, true), "，行军延误一日" if delayed else ""])
 		visual_event.emit("patrol_win", {"enemy_losses": enemy_losses, "enemy_losses_by_type": lost, "delayed": delayed, "field_victory": field_victory})
 		Audio.play_sfx("battle_win")
 	else:
 		player_losses = rng.randi_range(1, 3)
 		player_loss_detail = _apply_field_losses(player_losses, 0.20)
 		morale = maxf(20.0, morale - 5.0)
-		notice.emit("巡剿失利：%s，但已探明敌军编成" % _casualty_summary(player_loss_detail.killed, player_loss_detail.wounded))
+		notice.emit("%s失利：%s，但已探明敌军编成" % [term("patrol_name", "巡剿"), _casualty_summary(player_loss_detail.killed, player_loss_detail.wounded)])
 		visual_event.emit("patrol_loss", {"player_losses": player_losses, "killed": player_loss_detail.killed, "wounded": player_loss_detail.wounded})
 		Audio.play_sfx("battle_loss")
 	changed.emit()
@@ -612,7 +657,7 @@ func _advance_day(completed_ledger: Dictionary = {}) -> void:
 		var lost_people := maxi(1, roundi(population * 0.02))
 		population = maxi(40, population - lost_people)
 		morale = maxf(10.0, morale - 7.0)
-		notice.emit("粮秣告急：%d名百姓离邑" % lost_people)
+		notice.emit("%s告急：%d%s%s离邑" % [RESOURCE_UNITS.grain.name, lost_people, term("population_unit", "人"), term("population", "百姓")])
 	morale = clampf(morale + (0.6 if float(ledger.grain.net) >= 0.0 else -1.2), 10.0, 100.0)
 	if current_day >= next_attack_day:
 		_resolve_siege()
@@ -695,9 +740,9 @@ func get_event_choice_block_reason(choice: int) -> String:
 	if id == "refugees" and choice == 0:
 		var civilian_room := get_population_cap() - get_army_count() - get_wounded_count() - population
 		if civilian_room < 20:
-			return "需20人民口空位"
+			return "需20%s%s空位" % [term("population_unit", "人"), term("population", "民口")]
 	if id == "merchant" and choice == 1 and resources.coins + 620.0 > get_capacity("coins") + 0.001:
-		return "需620枚财货空位"
+		return "需620%s%s空位" % [RESOURCE_UNITS.coins.unit, RESOURCE_UNITS.coins.name]
 	return ""
 
 func is_event_choice_available(choice: int) -> bool:
@@ -728,7 +773,7 @@ func resolve_event(choice: int) -> bool:
 					notice.emit("开仓赈济，百姓得以安心")
 				else:
 					morale = maxf(10.0, morale - 4.0)
-					notice.emit("粮储不足，仅赈出%d石，乡里仍有不安" % relief)
+					notice.emit("%s不足，仅赈出%d%s，乡里仍有不安" % [RESOURCE_UNITS.grain.name, relief, RESOURCE_UNITS.grain.unit])
 		"refugees":
 			if choice == 0:
 				population += 20
@@ -745,7 +790,7 @@ func resolve_event(choice: int) -> bool:
 				notice.emit("新农具使全邑生产加快")
 			elif choice == 1:
 				resources.coins += 620.0
-				notice.emit("商队购粮75石，财货入库620枚")
+				notice.emit("商队购入%s75%s，%s入库620%s" % [RESOURCE_UNITS.grain.name, RESOURCE_UNITS.grain.unit, RESOURCE_UNITS.coins.name, RESOURCE_UNITS.coins.unit])
 			else:
 				notice.emit("商队另赴他邑，青禾物资未有变动")
 		"scouts":
@@ -774,7 +819,7 @@ func resolve_event(choice: int) -> bool:
 				var lost_grain := mini(60, floori(resources.grain))
 				resources.grain -= lost_grain
 				morale = maxf(10.0, morale - 4.0)
-				notice.emit("低田受淹，损失粮%d石，民心受挫" % lost_grain)
+				notice.emit("低田受淹，损失%s%d%s，民心受挫" % [RESOURCE_UNITS.grain.short, lost_grain, RESOURCE_UNITS.grain.unit])
 		"winter_relief":
 			if choice == 0:
 				morale = minf(100.0, morale + 10.0)
@@ -825,7 +870,7 @@ func _make_enemy_army(wave: int) -> Dictionary:
 		army.morale = minf(88.0, float(army.morale) + extra * 2.0)
 		army.training = minf(1.30, float(army.training) + extra * 0.03)
 	if wave > FINAL_ENEMY_WAVE:
-		var late_names := ["列国游军", "边军会师", "诸侯征粮师"]
+		var late_names: Array = era_definition.get("late_enemy_names", ["列国游军", "边军会师", "诸侯征粮师"])
 		army.name = late_names[(wave - FINAL_ENEMY_WAVE - 1) % late_names.size()]
 		match wave % 3:
 			0:
@@ -856,11 +901,12 @@ func _next_attack_interval(won: bool) -> int:
 
 func get_enemy_display() -> Dictionary:
 	var total := _sum_force(enemy_army)
+	var people_unit := term("population_unit", "人")
 	if bool(enemy_army.get("scouted", false)):
-		return {"name": enemy_army.name, "known": true, "total": total, "range": "%d人" % total, "composition": "%s%d  %s%d  %s%d" % [UNITS.militia.enemy_name, enemy_army.militia, UNITS.archer.enemy_name, enemy_army.archer, UNITS.chariot.enemy_name, enemy_army.chariot]}
+		return {"name": enemy_army.name, "known": true, "total": total, "range": "%d%s" % [total, people_unit], "composition": "%s%d%s  %s%d%s  %s%d%s" % [UNITS.militia.enemy_name, enemy_army.militia, str(UNITS.militia.get("count_unit", people_unit)), UNITS.archer.enemy_name, enemy_army.archer, str(UNITS.archer.get("count_unit", people_unit)), UNITS.chariot.enemy_name, enemy_army.chariot, str(UNITS.chariot.get("count_unit", people_unit))]}
 	var low := maxi(1, floori(total * 0.78))
 	var high := ceili(total * 1.22)
-	return {"name": enemy_army.name, "known": false, "total": total, "range": "%d～%d人" % [low, high], "composition": "编成未明，巡剿可探查"}
+	return {"name": enemy_army.name, "known": false, "total": total, "range": "%d～%d%s" % [low, high, people_unit], "composition": "编成未明，%s可探查" % term("patrol_name", "巡剿")}
 
 func get_battle_forecast(iterations := 120) -> Dictionary:
 	var wins := 0
@@ -887,7 +933,7 @@ func _simulate_battle(player_force: Dictionary, player_morale: float, enemy_forc
 		int(buildings.wall),
 		defense_order,
 		get_defense_order_data(),
-		get_training()
+		get_training() * float(get_logistics_status(player_force, player_force == units).factor)
 	)
 
 func _resolve_siege() -> void:
@@ -898,15 +944,15 @@ func _resolve_siege() -> void:
 	units = result.player_survivors.duplicate(true)
 	morale = float(result.player_morale_after)
 	_add_wounded(result.wounded)
-	var loss_text := "阵亡%d人，负伤%d人；敌军折损%d人。" % [result.killed_total, result.wounded_total, result.enemy_losses]
+	var loss_text := "阵亡%d%s，负伤%d%s；敌军折损%d%s。" % [result.killed_total, term("population_unit", "人"), result.wounded_total, term("population_unit", "人"), result.enemy_losses, term("population_unit", "人")]
 	if bool(result.won):
 		_add_era_progress(int(era_definition.era_growth.battle_victory) + mini(18, resolved_wave * 2), "battle_victory")
 		var spoils := 180.0 + attack_wave * 40.0
 		resources.coins = minf(get_capacity("coins"), resources.coins + spoils)
 		morale = minf(100.0, morale + 7.0)
-		loss_text += " 守军得胜，缴获财货%d枚。" % roundi(spoils)
+		loss_text += " %s得胜，缴获%s%d%s。" % [term("army", "守军"), RESOURCE_UNITS.coins.name, roundi(spoils), RESOURCE_UNITS.coins.unit]
 		if resolved_wave == FINAL_ENEMY_WAVE:
-			loss_text += " 列国主力受挫，此后边患转为间歇游军。"
+			loss_text += " 来敌主力受挫，此后边患转为间歇游军。"
 	else:
 		var protection := 1.0 - minf(0.66, buildings.warehouse * 0.10 + buildings.wall * 0.06)
 		var lost_grain := minf(resources.grain, (45.0 + attack_wave * 8.0) * protection)
@@ -914,7 +960,7 @@ func _resolve_siege() -> void:
 		resources.grain -= lost_grain
 		resources.coins -= lost_coins
 		morale = maxf(10.0, morale - 12.0)
-		loss_text += " 城外仓舍受损，损失粮%d石、财%d枚。" % [roundi(lost_grain), roundi(lost_coins)]
+		loss_text += " 城外仓舍受损，损失%s%d%s、%s%d%s。" % [RESOURCE_UNITS.grain.short, roundi(lost_grain), RESOURCE_UNITS.grain.unit, RESOURCE_UNITS.coins.short, roundi(lost_coins), RESOURCE_UNITS.coins.unit]
 	result.loss_text = loss_text
 	result.enemy_name = enemy_before.name
 	result.enemy_total = _sum_force(enemy_before)
@@ -954,7 +1000,7 @@ func _loss_summary(losses: Dictionary, enemy := false) -> String:
 	for id in UNITS:
 		var count := int(losses.get(id, 0))
 		if count > 0:
-			parts.append("%s%d" % [UNITS[id].enemy_name if enemy else UNITS[id].name, count])
+			parts.append("%s%d%s" % [UNITS[id].enemy_name if enemy else UNITS[id].name, count, str(UNITS[id].get("count_unit", term("population_unit", "人")))])
 	return "、".join(parts) if not parts.is_empty() else "无"
 
 func _casualty_summary(killed: Dictionary, injured: Dictionary) -> String:
@@ -963,7 +1009,7 @@ func _casualty_summary(killed: Dictionary, injured: Dictionary) -> String:
 		var dead := int(killed.get(id, 0))
 		var wounded_count := int(injured.get(id, 0))
 		if dead + wounded_count > 0:
-			parts.append("%s亡%d伤%d" % [UNITS[id].name, dead, wounded_count])
+			parts.append("%s亡%d伤%d%s" % [UNITS[id].name, dead, wounded_count, str(UNITS[id].get("count_unit", term("population_unit", "人")))])
 	return "、".join(parts) if not parts.is_empty() else "无人伤亡"
 
 func _deal_losses(force: Dictionary, requested: int, sim_rng: RandomNumberGenerator) -> Dictionary:
@@ -1035,7 +1081,7 @@ func advance_era() -> bool:
 	visual_event.emit("era", {"from": previous_era, "to": era_id, "name": get_era_name()})
 	Audio.play_sfx("upgrade")
 	Telemetry.track("era_advanced", {"from": previous_era, "to": era_id, "day": current_day, "city_level": chapter})
-	notice.emit("时代更迭：青禾进入%s，新军制与城建体系已经启用" % get_era_name())
+	notice.emit("时代更迭：青禾进入%s，度量、城建、军制与转输体系已经启用" % get_era_name())
 	save_game()
 	return true
 

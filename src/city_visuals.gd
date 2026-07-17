@@ -165,17 +165,14 @@ func play_event(kind: String, payload: Dictionary) -> void:
 		"policy":
 			color = Color("#6d9476")
 			var policy := str(payload.get("policy", ""))
+			glyph = str(State.POLICIES.get(policy, {}).get("name", "政令施行"))
 			match policy:
 				"irrigate":
-					glyph = "清渠通流"
 					_spawn_irrigation_flow()
 				"tax_relief":
-					glyph = "百姓归心"
 					_spawn_civilians()
 				"reward_army":
-					glyph = "三军振奋"
 					_spawn_soldiers()
-				_: glyph = "政通人和"
 		"event":
 			color = Color("#cf9944")
 			glyph = "风云有变"
@@ -275,7 +272,7 @@ func _spawn_production_details() -> void:
 	if candidates.is_empty():
 		return
 	var id: String = candidates[_rng.randi_range(0, candidates.size() - 1)]
-	var labels := {"farm": "+粟", "woodcut": "+木", "quarry": "+石", "market": "+铢"}
+	var labels := {"farm": "+" + str(State.RESOURCE_UNITS.grain.glyph), "woodcut": "+" + str(State.RESOURCE_UNITS.wood.glyph), "quarry": "+" + str(State.RESOURCE_UNITS.stone.glyph), "market": "+" + str(State.RESOURCE_UNITS.coins.glyph)}
 	effects.append({"kind": "label", "pos": POSITIONS[id] + SIZES[id] * 0.46, "vel": Vector2(0, -11), "life": 1.5, "max_life": 1.5, "color": Color("#f0d88e"), "text": labels[id]})
 
 func _spawn_caravan(incoming := true) -> void:
@@ -329,7 +326,6 @@ func _spawn_event_choice(payload: Dictionary) -> void:
 func _spawn_daily_flow(payload: Dictionary) -> void:
 	var ledger: Dictionary = payload.get("ledger", {})
 	var sources := {"grain": "farm", "wood": "woodcut", "stone": "quarry", "coins": "market"}
-	var glyphs := {"grain": "粟", "wood": "木", "stone": "石", "coins": "财"}
 	for resource in sources:
 		if not ledger.has(resource):
 			continue
@@ -338,9 +334,9 @@ func _spawn_daily_flow(payload: Dictionary) -> void:
 			continue
 		var source: String = sources[resource]
 		var tint := Color("#ead07b") if net >= 0.0 else Color("#b95b4b")
-		effects.append({"kind": "label", "pos": POSITIONS[source] + SIZES[source] * 0.48, "vel": Vector2(0, -13), "life": 1.65, "max_life": 1.65, "color": tint, "text": "%s%+.0f" % [glyphs[resource], net]})
+		effects.append({"kind": "label", "pos": POSITIONS[source] + SIZES[source] * 0.48, "vel": Vector2(0, -13), "life": 1.65, "max_life": 1.65, "color": tint, "text": "%s%+.0f" % [State.RESOURCE_UNITS[resource].glyph, net]})
 	var recovered := int(payload.get("recovered", 0))
-	var day_label := "日结" if recovered <= 0 else "%d人归队" % recovered
+	var day_label := State.term("day_ledger", "日结") if recovered <= 0 else "%d%s归队" % [recovered, State.term("population_unit", "人")]
 	effects.append({"kind": "label", "pos": Vector2(246, 446), "vel": Vector2(0, -12), "life": 1.8, "max_life": 1.8, "color": Color("#f0d88e"), "text": day_label})
 
 func _spawn_smoke(position: Vector2) -> void:
@@ -432,20 +428,30 @@ func _draw_world_state() -> void:
 		draw_colored_polygon(PackedVector2Array([warning + Vector2(0, -25), warning + Vector2(15, -20), warning + Vector2(0, -14)]), Color(0.64, 0.20, 0.17, pulse))
 
 func _draw_era_identity() -> void:
-	if str(world_state.era) != "warring_states":
+	var era := str(world_state.era)
+	if era not in ["warring_states", "qin", "han"]:
 		return
 	# Rammed-earth crenellations and rectangular army standards distinguish the
 	# denser Warring States city without replacing the established painted art.
-	var earth := Color(0.37, 0.24, 0.17, 0.66)
+	var earth := Color(0.37, 0.24, 0.17, 0.66) if era != "qin" else Color(0.20, 0.17, 0.15, 0.72)
 	draw_line(Vector2(383, 248), Vector2(523, 248), earth, 4.0, true)
 	for x in range(390, 520, 16):
 		draw_rect(Rect2(x, 239, 9, 10), earth.lightened(0.09), true)
 	for base in [Vector2(405, 223), Vector2(451, 228), Vector2(492, 220)]:
 		draw_line(base, base + Vector2(0, -31), Color("#3e3027"), 2.0, true)
-		draw_colored_polygon(PackedVector2Array([base + Vector2(1, -30), base + Vector2(19, -27), base + Vector2(16, -16), base + Vector2(1, -18)]), Color("#963e35"))
+		var standard := Color("#26211f") if era == "qin" else (Color("#a84b39") if era == "han" else Color("#963e35"))
+		draw_colored_polygon(PackedVector2Array([base + Vector2(1, -30), base + Vector2(19, -27), base + Vector2(16, -16), base + Vector2(1, -18)]), standard)
 	var command_base := POSITIONS.barracks + Vector2(18, 116)
 	for i in 4:
 		var shield_pos := command_base + Vector2(i * 13, (i % 2) * 5)
 		draw_circle(shield_pos, 5.0, Color("#6f4933"))
 		draw_circle(shield_pos, 2.2, Color("#c69b58"))
 		draw_line(shield_pos + Vector2(5, 1), shield_pos + Vector2(13, -8), Color("#d2bd83"), 1.4, true)
+	if era == "qin":
+		for x in range(398, 516, 24):
+			draw_rect(Rect2(x, 251, 14, 4), Color(0.11, 0.10, 0.09, 0.62), true)
+	elif era == "han":
+		for base in [Vector2(402, 220), Vector2(506, 219)]:
+			draw_line(base + Vector2(-7, 0), base + Vector2(-7, 24), Color("#70482f"), 2.0)
+			draw_line(base + Vector2(7, 0), base + Vector2(7, 24), Color("#70482f"), 2.0)
+			draw_line(base + Vector2(-10, 5), base + Vector2(10, 5), Color("#a7503e"), 3.0)

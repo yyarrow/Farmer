@@ -239,11 +239,40 @@ func _run() -> void:
 		failures.append("invalid Warring States governance frame")
 	elif warring_governance_image.save_png("res://.qa/visual_warring_governance.png") != OK:
 		failures.append("cannot save Warring States governance frame")
+	for era_capture in [["qin", "qin"], ["han", "han"]]:
+		state.chapter = 5
+		state.era_progress = state.get_era_progress_target()
+		if not state.advance_era() or state.era_id != str(era_capture[0]):
+			failures.append("cannot enter %s for visual capture" % era_capture[0])
+			continue
+		ui.current_tab = 0
+		ui._update_tab_buttons()
+		ui._render_tab()
+		# Era transition notices intentionally stay visible for 2.55 seconds.
+		# Capture the clean city frame after that feedback has completed.
+		await create_timer(2.7).timeout
+		var imperial_city_image := root.get_viewport().get_texture().get_image()
+		var city_path := "res://.qa/visual_%s_city.png" % era_capture[1]
+		if imperial_city_image.is_empty() or imperial_city_image.get_width() != 540 or imperial_city_image.get_height() != 960:
+			failures.append("invalid %s city frame" % era_capture[0])
+		elif imperial_city_image.save_png(city_path) != OK:
+			failures.append("cannot save %s" % city_path)
+		ui.current_tab = 2
+		ui._update_tab_buttons()
+		state.enemy_army.scouted = true
+		ui._render_tab()
+		await create_timer(0.5).timeout
+		var imperial_military_image := root.get_viewport().get_texture().get_image()
+		var military_path := "res://.qa/visual_%s_military.png" % era_capture[1]
+		if imperial_military_image.is_empty() or imperial_military_image.get_width() != 540 or imperial_military_image.get_height() != 960:
+			failures.append("invalid %s military frame" % era_capture[0])
+		elif imperial_military_image.save_png(military_path) != OK:
+			failures.append("cannot save %s" % military_path)
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 eras=2 intelligence=3 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 eras=4 intelligence=5 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

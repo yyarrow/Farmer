@@ -5,7 +5,7 @@
 ## 可由当前构建直接确认
 
 - 应用类型：游戏；分类建议：策略。
-- 包名：`com.qinghe.farmer`；版本：`0.8.0`；versionCode：`9`。
+- 包名：`com.qinghe.farmer`；版本：`0.9.0`；versionCode：`10`。
 - 最低 Android 7.0 / API 24；目标 API 36；仅 arm64-v8a。目标版本满足 Google Play 自 2026 年 8 月 31 日起的新应用与更新要求。
 - 两个原生库均通过 16 KiB ELF `LOAD` 对齐、RELRO 与派生 APK ZIP 对齐检查；AAB 声明 `PAGE_ALIGNMENT_16K`。
 - 发布包：`build/Qinghe.aab`；必须先启用 Play App Signing，并妥善保管 `.release/` 中的上传密钥。
@@ -15,7 +15,7 @@
 - 网络权限：无；Android 清单只声明振动权限。
 - 自动收集或共享：无。存档、设置和滚动诊断记录只留在应用私有目录；AAB 明确排除 Android 云备份和设备迁移，诊断仅在玩家主动复制后，才可能由玩家通过其他应用发送。
 - 商店文案：`listing-zh-CN.md`；版本说明：`release-notes-zh-CN.txt`。
-- 图标、宣传图、五张截图及替代文字：见 `README.md`。
+- 图标、宣传图、八张截图及替代文字：见 `README.md`。
 - 隐私政策正文：`privacy-policy.md`。
 - 开源许可：游戏设置页可离线查看 Godot MIT、引擎第三方组件版权/许可全文及字体 SIL OFL 1.1。
 
