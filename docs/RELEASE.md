@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.11.0`（versionCode `12`）
+当前候选版本：`0.12.0`（versionCode `13`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -20,6 +20,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/medieval_battle_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/sui_tang_battle_balance.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/late_imperial_battle_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd --audio-driver Dummy
 python3 tests/audio_assets.py
 python3 tests/store_assets.py
@@ -27,12 +28,12 @@ python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对春秋至五代十时代主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致，时代提示不遮挡商店截图。
+所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对春秋至清十四时代主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致，时代提示不遮挡商店截图。
 
 长期平衡复核：
 
 ```bash
-HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=50 --days=950 --seed=20260717 --strict
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=50 --days=1450 --seed=20260717 --report=res://.qa/headless_0_12_1450d_final.json --strict
 ```
 
 要求零状态不变量错误；均衡、屯田、尚武三种策略均可持续发展，贪进策略明显更危险，尚武策略不得在首战与整体守城胜率上同时劣于均衡策略。
@@ -86,6 +87,8 @@ python3 tools/build_release_aab.py --universal-apk
 2026年7月17日的`0.10.0`三国至南北朝候选验证结果：AAB 54.8 MiB，SHA-256 `a33965a907de88e44248f28d78f6218deb12040cbfbdc8a774370a4148e1d46d`；独立APK 54.8 MiB，SHA-256 `a53401027c271dc0d8e4f4a0ee397c932945e31e91f9e1a64c4b1566dca7b576`；上传证书延续为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB通过bundletool、arm64单架构、16 KiB页面对齐与RELRO验证；APK通过版本11/0.10.0、包名、竖屏、权限、签名、主题图标和开发文件排除检查。真实540×960渲染覆盖七时代，新增三国、晋、南北朝各一套无遮挡城建/军务画面；三时代九格专项共27000次战斗推演。四策略共200局×700日长期测试平衡警告0、状态错误0，三条正常路线抵达南北朝的比例为96%—100%。
 
 2026年7月17日的`0.11.0`隋唐五代候选验证结果：AAB 61.0 MiB，SHA-256 `c0b4fdb15eb7152d4e37dd75cd597125867b65fd47a8ca79cec470a448784ff3`；独立APK 61.1 MiB，SHA-256 `bf860b7832047d90810da987ab3ac0f82553a5648f8a7c557706dc4056d411cd`；上传证书延续为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB通过bundletool、arm64单架构、16 KiB页面对齐与RELRO验证；APK通过版本12/0.11.0、包名、竖屏、权限、签名、主题图标和开发文件排除检查。真实540×960渲染覆盖十时代，新增隋、唐、五代各一套无遮挡城建/军务画面；三时代九格专项共27000次战斗推演。四策略共200局×950日长期测试平衡警告0、状态错误0，三条正常路线抵达五代的比例为94%—100%。
+
+2026年7月17日的`0.12.0`宋元明清候选验证结果：AAB 68.3 MiB，SHA-256 `e898e9942612da553cf65abc54dc2e994c6c3995f662ea96f227ae69ea005c0d`；独立APK 68.3 MiB，SHA-256 `1ac03349cc651518492ac0f39b32f71c54dc3326031632b24a8607aa435efaf8`；上传证书延续为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB通过bundletool、arm64单架构、16 KiB页面对齐与RELRO验证；APK通过版本13/0.12.0、包名、竖屏、权限、签名、主题图标和开发文件排除检查。真实540×960渲染覆盖十四时代，新增宋、元、明、清各一套无遮挡城建/军务画面；四时代十二格专项共36000次战斗推演。四策略共200局×1450日长期严格测试平衡警告0、状态错误0，三条正常路线抵达清均为100%，稳定率为76%—84%，不设防路线抵达清与稳定率均为0%。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 

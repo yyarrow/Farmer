@@ -91,6 +91,8 @@ func _act_balanced() -> bool:
 	return _try_liquidity_trade(240.0, 220.0)
 
 func _act_agrarian() -> bool:
+	if int(state.population) < maxi(50, roundi(_era_army_base() * 0.4)) and _try_policy("tax_relief"):
+		return true
 	if float(state.morale) < 52.0 and _try_policy("reward_army"):
 		return true
 	if _try_advance_chapter():

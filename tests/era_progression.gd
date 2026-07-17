@@ -108,7 +108,32 @@ func _run() -> void:
 	_check(state.advance_era(), "Tang transition enters Five Dynasties")
 	_check(state.era_id == "five_dynasties" and state.UNITS.chariot.name == "牙军骑" and state.BUILDINGS.barracks.name == "节度军府", "Five Dynasties activates household cavalry and military governor catalogs")
 	_check(state.RESOURCE_UNITS.coins.name == "诸道通宝" and state.get_logistics_status().name == "藩镇转饷", "Five Dynasties activates mixed coinage and regional logistics")
-	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_five_dynasties"), "Five Dynasties is the current finite end of the implemented chain")
+	_check(state.get_next_era_id() == "song" and str(state.get_city_background_path()).contains("city_five_dynasties"), "Five Dynasties exposes Song as its configured successor")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Five Dynasties transition enters Song")
+	_check(state.era_id == "song" and state.UNITS.archer.name == "神臂弓手" and state.BUILDINGS.warehouse.name == "转般仓", "Song activates crossbow and transfer-granary catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "年号钱" and state.get_logistics_status().name == "纲运转般", "Song activates reign coinage and gang transport")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Song transition enters Yuan")
+	_check(state.era_id == "yuan" and state.UNITS.chariot.name == "蒙古骑军" and state.BUILDINGS.barracks.name == "万户府", "Yuan activates mounted and myriarchy catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "至元钞" and state.RESOURCE_UNITS.coins.unit == "贯" and state.get_logistics_status().name == "站赤漕运", "Yuan activates paper currency and relay logistics")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Yuan transition enters Ming")
+	_check(state.era_id == "ming" and state.UNITS.archer.name == "神机铳手" and state.BUILDINGS.barracks.name == "卫所军署", "Ming activates firearm and guard catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "库银" and state.RESOURCE_UNITS.coins.unit == "两" and state.get_logistics_status().name == "漕运军需", "Ming activates silver accounting and canal supplies")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Ming transition enters Qing")
+	_check(state.era_id == "qing" and state.UNITS.chariot.name == "八旗马甲" and state.BUILDINGS.warehouse.name == "常平仓粮台", "Qing activates mounted banner and grain-platform catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "库平银" and state.get_logistics_status().name == "驿站粮台", "Qing activates treasury silver and relay grain platforms")
+	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_qing"), "Qing is the finite implemented end of the chain")
 
 	state.reset_game()
 	var v3_snapshot: Dictionary = state.get_snapshot()
@@ -144,7 +169,7 @@ func _normalize_resources(state: Node) -> void:
 		state.resources[id] = state.get_capacity(id) * 0.45
 
 func _check_era_definitions() -> void:
-	var required := ["id", "display_name", "next_id", "city_levels", "era_growth", "visual", "seasons", "resource_units", "buildings", "units", "defense_orders", "enemy_waves", "events", "terms", "logistics", "economy", "trade_labels", "policies", "narrative", "initial_resources", "initial_buildings", "initial_units", "empty_units"]
+	var required := ["id", "display_name", "next_id", "city_levels", "era_growth", "battle_pacing", "visual", "seasons", "resource_units", "buildings", "units", "defense_orders", "enemy_waves", "events", "terms", "logistics", "economy", "trade_labels", "policies", "narrative", "initial_resources", "initial_buildings", "initial_units", "empty_units"]
 	for era_id in EraRegistry.ORDER:
 		var era: Dictionary = EraRegistry.definition(era_id)
 		for key in required:
@@ -158,6 +183,7 @@ func _check_era_definitions() -> void:
 			_check(not str(era.terms.get(term, "")).is_empty(), "%s defines visible term %s" % [era_id, term])
 		_check(era.logistics.load.keys() == era.units.keys(), "%s logistics load matches unit roles" % era_id)
 		_check(float(era.logistics.base_capacity) > 0.0 and not era.logistics.patrol_cost.is_empty(), "%s logistics has capacity and patrol cost" % era_id)
+		_check(int(era.battle_pacing.attack_interval_bonus) >= 0 and int(era.battle_pacing.post_defeat_bonus) >= 2, "%s battle pacing preserves recovery windows" % era_id)
 		_check(int(era.economy.army_base) > 0 and int(era.economy.army_per_barracks) > 0 and float(era.economy.production.grain) > 0.0, "%s economy defines growth and military capacity" % era_id)
 		for unit_id in era.units:
 			_check(float(era.units[unit_id].power) > 0.0 and not str(era.units[unit_id].name).is_empty(), "%s unit %s has stats and label" % [era_id, unit_id])
@@ -166,7 +192,7 @@ func _check_era_definitions() -> void:
 			var city: Dictionary = era.city_levels[level_index]
 			_check(int(city.level) == level_index + 1 and int(city.slots) >= previous_slots, "%s city levels are ordered and never lose lots" % era_id)
 			previous_slots = int(city.slots)
-	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern", "sui", "tang", "five_dynasties"]
+	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern", "sui", "tang", "five_dynasties", "song", "yuan", "ming", "qing"]
 	_check(EraRegistry.ORDER == expected_chain, "era chain order is explicit")
 	for index in expected_chain.size() - 1:
 		_check(EraRegistry.next_id(expected_chain[index]) == expected_chain[index + 1], "%s links to %s" % [expected_chain[index], expected_chain[index + 1]])

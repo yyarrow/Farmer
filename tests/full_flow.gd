@@ -176,13 +176,15 @@ func _run() -> void:
 	_check(state.get_army_count() == 17 and state.get_wounded_count() == state._sum_force(field_detail.wounded), "field losses update active and wounded rosters")
 	_check(int(battle_results[-1].enemy_losses) > 0, "battle inflicts real enemy casualties")
 	battle_results.clear()
-	state.units = {"militia": 0, "archer": 0, "chariot": 0}
+	state.units = {"militia": 15, "archer": 5, "chariot": 0}
+	state.morale = 35.0
 	state.buildings.wall = 0
 	state.buildings.barracks = 0
 	state.current_day = 40
 	state._resolve_siege()
-	_check(not battle_results.is_empty() and not bool(battle_results[-1].won), "zero defense loses siege")
+	_check(not battle_results.is_empty() and not bool(battle_results[-1].won), "understrength defense loses siege")
 	_check(state.attack_wave == 2 and state.next_attack_day == 49, "defeat retries the current tier with two recovery days")
+	_check(int(battle_results[-1].enemy_losses) > 0 and state._sum_force(state.enemy_army) == state._sum_force(battle_results[-1].enemy_survivors) and state._sum_force(state.enemy_army) < state._sum_force(battle_results[-1].enemy_before), "defeat preserves the besieger's actual losses instead of restoring a full roster")
 
 	# Enemy intelligence is a persisted roster, not a hidden difficulty score.
 	state.reset_game()

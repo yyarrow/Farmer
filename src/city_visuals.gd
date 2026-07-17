@@ -481,3 +481,28 @@ func _draw_era_identity() -> void:
 				draw_line(Vector2(x, 257), Vector2(x + 2, 244), Color("#3e3732"), 1.5, true)
 			for x in [404.0, 508.0]:
 				draw_rect(Rect2(x - 5, 232, 10, 19), Color("#645143"), false, 2.0)
+		"river_market":
+			for y in [251.0, 256.0]:
+				draw_line(Vector2(390, y), Vector2(522, y), Color(0.28, 0.55, 0.58, 0.70), 1.8, true)
+			for x in [408.0, 449.0, 490.0]:
+				draw_line(Vector2(x - 9, 247), Vector2(x, 238), Color("#815f42"), 2.0, true)
+				draw_line(Vector2(x, 238), Vector2(x + 9, 247), Color("#815f42"), 2.0, true)
+		"steppe_station":
+			for i in 4:
+				var horse := POSITIONS.barracks + Vector2(17 + i * 15, 138 + (i % 2) * 4)
+				draw_rect(Rect2(horse - Vector2(6, 3), Vector2(13, 7)), Color("#77614b"), true)
+				draw_circle(horse + Vector2(7, -2), 3.5, Color("#5e4b3b"))
+				draw_line(horse + Vector2(-4, 3), horse + Vector2(-4, 9), Color("#4b4035"), 1.2)
+				draw_line(horse + Vector2(4, 3), horse + Vector2(4, 9), Color("#4b4035"), 1.2)
+		"brick_bastion":
+			for x in range(389, 522, 18):
+				draw_rect(Rect2(x, 240, 12, 16), Color("#5d6060"), false, 2.0)
+			for x in [405.0, 507.0]:
+				draw_circle(Vector2(x, 236), 4.0, Color("#3f4242"))
+				draw_line(Vector2(x + 2, 235), Vector2(x + 14, 231), Color("#887055"), 2.5, true)
+		"banner_bastion":
+			for x in [399.0, 451.0, 503.0]:
+				draw_rect(Rect2(x - 7, 238, 14, 18), Color("#61656a"), false, 2.0)
+				draw_circle(Vector2(x, 234), 4.2, Color("#343c49"))
+				draw_line(Vector2(x + 2, 233), Vector2(x + 15, 229), Color("#8b7456"), 2.5, true)
+			draw_line(Vector2(392, 258), Vector2(520, 258), Color("#405266"), 2.0, true)

@@ -96,6 +96,11 @@ const DEFAULT_NARRATIVE := {
 	"transition": "青禾保留既有城池、人口、资源和军队规模，同时启用新时期的兵种、城建、阵令、度量与来敌配置。",
 }
 
+const DEFAULT_BATTLE_PACING := {
+	"attack_interval_bonus": 0,
+	"post_defeat_bonus": 2,
+}
+
 static func normalize(raw: Dictionary) -> Dictionary:
 	var result := raw.duplicate(true)
 	result["terms"] = _with_defaults(DEFAULT_TERMS, raw.get("terms", {}))
@@ -104,6 +109,7 @@ static func normalize(raw: Dictionary) -> Dictionary:
 	result["trade_labels"] = _with_defaults(DEFAULT_TRADE_LABELS, raw.get("trade_labels", {}))
 	result["policies"] = _with_defaults(DEFAULT_POLICIES, raw.get("policies", {}))
 	result["narrative"] = _with_defaults(DEFAULT_NARRATIVE, raw.get("narrative", {}))
+	result["battle_pacing"] = _with_defaults(DEFAULT_BATTLE_PACING, raw.get("battle_pacing", {}))
 	return result
 
 static func _with_defaults(defaults: Dictionary, overrides: Dictionary) -> Dictionary:

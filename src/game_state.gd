@@ -892,11 +892,12 @@ func _enemy_tier_for_wave(wave: int) -> int:
 	return mini(MAX_ENEMY_TIER, 3 + int((wave - 3) / 2))
 
 func _next_attack_interval(won: bool) -> int:
-	var interval := maxi(5, 8 - chapter)
+	var pacing: Dictionary = era_definition.get("battle_pacing", {})
+	var interval := maxi(5, 8 - chapter) + int(pacing.get("attack_interval_bonus", 0))
 	if attack_wave > FINAL_ENEMY_WAVE:
 		interval += 2
 	if not won:
-		interval += 2
+		interval += int(pacing.get("post_defeat_bonus", 2))
 	return interval
 
 func get_enemy_display() -> Dictionary:
@@ -968,7 +969,17 @@ func _resolve_siege() -> void:
 		attack_wave += 1
 	next_attack_day = current_day + _next_attack_interval(bool(result.won))
 	patrol_delay_wave = 0
-	enemy_army = _make_enemy_army(attack_wave)
+	if bool(result.won):
+		enemy_army = _make_enemy_army(attack_wave)
+	else:
+		# A defeated garrison still consumes the besieging army. Keep its actual
+		# survivors for the renewed attack instead of silently restoring a full
+		# formation; this makes reported enemy losses strategically meaningful.
+		enemy_army = enemy_before.duplicate(true)
+		for id in UNITS:
+			enemy_army[id] = int(result.enemy_survivors.get(id, 0))
+		enemy_army.morale = minf(float(enemy_before.morale), maxf(40.0, float(result.enemy_morale_after) + 12.0))
+		enemy_army.scouted = false
 	visual_event.emit("siege_win" if result.won else "siege_loss", result)
 	Audio.play_sfx("battle_win" if result.won else "battle_loss")
 	Telemetry.track("siege_resolved", result.merged({"day": current_day, "chapter": chapter, "wave": resolved_wave}))

@@ -4,7 +4,7 @@ const SpringAutumn = preload("res://src/data/eras/spring_autumn.gd")
 
 const ID := "five_dynasties"
 const DISPLAY_NAME := "五代"
-const NEXT_ID := ""
+const NEXT_ID := "song"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "军镇聚", "slots": 6, "advance_target": 510, "view_scale": 1.00},

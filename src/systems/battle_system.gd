@@ -59,9 +59,29 @@ static func simulate(
 	var enemy_score := float(force_power(enemy, enemy_current_morale, enemy_training, unit_definitions))
 	var win_chance := pow(maxf(0.1, player_score), 3.0) / (pow(maxf(0.1, player_score), 3.0) + pow(maxf(0.1, enemy_score), 3.0))
 	var won := sim_rng.randf() <= win_chance
-	if sum_force(enemy) <= 0 or enemy_current_morale < 24.0:
+	var resolution_win_chance := win_chance
+	var player_eliminated := sum_force(player) <= 0
+	var enemy_eliminated := sum_force(enemy) <= 0
+	# Successive wall lines let a surviving garrison keep cohesion after a field
+	# force would have routed; this is separate from the casualty cover above.
+	var player_route_threshold := maxf(16.0, 24.0 - wall_level * 2.0)
+	var player_routed := player_current_morale < player_route_threshold
+	var enemy_routed := enemy_current_morale < 24.0
+	# Later eras inflict enough losses for both armies to break in the same
+	# round. An intact garrison can fall back behind successive wall lines, but
+	# the fortification grants a bounded chance to hold rather than an automatic
+	# victory. Eliminated armies never benefit from that shelter.
+	if enemy_eliminated and not player_eliminated:
 		won = true
-	elif sum_force(player) <= 0 or player_current_morale < 24.0:
+	elif player_eliminated:
+		won = false
+	elif player_routed and enemy_routed:
+		var shelter_bonus := clampf(0.10 + pow(maxf(0.0, wall_level - 1.0), 1.35) * 0.28, 0.10, 0.86)
+		resolution_win_chance = clampf(win_chance + shelter_bonus, 0.05, 0.95)
+		won = sim_rng.randf() <= resolution_win_chance
+	elif enemy_routed:
+		won = true
+	elif player_routed:
 		won = false
 	if won and sum_force(enemy) > 0:
 		var retreat_losses := stochastic_round(sum_force(enemy) * sim_rng.randf_range(0.08, 0.14), sim_rng)
@@ -96,7 +116,7 @@ static func simulate(
 		"wounded_total": sum_force(injured),
 		"player_morale_after": maxf(10.0, player_current_morale),
 		"enemy_morale_after": maxf(0.0, enemy_current_morale),
-		"resolution_win_chance": win_chance,
+		"resolution_win_chance": resolution_win_chance,
 		"rounds": round_log,
 	}
 
