@@ -38,7 +38,12 @@ func _select_defense_order() -> void:
 	var target := "steady"
 	match policy:
 		"agrarian": target = "fortify"
-		"militarist": target = "steady"
+		"militarist":
+			var under_pressure: bool = float(state.morale) < 58.0 or state.get_army_power() < roundi(state.get_enemy_power() * 1.12)
+			if under_pressure:
+				target = "fortify"
+			elif int(state.units.chariot) >= 15 and int(state.units.chariot) * 4 >= state.get_army_count():
+				target = "sally"
 		"balanced":
 			var under_pressure: bool = float(state.morale) < 52.0 or state.get_army_power() < roundi(state.get_enemy_power() * 1.10)
 			if under_pressure:
@@ -49,6 +54,8 @@ func _select_defense_order() -> void:
 		_record("order_%s" % target)
 
 func _act_balanced() -> bool:
+	if int(state.population) < maxi(50, roundi(_era_army_base() * 0.4)) and _try_policy("tax_relief"):
+		return true
 	if float(state.morale) < 58.0 and _try_policy("reward_army"):
 		return true
 	if _try_advance_chapter():
@@ -123,6 +130,8 @@ func _act_agrarian() -> bool:
 	return _try_liquidity_trade(300.0, 260.0)
 
 func _act_militarist() -> bool:
+	if int(state.population) < maxi(60, roundi(_era_army_base() * 0.5)) and _try_policy("tax_relief"):
+		return true
 	if (float(state.morale) < 58.0 or state.get_wounded_count() >= 8) and _try_policy("reward_army"):
 		return true
 	if _try_advance_chapter():
@@ -144,7 +153,7 @@ func _act_militarist() -> bool:
 		return true
 	if _try_upgrade("barracks", barracks_target):
 		return true
-	if state.days_until_attack() <= 3 and _try_patrol(1):
+	if state.days_until_attack() <= 2 and not bool(state.enemy_army.get("scouted", false)) and _try_patrol(1):
 		return true
 	var ledger: Dictionary = state.get_daily_ledger()
 	if float(ledger.grain.net) < 5.0 and _try_upgrade("farm", 5):

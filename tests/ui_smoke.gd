@@ -140,10 +140,37 @@ func _run() -> void:
 	await process_frame
 	_check(str(ui.title_label.text).contains("南北朝") and _has_label_containing(ui.content_box, "军府治戍") and _has_label_containing(ui.content_box, "甲骑具装") and _has_label_containing(ui.content_box, "镇戍转饷"), "Northern and Southern Dynasties UI replaces military, logistics, and title vocabulary")
 	_check(str(ui.tab_buttons[1].text).contains("关市") and str(ui.city_background.texture.resource_path).contains("city_northern_southern"), "Northern and Southern Dynasties replaces navigation and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Sui")
+	await process_frame
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(str(ui.title_label.text).contains("隋") and _has_label_containing(ui.content_box, "鹰扬治军") and _has_label_containing(ui.content_box, "骁骑") and _has_label_containing(ui.content_box, "漕河转输"), "Sui UI replaces military, logistics, and title vocabulary")
+	_check(str(ui.tab_buttons[1].text).contains("运河市") and str(ui.city_background.texture.resource_path).contains("city_sui"), "Sui replaces navigation and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Tang")
+	await process_frame
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(str(ui.title_label.text).contains("唐") and _has_label_containing(ui.content_box, "折冲治军") and _has_label_containing(ui.content_box, "轻骑") and _has_label_containing(ui.content_box, "馆驿漕运"), "Tang UI replaces military, logistics, and title vocabulary")
+	_check(str(ui.tab_buttons[1].text).contains("坊市") and str(ui.city_background.texture.resource_path).contains("city_tang"), "Tang replaces navigation and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_check(state.advance_era(), "UI fixture advances into Five Dynasties")
+	await process_frame
+	ui.current_tab = 2
+	ui._render_tab()
+	await process_frame
+	_check(str(ui.title_label.text).contains("五代") and _has_label_containing(ui.content_box, "节度治军") and _has_label_containing(ui.content_box, "牙军骑") and _has_label_containing(ui.content_box, "藩镇转饷"), "Five Dynasties UI replaces military, logistics, and title vocabulary")
+	_check(str(ui.tab_buttons[1].text).contains("州市") and str(ui.city_background.texture.resource_path).contains("city_five_dynasties"), "Five Dynasties replaces navigation and painted city")
 	ui.current_tab = 3
 	ui._render_tab()
 	await process_frame
-	_check(_has_label_containing(ui.content_box, "南北朝新制已启用") and _has_label_containing(ui.content_box, "南北朝新制已定"), "terminal era is shown as complete instead of an inert zero bar")
+	_check(_has_label_containing(ui.content_box, "五代新制已启用") and _has_label_containing(ui.content_box, "五代新制已定"), "terminal era is shown as complete instead of an inert zero bar")
 	state.reset_game()
 	state.tutorial_seen = true
 	state.set_time_speed(1.0)

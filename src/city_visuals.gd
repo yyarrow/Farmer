@@ -468,3 +468,16 @@ func _draw_era_identity() -> void:
 				var horse := POSITIONS.barracks + Vector2(20 + i * 15, 139 + (i % 2) * 4)
 				draw_rect(Rect2(horse - Vector2(6, 3), Vector2(13, 7)), Color("#766b5d"), true)
 				draw_circle(horse + Vector2(7, -2), 3.5, Color("#655a4d"))
+		"canal_axis":
+			for y in [251.0, 256.0]:
+				draw_line(Vector2(390, y), Vector2(522, y), Color(0.28, 0.48, 0.57, 0.66), 1.7, true)
+			draw_line(Vector2(449, 244), Vector2(449, 260), Color("#856e4e"), 3.0, true)
+		"tang_ward":
+			for x in [401.0, 451.0, 501.0]:
+				draw_rect(Rect2(x - 7, 241, 14, 15), Color("#8b4939"), false, 2.0)
+				draw_line(Vector2(x - 10, 241), Vector2(x + 10, 241), Color("#b47a4c"), 3.0, true)
+		"commandery":
+			for x in range(392, 522, 11):
+				draw_line(Vector2(x, 257), Vector2(x + 2, 244), Color("#3e3732"), 1.5, true)
+			for x in [404.0, 508.0]:
+				draw_rect(Rect2(x - 5, 232, 10, 19), Color("#645143"), false, 2.0)

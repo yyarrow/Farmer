@@ -239,7 +239,7 @@ func _run() -> void:
 		failures.append("invalid Warring States governance frame")
 	elif warring_governance_image.save_png("res://.qa/visual_warring_governance.png") != OK:
 		failures.append("cannot save Warring States governance frame")
-	for era_capture in [["qin", "qin"], ["han", "han"], ["three_kingdoms", "three_kingdoms"], ["jin", "jin"], ["northern_southern", "northern_southern"]]:
+	for era_capture in [["qin", "qin"], ["han", "han"], ["three_kingdoms", "three_kingdoms"], ["jin", "jin"], ["northern_southern", "northern_southern"], ["sui", "sui"], ["tang", "tang"], ["five_dynasties", "five_dynasties"]]:
 		state.chapter = 5
 		state.era_progress = state.get_era_progress_target()
 		if not state.advance_era() or state.era_id != str(era_capture[0]):
@@ -272,7 +272,7 @@ func _run() -> void:
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CAPTURE_OK seasons=3 eras=7 intelligence=5 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
+		print("VISUAL_CAPTURE_OK seasons=3 eras=10 intelligence=5 orders=2 policies=4 feedback=1 onboarding=2 ledger=1 modals=5 size=540x960")
 		quit(0)
 	else:
 		for failure in failures:

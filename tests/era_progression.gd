@@ -89,7 +89,26 @@ func _run() -> void:
 	_check(state.advance_era(), "Jin transition enters Northern and Southern Dynasties")
 	_check(state.era_id == "northern_southern" and state.UNITS.chariot.name == "甲骑具装" and state.BUILDINGS.house.name == "三长里坊", "Northern and Southern Dynasties activates cataphracts and three-elders household catalog")
 	_check(state.RESOURCE_UNITS.coins.name == "永安五铢" and state.get_logistics_status().name == "镇戍转饷", "Northern and Southern Dynasties activates currency and garrison logistics")
-	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_northern_southern"), "Northern and Southern Dynasties is the current finite end of the implemented chain")
+	_check(state.get_next_era_id() == "sui" and str(state.get_city_background_path()).contains("city_northern_southern"), "Northern and Southern Dynasties exposes Sui as its configured successor")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Northern and Southern Dynasties transition enters Sui")
+	_check(state.era_id == "sui" and state.UNITS.militia.name == "府兵" and state.BUILDINGS.warehouse.name == "漕渠官仓", "Sui activates fubing and canal granary catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "隋五铢" and state.get_logistics_status().name == "漕河转输" and str(state.get_city_background_path()).contains("city_sui"), "Sui activates currency, logistics, and painted city")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Sui transition enters Tang")
+	_check(state.era_id == "tang" and state.UNITS.chariot.name == "轻骑" and state.BUILDINGS.barracks.name == "折冲府", "Tang activates light cavalry and Zhechong-fu catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "开元通宝" and state.RESOURCE_UNITS.coins.unit == "文" and state.get_logistics_status().name == "馆驿漕运", "Tang activates treasure coin unit and courier logistics")
+	state.chapter = 5
+	state.era_progress = state.get_era_progress_target()
+	_normalize_resources(state)
+	_check(state.advance_era(), "Tang transition enters Five Dynasties")
+	_check(state.era_id == "five_dynasties" and state.UNITS.chariot.name == "牙军骑" and state.BUILDINGS.barracks.name == "节度军府", "Five Dynasties activates household cavalry and military governor catalogs")
+	_check(state.RESOURCE_UNITS.coins.name == "诸道通宝" and state.get_logistics_status().name == "藩镇转饷", "Five Dynasties activates mixed coinage and regional logistics")
+	_check(state.get_next_era_id().is_empty() and str(state.get_city_background_path()).contains("city_five_dynasties"), "Five Dynasties is the current finite end of the implemented chain")
 
 	state.reset_game()
 	var v3_snapshot: Dictionary = state.get_snapshot()
@@ -147,7 +166,7 @@ func _check_era_definitions() -> void:
 			var city: Dictionary = era.city_levels[level_index]
 			_check(int(city.level) == level_index + 1 and int(city.slots) >= previous_slots, "%s city levels are ordered and never lose lots" % era_id)
 			previous_slots = int(city.slots)
-	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern"]
+	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern", "sui", "tang", "five_dynasties"]
 	_check(EraRegistry.ORDER == expected_chain, "era chain order is explicit")
 	for index in expected_chain.size() - 1:
 		_check(EraRegistry.next_id(expected_chain[index]) == expected_chain[index + 1], "%s links to %s" % [expected_chain[index], expected_chain[index + 1]])

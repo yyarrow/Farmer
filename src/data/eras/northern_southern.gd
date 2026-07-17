@@ -4,7 +4,7 @@ const SpringAutumn = preload("res://src/data/eras/spring_autumn.gd")
 
 const ID := "northern_southern"
 const DISPLAY_NAME := "南北朝"
-const NEXT_ID := ""
+const NEXT_ID := "sui"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "三长里", "slots": 6, "advance_target": 390, "view_scale": 1.00},
