@@ -6,13 +6,19 @@ const POSITIONS := CityLayout.BUILDING_POSITIONS
 const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
 
+signal building_selected(instance_id: String)
+signal slot_selected(slot_id: String)
+
 var building_views := {}
+var building_buttons := {}
+var building_labels := {}
+var slot_buttons := {}
 var displayed_stages := {}
 var displayed_levels := {}
-var veteran_banners := {}
-var master_banners := {}
 var world_state := {}
 var effects: Array[Dictionary] = []
+var selected_instance_id := ""
+var move_instance_id := ""
 var _effect_font: Font
 var _production_accum := 0.0
 var _world_time := 0.0
@@ -22,47 +28,144 @@ func _ready() -> void:
 	_effect_font = UiFont.medium()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rng.seed = 884422
-	_build_views()
+	_build_slot_views()
 	State.changed.connect(_refresh_buildings)
 	State.visual_event.connect(play_event)
 	_refresh_buildings()
 	set_process(true)
 
-func _build_views() -> void:
-	for id in POSITIONS:
-		var view := TextureRect.new()
-		view.position = POSITIONS[id]
-		view.size = SIZES[id]
-		view.pivot_offset = view.size * 0.5
-		view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		view.modulate = Color(1.0, 1.0, 1.0, 0.94)
-		add_child(view)
-		building_views[id] = view
-	for id in POSITIONS:
-		veteran_banners[id] = _make_banner(id, false)
-		master_banners[id] = _make_banner(id, true)
+func _style(fill: Color, border := Color.TRANSPARENT, width := 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(width)
+	style.set_corner_radius_all(10)
+	return style
 
-func _make_banner(id: String, is_master: bool) -> Node2D:
-	var root := Node2D.new()
-	var offset_x := 0.82 if not is_master else 0.62
-	root.position = POSITIONS[id] + Vector2(SIZES[id].x * offset_x, SIZES[id].y * 0.30)
-	root.z_index = 4
-	root.visible = false
-	var pole := Line2D.new()
-	pole.points = PackedVector2Array([Vector2.ZERO, Vector2(0, -24 if not is_master else -20)])
-	pole.width = 2.0
-	pole.default_color = Color("#5b4028")
-	pole.antialiased = true
-	root.add_child(pole)
-	var flag := Polygon2D.new()
-	var height := -24.0 if not is_master else -20.0
-	flag.polygon = PackedVector2Array([Vector2(0, height), Vector2(15, height + 5), Vector2(0, height + 11)])
-	flag.color = Color("#a94b3f") if not is_master else Color("#d4aa4f")
-	root.add_child(flag)
-	add_child(root)
-	return root
+func _build_slot_views() -> void:
+	for slot_data in CityLayout.SLOTS:
+		var button := Button.new()
+		button.name = str(slot_data.id)
+		button.position = slot_data.position
+		button.size = slot_data.size
+		button.z_index = int(slot_data.z)
+		button.mouse_filter = Control.MOUSE_FILTER_PASS
+		button.focus_mode = Control.FOCUS_NONE
+		button.add_theme_font_size_override("font_size", 12)
+		button.add_theme_color_override("font_color", Color("#f4d98b"))
+		button.add_theme_color_override("font_disabled_color", Color(0.35, 0.31, 0.23, 0.48))
+		var captured_slot := str(slot_data.id)
+		button.pressed.connect(func(): slot_selected.emit(captured_slot))
+		add_child(button)
+		slot_buttons[captured_slot] = button
+
+func set_selected(instance_id: String) -> void:
+	selected_instance_id = instance_id
+	_refresh_buildings()
+
+func set_move_mode(instance_id: String) -> void:
+	move_instance_id = instance_id
+	selected_instance_id = instance_id
+	_refresh_buildings()
+
+func clear_move_mode() -> void:
+	move_instance_id = ""
+	_refresh_buildings()
+
+func _create_building_view(instance: Dictionary) -> void:
+	var instance_id := str(instance.id)
+	var button := Button.new()
+	button.name = instance_id
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	var captured_id := instance_id
+	button.pressed.connect(func(): building_selected.emit(captured_id))
+	add_child(button)
+	building_buttons[instance_id] = button
+
+	var view := TextureRect.new()
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.modulate = Color(1.0, 1.0, 1.0, 0.96)
+	button.add_child(view)
+	building_views[instance_id] = view
+
+	var label := Label.new()
+	label.anchor_left = 0.08
+	label.anchor_right = 0.92
+	label.anchor_top = 0.72
+	label.anchor_bottom = 1.0
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_color_override("font_color", Color("#f8e9bd"))
+	label.add_theme_stylebox_override("normal", _style(Color(0.08, 0.12, 0.09, 0.78), Color(0.89, 0.73, 0.38, 0.30), 1))
+	button.add_child(label)
+	building_labels[instance_id] = label
+
+func _sync_instance_views() -> void:
+	var active := {}
+	for instance in State.get_building_instances():
+		var instance_id := str(instance.id)
+		active[instance_id] = true
+		if not building_views.has(instance_id):
+			_create_building_view(instance)
+		var slot_data := CityLayout.slot(str(instance.slot_id))
+		var button: Button = building_buttons[instance_id]
+		button.position = slot_data.position
+		button.size = slot_data.size
+		button.pivot_offset = button.size * 0.5
+		button.z_index = 30 + int(slot_data.z)
+		var is_selected := selected_instance_id == instance_id
+		button.add_theme_stylebox_override("normal", _style(Color.TRANSPARENT, Color("#e5bd63") if is_selected else Color.TRANSPARENT, 2 if is_selected else 0))
+		button.add_theme_stylebox_override("hover", _style(Color(0.94, 0.79, 0.42, 0.10), Color("#e5bd63"), 2))
+		button.add_theme_stylebox_override("pressed", _style(Color(0.63, 0.23, 0.18, 0.14), Color("#f0d27b"), 2))
+		var building_type := str(instance.type)
+		var level := int(instance.level)
+		var stage := _stage_for_level(level)
+		if displayed_stages.get(instance_id, -1) != stage:
+			displayed_stages[instance_id] = stage
+			building_views[instance_id].texture = _atlas_for(building_type, stage)
+		if displayed_levels.get(instance_id, -1) != level:
+			displayed_levels[instance_id] = level
+			building_views[instance_id].scale = Vector2.ONE * _scale_for_level(level)
+		var era_tint: Color = Color.WHITE.lerp(State.get_era_tint(), 0.26)
+		era_tint.a = 0.96
+		building_views[instance_id].modulate = era_tint
+		var rank_mark := " 冠" if level >= 5 else (" 精" if level >= 3 else "")
+		building_labels[instance_id].text = "%s · %s%s" % [State.BUILDINGS[building_type].name, _cn_number(level), rank_mark]
+	for instance_id in building_views.keys():
+		if active.has(instance_id):
+			continue
+		building_buttons[instance_id].queue_free()
+		building_buttons.erase(instance_id)
+		building_views.erase(instance_id)
+		building_labels.erase(instance_id)
+		displayed_stages.erase(instance_id)
+		displayed_levels.erase(instance_id)
+
+func _sync_slot_views() -> void:
+	var unlocked_count := State.get_building_slot_count()
+	for index in CityLayout.SLOTS.size():
+		var slot_data: Dictionary = CityLayout.SLOTS[index]
+		var slot_id := str(slot_data.id)
+		var button: Button = slot_buttons[slot_id]
+		var occupied := not State.get_building_at_slot(slot_id).is_empty()
+		var unlocked := index < unlocked_count
+		button.visible = not occupied
+		button.disabled = not unlocked
+		button.text = "移至此处" if unlocked and not move_instance_id.is_empty() else ("＋ 空地" if unlocked else "未开放")
+		var fill := Color(0.20, 0.43, 0.30, 0.22) if not move_instance_id.is_empty() else Color(0.94, 0.82, 0.52, 0.12)
+		button.add_theme_stylebox_override("normal", _style(fill, Color(0.82, 0.69, 0.39, 0.52), 1))
+		button.add_theme_stylebox_override("hover", _style(Color(0.29, 0.53, 0.36, 0.35), Color("#efd277"), 2))
+		button.add_theme_stylebox_override("pressed", _style(Color(0.48, 0.67, 0.42, 0.42), Color("#fff1ae"), 2))
+		button.add_theme_stylebox_override("disabled", _style(Color(0.28, 0.25, 0.19, 0.08), Color(0.35, 0.31, 0.23, 0.20), 1))
+
+func _cn_number(value: int) -> String:
+	return ["零", "一", "二", "三", "四", "五"][clampi(value, 0, 5)]
 
 func _process(delta: float) -> void:
 	_world_time += delta
@@ -81,20 +184,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _refresh_buildings() -> void:
-	for id in building_views:
-		var level := int(State.buildings[id])
-		var stage := _stage_for_level(level)
-		if displayed_stages.get(id, -1) != stage:
-			displayed_stages[id] = stage
-			building_views[id].texture = _atlas_for(id, stage)
-		if displayed_levels.get(id, -1) != level:
-			displayed_levels[id] = level
-			building_views[id].scale = Vector2.ONE * _scale_for_level(level)
-		var era_tint: Color = Color.WHITE.lerp(State.get_era_tint(), 0.38)
-		era_tint.a = 0.94
-		building_views[id].modulate = era_tint
-		veteran_banners[id].visible = level >= 3
-		master_banners[id].visible = level >= 5
+	_sync_instance_views()
+	_sync_slot_views()
 	_refresh_world_state()
 
 func _refresh_world_state() -> void:
@@ -112,6 +203,18 @@ func _refresh_world_state() -> void:
 		"enemy_warning": State.days_until_attack() <= 3 or bool(State.enemy_army.get("scouted", false)),
 		"enemy_urgent": State.days_until_attack() <= 1,
 	}
+
+func _building_positions(building_type: String) -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	for instance in State.get_building_instances_of_type(building_type):
+		var slot_data := CityLayout.slot(str(instance.slot_id))
+		if not slot_data.is_empty():
+			positions.append(slot_data.position)
+	return positions
+
+func _first_building_position(building_type: String, fallback: Vector2) -> Vector2:
+	var positions := _building_positions(building_type)
+	return positions[0] if not positions.is_empty() else fallback
 
 func _stage_for_level(level: int) -> int:
 	if level <= 0:
@@ -143,11 +246,11 @@ func play_event(kind: String, payload: Dictionary) -> void:
 		"build":
 			color = Color("#d9be7b")
 			glyph = "落成"
-			_animate_building(str(payload.get("building", "")), true)
+			_animate_building(str(payload.get("instance_id", "")), true)
 		"upgrade":
 			color = Color("#f1d572")
 			glyph = "焕新"
-			_animate_building(str(payload.get("building", "")), false)
+			_animate_building(str(payload.get("instance_id", "")), false)
 		"trade":
 			color = Color("#d9a44d")
 			glyph = "商队往来"
@@ -225,23 +328,37 @@ func play_event(kind: String, payload: Dictionary) -> void:
 		_spawn_burst(position, color, glyph)
 
 func _position_for_event(kind: String, payload: Dictionary) -> Vector2:
+	var instance := State.get_building_instance(str(payload.get("instance_id", "")))
+	if not instance.is_empty():
+		var slot_data := CityLayout.slot(str(instance.slot_id))
+		return slot_data.position + slot_data.size * 0.5
 	if payload.has("building") and POSITIONS.has(payload.building):
 		return POSITIONS[payload.building] + SIZES[payload.building] * 0.5
 	if kind.begins_with("siege"):
 		return EFFECT_POSITIONS.siege
 	return EFFECT_POSITIONS.get(kind, Vector2(270, 350))
 
-func _animate_building(id: String, is_new: bool) -> void:
-	if not building_views.has(id):
+func _animate_building(instance_id: String, is_new: bool) -> void:
+	if not building_views.has(instance_id):
 		return
-	var view: TextureRect = building_views[id]
-	var target_scale := Vector2.ONE * _scale_for_level(int(State.buildings[id]))
-	view.scale = Vector2(0.48, 0.48) if is_new else Vector2(0.82, 0.82)
-	view.modulate = Color(1.6, 1.35, 0.72, 1.0)
-	var tween := get_tree().create_tween().set_parallel(true)
+	var instance := State.get_building_instance(instance_id)
+	var view: TextureRect = building_views[instance_id]
+	var button: Button = building_buttons[instance_id]
+	var target_scale := Vector2.ONE * _scale_for_level(int(instance.level))
+	view.scale = Vector2(0.46, 0.46) if is_new else Vector2(0.78, 0.78)
+	view.modulate = Color(0.52, 0.43, 0.30, 0.20)
+	button.add_theme_stylebox_override("normal", _style(Color(0.35, 0.25, 0.14, 0.30), Color("#d6aa54"), 2))
+	var center := button.position + button.size * 0.5
+	effects.append({"kind": "construction", "pos": center, "vel": Vector2.ZERO, "life": 1.35, "max_life": 1.35, "color": Color("#d5aa5b"), "size": 42.0})
+	var tween := get_tree().create_tween()
+	tween.tween_interval(0.48)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(view, "scale", target_scale, 0.72)
-	tween.tween_property(view, "modulate", Color(1, 1, 1, 0.94), 0.72)
+	tween.tween_property(view, "scale", target_scale, 0.82)
+	tween.parallel().tween_property(view, "modulate", Color(1, 1, 1, 0.96), 0.82)
+	tween.tween_callback(func():
+		_spawn_burst(center, Color("#f1d572"), "落成" if is_new else "升阶")
+		_refresh_buildings()
+	)
 
 func _flash_all_buildings() -> void:
 	for id in building_views:
@@ -376,53 +493,64 @@ func _draw() -> void:
 			"civilian":
 				draw_circle(effect.pos, 2.8, color)
 				draw_line(effect.pos + Vector2(0, 3), effect.pos + Vector2(0, 10), color.darkened(0.12), 2.0)
+			"construction":
+				var half: float = float(effect.size) * (0.82 + (1.0 - alpha) * 0.12)
+				var frame := Rect2(effect.pos - Vector2(half, half * 0.62), Vector2(half * 2.0, half * 1.24))
+				draw_rect(frame, Color(0.20, 0.14, 0.08, alpha * 0.12), true)
+				draw_rect(frame, Color(color, alpha * 0.86), false, 2.0)
+				for x in [-0.62, 0.0, 0.62]:
+					draw_line(effect.pos + Vector2(half * x, -half * 0.72), effect.pos + Vector2(half * x, half * 0.72), Color(color.darkened(0.24), alpha * 0.82), 2.0)
+				draw_line(effect.pos + Vector2(-half, -half * 0.20), effect.pos + Vector2(half, half * 0.32), Color(color.lightened(0.18), alpha * 0.78), 2.0)
 
 func _draw_world_state() -> void:
 	if world_state.is_empty():
 		return
 	_draw_era_identity()
 	if bool(world_state.irrigation):
-		for row in 3:
-			var points := PackedVector2Array()
-			for step in 7:
-				points.append(POSITIONS.farm + Vector2(23 + step * 12, 30 + row * 9 + sin(_world_time * 2.0 + step) * 1.6))
-			draw_polyline(points, Color(0.30, 0.72, 0.77, 0.70), 2.1, true)
+		for farm_position in _building_positions("farm"):
+			for row in 3:
+				var points := PackedVector2Array()
+				for step in 7:
+					points.append(farm_position + Vector2(15 + step * 11, 27 + row * 9 + sin(_world_time * 2.0 + step) * 1.6))
+				draw_polyline(points, Color(0.30, 0.72, 0.77, 0.70), 2.1, true)
 	if bool(world_state.all_buff):
-		for id in building_views:
-			if int(State.buildings[id]) > 0:
-				var glow := 0.48 + sin(_world_time * 2.2 + POSITIONS[id].x) * 0.18
-				draw_circle(POSITIONS[id] + Vector2(SIZES[id].x * 0.72, SIZES[id].y * 0.25), 2.6, Color(0.95, 0.80, 0.38, glow))
+		for instance in State.get_building_instances():
+			var slot_data := CityLayout.slot(str(instance.slot_id))
+			var glow := 0.48 + sin(_world_time * 2.2 + slot_data.position.x) * 0.18
+			draw_circle(slot_data.position + Vector2(slot_data.size.x * 0.72, slot_data.size.y * 0.25), 2.6, Color(0.95, 0.80, 0.38, glow))
+	var house_position := _first_building_position("house", POSITIONS.house)
 	for i in int(world_state.civilian_markers):
 		if i == 0:
-			draw_circle(POSITIONS.house + Vector2(36, 82), 17.0, Color(0.16, 0.13, 0.09, 0.22))
-		var civilian_pos := POSITIONS.house + Vector2(25 + (i % 3) * 11, 76 + int(i / 3) * 11)
+			draw_circle(house_position + Vector2(17, 57), 15.0, Color(0.16, 0.13, 0.09, 0.22))
+		var civilian_pos := house_position + Vector2(7 + (i % 3) * 10, 49 + int(i / 3) * 10)
 		draw_circle(civilian_pos, 3.0, Color("#e1ad62"))
 		draw_line(civilian_pos + Vector2(0, 3), civilian_pos + Vector2(0, 9), Color("#76543b"), 1.6)
+	var barracks_position := _first_building_position("barracks", POSITIONS.barracks)
 	for i in int(world_state.soldier_markers):
 		if i == 0:
-			draw_circle(POSITIONS.barracks + Vector2(16, 124), 18.0, Color(0.12, 0.10, 0.08, 0.26))
-		var offset := Vector2(5 + (i % 3) * 10, 117 + int(i / 3) * 11)
+			draw_circle(barracks_position + Vector2(17, 58), 16.0, Color(0.12, 0.10, 0.08, 0.26))
+		var offset := Vector2(6 + (i % 3) * 10, 50 + int(i / 3) * 10)
 		match str(world_state.defense_order):
-			"fortify": offset = Vector2(7 + (i % 2) * 9, 115 + int(i / 2) * 8)
-			"volley": offset = Vector2(3 + i * 6, 116 + (i % 2) * 7)
-			"sally": offset = Vector2(4 + int(i / 2) * 9, 113 + abs(i % 2 - 1) * 8)
-		var soldier_pos := POSITIONS.barracks + offset
+			"fortify": offset = Vector2(7 + (i % 2) * 9, 49 + int(i / 2) * 7)
+			"volley": offset = Vector2(3 + i * 6, 50 + (i % 2) * 7)
+			"sally": offset = Vector2(4 + int(i / 2) * 9, 48 + abs(i % 2 - 1) * 8)
+		var soldier_pos := barracks_position + offset
 		draw_circle(soldier_pos, 3.0, Color("#b75042"))
 		draw_line(soldier_pos + Vector2(0, 3), soldier_pos + Vector2(0, 10), Color("#654034"), 1.8)
 		draw_line(soldier_pos + Vector2(3, 6), soldier_pos + Vector2(7, -2), Color("#c7aa68"), 1.2)
 	var order_id := str(world_state.defense_order)
 	var order: Dictionary = State.DEFENSE_ORDERS.get(order_id, State.DEFENSE_ORDERS.steady)
-	var banner_base := POSITIONS.barracks + Vector2(43, 126)
+	var banner_base := barracks_position + Vector2(73, 74)
 	var banner_color: Color = {"steady": Color("#c59b52"), "fortify": Color("#55745d"), "volley": Color("#69718a"), "sally": Color("#a54a3d")}.get(order_id, Color("#c59b52"))
 	draw_line(banner_base, banner_base + Vector2(0, -31), Color("#4b3b2d"), 2.0)
 	draw_colored_polygon(PackedVector2Array([banner_base + Vector2(1, -30), banner_base + Vector2(22, -25), banner_base + Vector2(1, -17)]), banner_color)
 	draw_string(_effect_font, banner_base + Vector2(5, -19), str(order.glyph), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#f7ebc9"))
 	if int(world_state.wounded_markers) > 0:
-		var tent := POSITIONS.barracks + Vector2(48, 123)
+		var tent := barracks_position + Vector2(48, 72)
 		draw_colored_polygon(PackedVector2Array([tent, tent + Vector2(13, -13), tent + Vector2(26, 0)]), Color(0.84, 0.76, 0.58, 0.90))
 		draw_line(tent + Vector2(13, -13), tent + Vector2(13, 0), Color("#81483b"), 1.6)
 	if bool(world_state.enemy_warning):
-		var warning := POSITIONS.wall + Vector2(105, 90)
+		var warning := _first_building_position("wall", POSITIONS.wall) + Vector2(84, 68)
 		var pulse := 0.68 + sin(_world_time * (5.0 if bool(world_state.enemy_urgent) else 2.0)) * 0.22
 		draw_line(warning, warning + Vector2(0, -25), Color("#533a30"), 2.0)
 		draw_colored_polygon(PackedVector2Array([warning + Vector2(0, -25), warning + Vector2(15, -20), warning + Vector2(0, -14)]), Color(0.64, 0.20, 0.17, pulse))
@@ -441,7 +569,8 @@ func _draw_era_identity() -> void:
 		draw_line(base, base + Vector2(0, -31), Color("#3e3027"), 2.0, true)
 		var standard: Color = identity.get("standard", Color("#963e35"))
 		draw_colored_polygon(PackedVector2Array([base + Vector2(1, -30), base + Vector2(19, -27), base + Vector2(16, -16), base + Vector2(1, -18)]), standard)
-	var command_base := POSITIONS.barracks + Vector2(18, 116)
+	var barracks_position := _first_building_position("barracks", POSITIONS.barracks)
+	var command_base := barracks_position + Vector2(18, 69)
 	for i in 4:
 		var shield_pos := command_base + Vector2(i * 13, (i % 2) * 5)
 		draw_circle(shield_pos, 5.0, Color("#6f4933"))
@@ -465,7 +594,7 @@ func _draw_era_identity() -> void:
 			draw_line(Vector2(467, 247), Vector2(467, 257), Color("#765541"), 2.0)
 		"cataphract":
 			for i in 3:
-				var horse := POSITIONS.barracks + Vector2(20 + i * 15, 139 + (i % 2) * 4)
+				var horse := barracks_position + Vector2(20 + i * 15, 73 + (i % 2) * 4)
 				draw_rect(Rect2(horse - Vector2(6, 3), Vector2(13, 7)), Color("#766b5d"), true)
 				draw_circle(horse + Vector2(7, -2), 3.5, Color("#655a4d"))
 		"canal_axis":
@@ -489,7 +618,7 @@ func _draw_era_identity() -> void:
 				draw_line(Vector2(x, 238), Vector2(x + 9, 247), Color("#815f42"), 2.0, true)
 		"steppe_station":
 			for i in 4:
-				var horse := POSITIONS.barracks + Vector2(17 + i * 15, 138 + (i % 2) * 4)
+				var horse := barracks_position + Vector2(17 + i * 15, 72 + (i % 2) * 4)
 				draw_rect(Rect2(horse - Vector2(6, 3), Vector2(13, 7)), Color("#77614b"), true)
 				draw_circle(horse + Vector2(7, -2), 3.5, Color("#5e4b3b"))
 				draw_line(horse + Vector2(-4, 3), horse + Vector2(-4, 9), Color("#4b4035"), 1.2)

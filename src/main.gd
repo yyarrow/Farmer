@@ -18,7 +18,6 @@ const SHADOW := UiComponents.SHADOW
 const RESOURCE_META := UiPresentation.RESOURCE_META
 
 var resource_labels := {}
-var marker_buttons := {}
 var tab_buttons: Array[Button] = []
 var time_buttons := {}
 var current_tab := 0
@@ -45,6 +44,9 @@ var _displayed_season := ""
 var _displayed_era := ""
 var _displayed_city_scale := 0.0
 var _city_pan_x := 0.0
+var _selected_building_instance := ""
+var _selected_building_slot := ""
+var _moving_building_instance := ""
 
 func _ready() -> void:
 	theme = UiFont.make_theme()
@@ -150,9 +152,10 @@ func _build_scene() -> void:
 	city_visual_layer.set_script(load("res://src/city_visuals.gd"))
 	city_visual_layer.z_index = 2
 	city_world.add_child(city_visual_layer)
+	city_visual_layer.building_selected.connect(_on_city_building_selected)
+	city_visual_layer.slot_selected.connect(_on_city_slot_selected)
 
 	_build_top_panel()
-	_build_map_markers()
 	_build_city_pan_hint()
 	_build_threat_strip()
 	_build_bottom_panel()
@@ -294,31 +297,48 @@ func _build_top_panel() -> void:
 		resources_grid.add_child(pill)
 		resource_labels[id] = pill
 
-func _build_map_markers() -> void:
-	var marker_data := CityLayout.MARKER_POSITIONS
-	for id in marker_data:
-		var button := Button.new()
-		button.position = marker_data[id]
-		button.size = Vector2(68, 32)
-		button.add_theme_font_size_override("font_size", 11)
-		button.add_theme_color_override("font_color", Color.WHITE)
-		button.add_theme_color_override("font_hover_color", Color.WHITE)
-		button.add_theme_stylebox_override("normal", _style(Color(0.12, 0.18, 0.13, 0.64), 10, 1, Color(1, 0.91, 0.63, 0.38), 2))
-		button.add_theme_stylebox_override("hover", _style(Color(0.33, 0.45, 0.34, 0.90), 10, 1, PAPER_DARK, 2))
-		button.add_theme_stylebox_override("pressed", _style(CINNABAR, 10, 1, PAPER, 2))
-		button.tooltip_text = State.BUILDINGS[id].desc
-		button.z_index = 5
-		var captured_id: String = id
-		button.pressed.connect(func():
-			_play_chime(470.0)
-			current_tab = 0
-			Telemetry.track("building_marker_opened", {"building": captured_id})
-			_update_tab_buttons()
+func _on_city_building_selected(instance_id: String) -> void:
+	if State.get_building_instance(instance_id).is_empty():
+		return
+	_selected_building_instance = instance_id
+	_selected_building_slot = ""
+	_moving_building_instance = ""
+	city_visual_layer.set_selected(instance_id)
+	current_tab = 0
+	_update_tab_buttons()
+	content_scroll.scroll_vertical = 0
+	_render_tab()
+	var instance := State.get_building_instance(instance_id)
+	Telemetry.track("building_instance_selected", {"instance_id": instance_id, "building": instance.type, "slot": instance.slot_id})
+
+func _clear_building_selection() -> void:
+	_selected_building_instance = ""
+	_selected_building_slot = ""
+	_moving_building_instance = ""
+	if city_visual_layer:
+		city_visual_layer.clear_move_mode()
+		city_visual_layer.set_selected("")
+
+func _on_city_slot_selected(slot_id: String) -> void:
+	if not _moving_building_instance.is_empty():
+		var moved_id := _moving_building_instance
+		if State.move_building_instance(moved_id, slot_id):
+			_moving_building_instance = ""
+			_selected_building_instance = moved_id
+			_selected_building_slot = ""
+			city_visual_layer.clear_move_mode()
+			city_visual_layer.set_selected(moved_id)
+			_show_toast("建筑已迁至新用地")
 			_render_tab()
-			_show_toast("%s：%s" % [State.BUILDINGS[captured_id].name, State.BUILDINGS[captured_id].desc])
-		)
-		city_world.add_child(button)
-		marker_buttons[id] = button
+		return
+	_selected_building_instance = ""
+	_selected_building_slot = slot_id
+	city_visual_layer.set_selected("")
+	current_tab = 0
+	_update_tab_buttons()
+	content_scroll.scroll_vertical = 0
+	_render_tab()
+	Telemetry.track("building_slot_selected", {"slot": slot_id, "city_level": State.chapter})
 
 func _build_city_pan_hint() -> void:
 	city_pan_hint = Label.new()
@@ -498,9 +518,6 @@ func _refresh_dynamic() -> void:
 	threat_bar.value = 7 - clampi(State.days_until_attack(), 0, 7)
 	power_label.text = "%s %d / 敌军 %s\n%s" % [State.term("army", "守军"), State.get_army_power(), str(State.get_enemy_power()) if enemy.known else "未明", enemy.range]
 	_update_tab_buttons()
-	for id in marker_buttons:
-		var level: int = State.buildings[id]
-		marker_buttons[id].text = "%s · %s" % [State.BUILDINGS[id].name, ("未" if level == 0 else _cn_number(level))]
 
 func _resource_meta(id: String) -> Dictionary:
 	var source: Dictionary = State.RESOURCE_UNITS.get(id, RESOURCE_META.get(id, {}))
@@ -620,53 +637,148 @@ func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
 		_render_tab()
 
 func _render_buildings() -> void:
-	_add_section_heading("营造城邑", "选择空地建造，再逐阶升级；城池扩建会开放更多用地")
+	_add_section_heading("营造城邑", "直接点选城中建筑或空地；城池扩建会逐步开放十二处用地")
 	content_box.add_child(_info_banner(
 		"%s · 建筑用地 %d / %d" % [State.get_city_level_name(), State.get_built_building_count(), State.get_building_slot_count()],
-		"尚余%d处空地 · %s" % [State.get_open_building_slots(), State.get_city_map_hint()],
+		"尚余%d处空地 · 同类建筑可重复营造，城垣仅限一处" % State.get_open_building_slots(),
 		JADE if State.get_open_building_slots() > 0 else GOLD
 	))
-	for id in State.BUILDINGS:
-		_add_building_card(id)
+	if not _moving_building_instance.is_empty():
+		content_box.add_child(_info_banner("迁建中", "请在城景中点选一处绿色空地；原建筑等级与产能不会损失", GOLD))
+		var cancel_move := _action_button("取消迁建")
+		cancel_move.pressed.connect(func():
+			_moving_building_instance = ""
+			city_visual_layer.clear_move_mode()
+			_render_tab()
+		)
+		content_box.add_child(cancel_move)
+		return
+	if not _selected_building_instance.is_empty():
+		var instance := State.get_building_instance(_selected_building_instance)
+		if not instance.is_empty():
+			_add_building_inspector(instance)
+			return
+		_selected_building_instance = ""
+	if not _selected_building_slot.is_empty() and State.get_building_at_slot(_selected_building_slot).is_empty():
+		_add_building_catalog(_selected_building_slot)
+		return
+	_selected_building_slot = ""
+	content_box.add_child(_info_banner("城景即是建造界面", "点建筑查看独立等级、升级与迁建；点“＋空地”选择要营造的建筑", JADE))
 
-func _add_building_card(id: String) -> void:
+func _add_building_inspector(instance: Dictionary) -> void:
+	var id := str(instance.type)
 	var data: Dictionary = State.BUILDINGS[id]
-	var level: int = State.buildings[id]
-	var cost := State.building_cost(id)
-	var card := _card(108)
+	var level := int(instance.level)
+	var cost := State.building_instance_cost(str(instance.id))
+	var card := _card(154)
 	content_box.add_child(card)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 7)
+	card.add_child(stack)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	card.add_child(row)
-	row.add_child(_glyph_badge(data.glyph, JADE if level > 0 else Color("#8d8774")))
+	stack.add_child(row)
+	row.add_child(_glyph_badge(data.glyph, JADE))
 	var text_stack := VBoxContainer.new()
 	text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_stack.add_theme_constant_override("separation", 2)
 	row.add_child(text_stack)
 	var name_label := Label.new()
-	name_label.text = "%s  %s" % [data.name, ("未建" if level == 0 else "· " + _cn_number(level) + "阶")]
+	name_label.text = "%s · %s阶" % [data.name, _cn_number(level)]
 	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.add_theme_color_override("font_color", INK)
 	text_stack.add_child(name_label)
 	var desc := Label.new()
-	desc.text = data.desc + "\n" + _format_building_effect(State.get_building_effect_preview(id))
+	desc.text = data.desc + "\n" + _format_building_effect(State.get_building_effect_preview(id, str(instance.id)))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 10)
 	desc.add_theme_color_override("font_color", INK_SOFT)
 	text_stack.add_child(desc)
-	var cost_label := Label.new()
-	var slot_blocked := level == 0 and State.get_open_building_slots() <= 0
-	cost_label.text = "已满级" if level >= int(data.max) else ("用地已满，先晋升城池" if slot_blocked else _format_cost(cost))
-	cost_label.add_theme_font_size_override("font_size", 11)
-	cost_label.add_theme_color_override("font_color", CINNABAR if slot_blocked or not State.can_afford(cost) else JADE)
-	text_stack.add_child(cost_label)
-	var action := _action_button(State.term("build_action", "建造") if level == 0 else State.term("upgrade_action", "升级"))
-	action.disabled = level >= int(data.max) or slot_blocked
+	if level < int(data.max):
+		stack.add_child(_building_cost_row(cost))
+	else:
+		var completed := Label.new()
+		completed.text = "已臻最高阶 · 城景装饰与旗帜已全部显现"
+		completed.add_theme_color_override("font_color", GOLD)
+		completed.add_theme_font_size_override("font_size", 11)
+		stack.add_child(completed)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	stack.add_child(actions)
+	var action := _action_button("已满阶" if level >= int(data.max) else State.term("upgrade_action", "升级"))
+	action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action.disabled = level >= int(data.max)
 	action.pressed.connect(func():
 		_play_chime(600.0)
-		if State.upgrade_building(id): _render_tab()
+		if State.upgrade_building_instance(str(instance.id)): _render_tab()
 	)
-	row.add_child(action)
+	actions.add_child(action)
+	var move_button := _action_button("迁建")
+	move_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	move_button.disabled = State.get_open_building_slots() <= 0
+	move_button.pressed.connect(func():
+		_moving_building_instance = str(instance.id)
+		city_visual_layer.set_move_mode(str(instance.id))
+		_render_tab()
+	)
+	actions.add_child(move_button)
+
+func _add_building_catalog(slot_id: String) -> void:
+	_add_section_heading("选择营造", "此处为空地；建成后可直接在城景中点选和升级")
+	for id in State.BUILDINGS:
+		var data: Dictionary = State.BUILDINGS[id]
+		var cost := State.new_building_cost(id)
+		var card := _card(92)
+		content_box.add_child(card)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 9)
+		card.add_child(row)
+		row.add_child(_glyph_badge(data.glyph, JADE if State.can_place_building_type(id) else Color("#8d8774")))
+		var text_stack := VBoxContainer.new()
+		text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_stack.add_theme_constant_override("separation", 4)
+		row.add_child(text_stack)
+		var name_label := Label.new()
+		name_label.text = str(data.name)
+		name_label.add_theme_font_size_override("font_size", 14)
+		name_label.add_theme_color_override("font_color", INK)
+		text_stack.add_child(name_label)
+		var desc := Label.new()
+		desc.text = str(data.desc)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.add_theme_font_size_override("font_size", 9)
+		desc.add_theme_color_override("font_color", INK_SOFT)
+		text_stack.add_child(desc)
+		text_stack.add_child(_building_cost_row(cost))
+		var build := _action_button("已有" if not State.can_place_building_type(id) else State.term("build_action", "建造"))
+		build.disabled = not State.can_place_building_type(id)
+		var captured_id := str(id)
+		build.pressed.connect(func():
+			_play_chime(600.0)
+			if State.place_building(captured_id, slot_id):
+				var placed := State.get_building_at_slot(slot_id)
+				_selected_building_instance = str(placed.id)
+				_selected_building_slot = ""
+				city_visual_layer.set_selected(_selected_building_instance)
+				_render_tab()
+		)
+		row.add_child(build)
+
+func _building_cost_row(cost: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	for id in ["grain", "wood", "stone", "coins"]:
+		if not cost.has(id):
+			continue
+		var meta := _resource_meta(id)
+		var enough := float(State.resources.get(id, 0.0)) + 0.001 >= float(cost[id])
+		var chip := Label.new()
+		chip.text = "%s%d%s" % [meta.name, int(cost[id]), meta.unit]
+		chip.add_theme_font_size_override("font_size", 10)
+		chip.add_theme_color_override("font_color", JADE if enough else CINNABAR)
+		chip.add_theme_stylebox_override("normal", _style(Color(0.96, 0.91, 0.75, 0.62), 6, 1, Color(JADE if enough else CINNABAR, 0.22), 3))
+		row.add_child(chip)
+	return row
 
 func _format_building_effect(preview: Dictionary) -> String:
 	return UiPresentation.building_effect(preview, State.RESOURCE_UNITS, State.TERMS)
@@ -1085,6 +1197,7 @@ func _show_settings() -> void:
 	new_game.pressed.connect(func():
 		_confirm_action("重新开始？", "当前自动进度将被新游戏覆盖。三个手动档位不会删除。", "重新开始", func():
 			State.reset_game()
+			_clear_building_selection()
 			_render_tab()
 			_show_tutorial()
 		)
@@ -1309,6 +1422,7 @@ func _add_save_slot_row(parent: VBoxContainer, data: Dictionary) -> void:
 			_confirm_action("载入档位 %d？" % slot, "当前自动进度会先保存，然后切换到该档位。", "确认载入", func():
 				State.save_game()
 				State.load_slot(slot)
+				_clear_building_selection()
 				_render_tab()
 				_show_settings()
 			)

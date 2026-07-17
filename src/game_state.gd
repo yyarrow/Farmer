@@ -1,6 +1,7 @@
 extends Node
 
 const EraRegistry = preload("res://src/data/era_registry.gd")
+const CityLayout = preload("res://src/data/city_layout.gd")
 const BattleSystem = preload("res://src/systems/battle_system.gd")
 const EconomySystem = preload("res://src/systems/economy_system.gd")
 const ProgressionSystem = preload("res://src/systems/progression_system.gd")
@@ -20,7 +21,7 @@ const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
 const AUTO_SAVE_PATH := "user://saves/autosave.json"
 const SLOT_COUNT := 3
-const FORMAT_VERSION := 4
+const FORMAT_VERSION := 5
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
@@ -44,6 +45,8 @@ var POLICIES: Dictionary = era_definition.policies
 
 var resources: Dictionary = era_definition.initial_resources.duplicate(true)
 var buildings: Dictionary = era_definition.initial_buildings.duplicate(true)
+var building_instances: Array = []
+var _next_building_instance_seq := 1
 var units: Dictionary = era_definition.initial_units.duplicate(true)
 var wounded: Dictionary = era_definition.empty_units.duplicate(true)
 var recovery_queue: Array = []
@@ -76,6 +79,8 @@ func _ready() -> void:
 	SaveRepository.ensure_directory(SAVE_DIR)
 	_migrate_legacy_save()
 	load_game()
+	if building_instances.is_empty():
+		_seed_instances_from_buildings()
 	if enemy_army.is_empty():
 		enemy_army = _make_enemy_army(attack_wave)
 	set_process(true)
@@ -176,17 +181,97 @@ func get_max_city_level() -> int:
 	return era_definition.city_levels.size()
 
 func get_building_slot_count() -> int:
-	return int(get_city_level_data().slots)
+	return mini(CityLayout.MAX_SLOTS, int(get_city_level_data().slots))
 
 func get_built_building_count() -> int:
-	var count := 0
-	for id in BUILDINGS:
-		if int(buildings.get(id, 0)) > 0:
-			count += 1
-	return count
+	return building_instances.size()
 
 func get_open_building_slots() -> int:
 	return maxi(0, get_building_slot_count() - get_built_building_count())
+
+func get_building_instances() -> Array:
+	return building_instances.duplicate(true)
+
+func get_building_instance(instance_id: String) -> Dictionary:
+	for instance in building_instances:
+		if str(instance.get("id", "")) == instance_id:
+			return instance
+	return {}
+
+func get_building_at_slot(slot_id: String) -> Dictionary:
+	for instance in building_instances:
+		if str(instance.get("slot_id", "")) == slot_id:
+			return instance
+	return {}
+
+func get_building_instances_of_type(building_type: String) -> Array:
+	var result := []
+	for instance in building_instances:
+		if str(instance.get("type", "")) == building_type:
+			result.append(instance)
+	return result
+
+func can_place_building_type(building_type: String) -> bool:
+	if not BUILDINGS.has(building_type):
+		return false
+	if building_type in CityLayout.UNIQUE_BUILDINGS:
+		return get_building_instances_of_type(building_type).is_empty()
+	return true
+
+func _new_building_instance_id() -> String:
+	var id := "building_%04d" % _next_building_instance_seq
+	_next_building_instance_seq += 1
+	return id
+
+func _seed_instances_from_buildings() -> void:
+	building_instances = []
+	_next_building_instance_seq = 1
+	for id in BUILDINGS:
+		var level := int(buildings.get(id, 0))
+		if level <= 0:
+			continue
+		var preferred := str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, ""))
+		var slot_id := CityLayout.first_open_slot(building_instances, get_building_slot_count(), preferred)
+		if slot_id.is_empty():
+			break
+		building_instances.append({"id": _new_building_instance_id(), "type": id, "level": level, "slot_id": slot_id})
+
+func _normalize_building_instances(raw_instances: Array) -> void:
+	building_instances = []
+	_next_building_instance_seq = 1
+	var occupied := {}
+	for raw in raw_instances:
+		if raw is not Dictionary:
+			continue
+		var building_type := str(raw.get("type", ""))
+		var slot_id := str(raw.get("slot_id", ""))
+		if not BUILDINGS.has(building_type) or CityLayout.slot(slot_id).is_empty() or occupied.has(slot_id):
+			continue
+		var instance_id := str(raw.get("id", ""))
+		if instance_id.is_empty() or not get_building_instance(instance_id).is_empty():
+			instance_id = _new_building_instance_id()
+		else:
+			var suffix := instance_id.trim_prefix("building_")
+			if suffix.is_valid_int():
+				_next_building_instance_seq = maxi(_next_building_instance_seq, int(suffix) + 1)
+		building_instances.append({
+			"id": instance_id,
+			"type": building_type,
+			"level": clampi(int(raw.get("level", 1)), 1, int(BUILDINGS[building_type].max)),
+			"slot_id": slot_id,
+		})
+		occupied[slot_id] = true
+	_rebuild_building_totals()
+
+func _rebuild_building_totals() -> void:
+	var totals: Dictionary = era_definition.initial_buildings.duplicate(true)
+	for id in totals:
+		totals[id] = 0
+	for instance in building_instances:
+		var building_type := str(instance.get("type", ""))
+		if totals.has(building_type):
+			totals[building_type] += int(instance.get("level", 0))
+	buildings = totals
 
 func get_city_view_scale() -> float:
 	return float(get_city_level_data().view_scale)
@@ -393,18 +478,31 @@ func get_chapter_target() -> int:
 	return int(get_city_level_data().advance_target)
 
 func building_cost(id: String) -> Dictionary:
-	return EconomySystem.building_cost(BUILDINGS[id], int(buildings[id]))
+	var instances := get_building_instances_of_type(id)
+	var level := int(instances[0].level) if not instances.is_empty() else int(buildings.get(id, 0))
+	return EconomySystem.building_cost(BUILDINGS[id], level)
 
-func get_building_effect_preview(id: String) -> Dictionary:
+func new_building_cost(id: String) -> Dictionary:
+	return EconomySystem.building_cost(BUILDINGS[id], 0) if BUILDINGS.has(id) else {}
+
+func building_instance_cost(instance_id: String) -> Dictionary:
+	var instance := get_building_instance(instance_id)
+	if instance.is_empty():
+		return {}
+	return EconomySystem.building_cost(BUILDINGS[str(instance.type)], int(instance.level))
+
+func get_building_effect_preview(id: String, instance_id := "") -> Dictionary:
 	if not BUILDINGS.has(id):
 		return {}
-	var level := int(buildings[id])
+	var instance := get_building_instance(instance_id) if not instance_id.is_empty() else {}
+	var level := int(instance.level) if not instance.is_empty() else int(buildings[id])
 	var next_level := mini(level + 1, int(BUILDINGS[id].max))
 	var next_buildings: Dictionary = buildings.duplicate(true)
-	next_buildings[id] = next_level
+	if next_level > level:
+		next_buildings[id] = int(buildings[id]) + 1
 	var next_population := population
 	if id == "house" and next_level > level:
-		next_population = mini(EconomySystem.population_cap(next_level, era_definition.economy) - get_army_count() - get_wounded_count(), population + 5)
+			next_population = mini(EconomySystem.population_cap(int(next_buildings[id]), era_definition.economy) - get_army_count() - get_wounded_count(), population + 5)
 	var current_ledger := _daily_ledger_for(buildings, population)
 	var next_ledger := _daily_ledger_for(next_buildings, next_population)
 	var preview := {"kind": id, "level": level, "next_level": next_level, "has_next": next_level > level}
@@ -416,17 +514,17 @@ func get_building_effect_preview(id: String) -> Dictionary:
 		"quarry":
 			preview.merge({"resource": "stone", "current": current_ledger.stone.income, "next": next_ledger.stone.income})
 		"house", "market":
-			preview.merge({"current": current_ledger.coins.income, "next": next_ledger.coins.income, "population_cap": get_population_cap(), "next_population_cap": EconomySystem.population_cap(next_level, era_definition.economy)})
+			preview.merge({"current": current_ledger.coins.income, "next": next_ledger.coins.income, "population_cap": get_population_cap(), "next_population_cap": EconomySystem.population_cap(int(next_buildings[id]), era_definition.economy)})
 		"warehouse":
 			preview.merge({
-				"grain": _capacity_for_level("grain", level), "next_grain": _capacity_for_level("grain", next_level),
-				"material": _capacity_for_level("wood", level), "next_material": _capacity_for_level("wood", next_level),
-				"coins": _capacity_for_level("coins", level), "next_coins": _capacity_for_level("coins", next_level),
+				"grain": _capacity_for_level("grain", int(buildings[id])), "next_grain": _capacity_for_level("grain", int(next_buildings[id])),
+				"material": _capacity_for_level("wood", int(buildings[id])), "next_material": _capacity_for_level("wood", int(next_buildings[id])),
+				"coins": _capacity_for_level("coins", int(buildings[id])), "next_coins": _capacity_for_level("coins", int(next_buildings[id])),
 			})
 		"barracks":
-			preview.merge({"capacity": EconomySystem.army_capacity(level, era_definition.economy), "next_capacity": EconomySystem.army_capacity(next_level, era_definition.economy), "training": level * 6, "next_training": next_level * 6})
+			preview.merge({"capacity": EconomySystem.army_capacity(int(buildings[id]), era_definition.economy), "next_capacity": EconomySystem.army_capacity(int(next_buildings[id]), era_definition.economy), "training": int(buildings[id]) * 6, "next_training": int(next_buildings[id]) * 6})
 		"wall":
-			preview.merge({"incoming": roundi(maxf(0.52, 1.0 - level * 0.09) * 100.0), "next_incoming": roundi(maxf(0.52, 1.0 - next_level * 0.09) * 100.0)})
+			preview.merge({"incoming": roundi(maxf(0.52, 1.0 - int(buildings[id]) * 0.09) * 100.0), "next_incoming": roundi(maxf(0.52, 1.0 - int(next_buildings[id]) * 0.09) * 100.0)})
 	return preview
 
 func can_afford(cost: Dictionary) -> bool:
@@ -448,31 +546,97 @@ func spend(cost: Dictionary) -> bool:
 func upgrade_building(id: String) -> bool:
 	if not BUILDINGS.has(id):
 		return false
-	var level := int(buildings[id])
-	if level >= int(BUILDINGS[id].max):
-		notice.emit("此建筑已臻完善")
+	var instances := get_building_instances_of_type(id)
+	if instances.is_empty():
+		var slot_id := CityLayout.first_open_slot(building_instances, get_building_slot_count(), str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, "")))
+		return place_building(id, slot_id)
+	return upgrade_building_instance(str(instances[0].id))
+
+func place_building(id: String, slot_id: String) -> bool:
+	if not BUILDINGS.has(id) or CityLayout.slot(slot_id).is_empty():
 		return false
-	if level == 0 and get_open_building_slots() <= 0:
+	var unlocked_ids := []
+	for slot_data in CityLayout.unlocked_slots(get_building_slot_count()):
+		unlocked_ids.append(str(slot_data.id))
+	if slot_id not in unlocked_ids:
+		notice.emit("这片用地尚未随城池扩建开放")
+		return false
+	if not get_building_at_slot(slot_id).is_empty():
+		notice.emit("此处已有建筑")
+		return false
+	if not can_place_building_type(id):
+		notice.emit("%s只能营造一处" % BUILDINGS[id].name)
+		return false
+	if get_open_building_slots() <= 0:
 		notice.emit("城内用地已满，请先提升城池等级")
 		visual_event.emit("slot_full", {"building": id, "city_level": chapter})
 		return false
-	var cost := building_cost(id)
+	var cost := new_building_cost(id)
 	if not spend(cost):
 		return false
-	buildings[id] = level + 1
+	var instance_id := _new_building_instance_id()
+	building_instances.append({"id": instance_id, "type": id, "level": 1, "slot_id": slot_id})
+	_rebuild_building_totals()
+	_apply_building_reward(id)
+	_add_era_progress(int(era_definition.era_growth.building_base) + 4, "building")
+	changed.emit()
+	notice.emit("建成 %s" % BUILDINGS[id].name)
+	visual_event.emit("build", {"building": id, "instance_id": instance_id, "slot_id": slot_id, "level": 1})
+	Audio.play_sfx("build")
+	Telemetry.track("building_build", {"building": id, "instance_id": instance_id, "slot_id": slot_id, "to": 1, "cost": cost})
+	save_game()
+	return true
+
+func upgrade_building_instance(instance_id: String) -> bool:
+	var instance := get_building_instance(instance_id)
+	if instance.is_empty():
+		return false
+	var id := str(instance.type)
+	var level := int(instance.level)
+	if level >= int(BUILDINGS[id].max):
+		notice.emit("此建筑已臻完善")
+		return false
+	var cost := building_instance_cost(instance_id)
+	if not spend(cost):
+		return false
+	instance.level = level + 1
+	_rebuild_building_totals()
+	_apply_building_reward(id)
+	_add_era_progress(int(era_definition.era_growth.building_base) + int(instance.level) * 4, "building")
+	changed.emit()
+	notice.emit("升级 %s" % BUILDINGS[id].name)
+	visual_event.emit("upgrade", {"building": id, "instance_id": instance_id, "slot_id": instance.slot_id, "level": instance.level})
+	Audio.play_sfx("upgrade")
+	Telemetry.track("building_upgrade", {"building": id, "instance_id": instance_id, "from": level, "to": instance.level, "cost": cost})
+	save_game()
+	return true
+
+func move_building_instance(instance_id: String, slot_id: String) -> bool:
+	var instance := get_building_instance(instance_id)
+	if instance.is_empty() or CityLayout.slot(slot_id).is_empty() or not get_building_at_slot(slot_id).is_empty():
+		return false
+	var unlocked := false
+	for slot_data in CityLayout.unlocked_slots(get_building_slot_count()):
+		if str(slot_data.id) == slot_id:
+			unlocked = true
+			break
+	if not unlocked:
+		notice.emit("这片用地尚未开放")
+		return false
+	var previous := str(instance.slot_id)
+	instance.slot_id = slot_id
+	changed.emit()
+	visual_event.emit("move", {"building": instance.type, "instance_id": instance_id, "from_slot": previous, "slot_id": slot_id})
+	Audio.play_sfx("ui_tap")
+	Telemetry.track("building_moved", {"building": instance.type, "instance_id": instance_id, "from": previous, "to": slot_id})
+	save_game()
+	return true
+
+func _apply_building_reward(id: String) -> void:
 	if id == "house":
 		population = mini(get_population_cap() - get_army_count() - get_wounded_count(), population + 5)
 	if id == "barracks":
 		morale = minf(100.0, morale + 4.0)
-	_add_era_progress(int(era_definition.era_growth.building_base) + int(buildings[id]) * 4, "building")
-	changed.emit()
-	var event_kind := "build" if level == 0 else "upgrade"
-	notice.emit(("建成 " if level == 0 else "升级 ") + BUILDINGS[id].name)
-	visual_event.emit(event_kind, {"building": id, "level": buildings[id]})
-	Audio.play_sfx(event_kind)
-	Telemetry.track("building_%s" % event_kind, {"building": id, "from": level, "to": buildings[id], "cost": cost})
-	save_game()
-	return true
 
 func recruit(id: String) -> bool:
 	if not UNITS.has(id):
@@ -1118,6 +1282,10 @@ func load_game() -> void:
 	Telemetry.track("autosave_loaded", {"day": current_day, "chapter": chapter})
 
 func get_snapshot() -> Dictionary:
+	# Instance placement is authoritative. Reconcile the compatibility aggregate
+	# before persistence so diagnostics or tests cannot serialize a split state.
+	if not building_instances.is_empty():
+		_rebuild_building_totals()
 	return {
 		"format_version": FORMAT_VERSION,
 		"era_id": era_id,
@@ -1125,6 +1293,7 @@ func get_snapshot() -> Dictionary:
 		"city_level": chapter,
 		"resources": resources.duplicate(true),
 		"buildings": buildings.duplicate(true),
+		"building_instances": building_instances.duplicate(true),
 		"units": units.duplicate(true),
 		"wounded": wounded.duplicate(true),
 		"recovery_queue": recovery_queue.duplicate(true),
@@ -1167,6 +1336,11 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	resources.merge(snapshot.get("resources", {}), true)
 	buildings = era_definition.initial_buildings.duplicate(true)
 	buildings.merge(snapshot.get("buildings", {}), true)
+	var saved_instances: Array = snapshot.get("building_instances", [])
+	if saved_instances.is_empty():
+		_seed_instances_from_buildings()
+	else:
+		_normalize_building_instances(saved_instances)
 	units = era_definition.initial_units.duplicate(true)
 	units.merge(snapshot.get("units", {}), true)
 	wounded = era_definition.empty_units.duplicate(true)
@@ -1328,13 +1502,14 @@ func reset_game() -> void:
 	era_progress = 0
 	resources = era_definition.initial_resources.duplicate(true)
 	buildings = era_definition.initial_buildings.duplicate(true)
+	chapter = 1
+	_seed_instances_from_buildings()
 	units = era_definition.initial_units.duplicate(true)
 	wounded = era_definition.empty_units.duplicate(true)
 	recovery_queue = []
 	population = 110
 	morale = 70.0
 	current_day = 1
-	chapter = 1
 	day_progress = 0.0
 	next_attack_day = 7
 	attack_wave = 1

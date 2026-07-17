@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSystem = preload("res://src/systems/battle_system.gd")
 const EconomySystem = preload("res://src/systems/economy_system.gd")
+const CityLayout = preload("res://src/data/city_layout.gd")
 
 static func valid_number(value: Variant, minimum: float, maximum: float) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) >= minimum and float(value) <= maximum
@@ -30,6 +31,39 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 		return false
 	var saved_buildings: Dictionary = era.initial_buildings.duplicate(true)
 	saved_buildings.merge(data.get("buildings", {}), true)
+	var built_count := 0
+	if int(data.get("format_version", 1)) >= 5:
+		var totals: Dictionary = era.initial_buildings.duplicate(true)
+		for id in totals:
+			totals[id] = 0
+		var occupied := {}
+		var instance_ids := {}
+		var unique_types := {}
+		var city_level := clampi(int(data.get("city_level", data.get("chapter", 1))), 1, era.city_levels.size())
+		var unlocked_slots := int(era.city_levels[city_level - 1].slots)
+		for instance in data.get("building_instances", []):
+			var instance_id := str(instance.get("id", ""))
+			var building_type := str(instance.get("type", ""))
+			var slot_id := str(instance.get("slot_id", ""))
+			if not totals.has(building_type):
+				return false
+			var slot_index := -1
+			for index in CityLayout.SLOTS.size():
+				if str(CityLayout.SLOTS[index].id) == slot_id:
+					slot_index = index
+					break
+			if instance_id.is_empty() or instance_ids.has(instance_id) or occupied.has(slot_id) or slot_index < 0 or slot_index >= unlocked_slots:
+				return false
+			if building_type in CityLayout.UNIQUE_BUILDINGS and unique_types.has(building_type):
+				return false
+			instance_ids[instance_id] = true
+			occupied[slot_id] = true
+			unique_types[building_type] = true
+			totals[building_type] += int(instance.level)
+		built_count = instance_ids.size()
+		for id in totals:
+			if int(saved_buildings[id]) != int(totals[id]):
+				return false
 	var warehouse_level := int(saved_buildings.warehouse)
 	var saved_resources: Dictionary = era.initial_resources.duplicate(true)
 	saved_resources.merge(data.get("resources", {}), true)
@@ -81,10 +115,10 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 	if int(data.get("format_version", 1)) >= 4:
 		var city_level := clampi(int(data.get("city_level", data.get("chapter", 1))), 1, era.city_levels.size())
 		var city_data: Dictionary = era.city_levels[city_level - 1]
-		var built_count := 0
-		for id in saved_buildings:
-			if int(saved_buildings[id]) > 0:
-				built_count += 1
+		if int(data.get("format_version", 1)) < 5:
+			for id in saved_buildings:
+				if int(saved_buildings[id]) > 0:
+					built_count += 1
 		if built_count > int(city_data.slots):
 			return false
 	return true
@@ -109,7 +143,18 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 		if data.buildings is not Dictionary:
 			return false
 		for id in data.buildings:
-			if not era.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(era.buildings[id].max)):
+			if not era.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(era.buildings[id].max) * CityLayout.MAX_SLOTS):
+				return false
+	if format_version >= 5:
+		if data.get("building_instances") is not Array or data.building_instances.size() > CityLayout.MAX_SLOTS:
+			return false
+		for instance in data.building_instances:
+			if instance is not Dictionary:
+				return false
+			var building_type := str(instance.get("type", ""))
+			if not era.buildings.has(building_type) or instance.get("id") is not String or instance.get("slot_id") is not String:
+				return false
+			if not valid_number(instance.get("level"), 1.0, float(era.buildings[building_type].max)):
 				return false
 	for roster_key in ["units", "wounded"]:
 		if data.has(roster_key) and not valid_numeric_map(data[roster_key], era.units.keys(), 0.0, 10000.0):

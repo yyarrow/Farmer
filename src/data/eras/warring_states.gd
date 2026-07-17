@@ -8,10 +8,10 @@ const NEXT_ID := "qin"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "县聚", "slots": 6, "advance_target": 190, "view_scale": 1.00},
-	{"level": 2, "name": "戍邑", "slots": 7, "advance_target": 300, "view_scale": 1.08},
-	{"level": 3, "name": "县城", "slots": 8, "advance_target": 420, "view_scale": 1.16},
-	{"level": 4, "name": "郡治", "slots": 9, "advance_target": 555, "view_scale": 1.24},
-	{"level": 5, "name": "雄城", "slots": 10, "advance_target": 700, "view_scale": 1.32},
+	{"level": 2, "name": "戍邑", "slots": 9, "advance_target": 300, "view_scale": 1.08},
+	{"level": 3, "name": "县城", "slots": 12, "advance_target": 420, "view_scale": 1.16},
+	{"level": 4, "name": "郡治", "slots": 12, "advance_target": 555, "view_scale": 1.24},
+	{"level": 5, "name": "雄城", "slots": 12, "advance_target": 700, "view_scale": 1.32},
 ]
 
 const ERA_GROWTH := {
@@ -24,7 +24,7 @@ const ERA_GROWTH := {
 	"patrol_victory": 12,
 }
 
-const VISUAL := {"tint": Color("#fff4e4"), "background": "res://assets/art/city_warring_states.png", "map_hint": "战国城郭已扩展，可左右拖动巡视", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#963e35"), "motif": "rammed_earth"}}
+const VISUAL := {"tint": Color("#fff4e4"), "background": "res://assets/art/city_warring_states_skeleton.png", "map_hint": "战国城郭已扩展，可左右拖动巡视", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#963e35"), "motif": "rammed_earth"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

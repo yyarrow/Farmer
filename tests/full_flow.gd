@@ -198,8 +198,12 @@ func _run() -> void:
 
 	# The standing defense order is a persisted battle input shared by forecast and combat.
 	state.units = {"militia": 25, "archer": 15, "chariot": 0}
-	state.buildings.wall = 1
-	state.buildings.barracks = 3
+	_fill_resources(state)
+	state.upgrade_building("wall")
+	for _level in 3:
+		state.upgrade_building("barracks")
+	for resource in state.resources:
+		state.resources[resource] = state.get_capacity(resource) * 0.40
 	var steady_forecast: Dictionary = state.get_battle_forecast(400)
 	_check(state.set_defense_order("volley"), "select archer formation")
 	var volley_forecast: Dictionary = state.get_battle_forecast(400)

@@ -32,12 +32,16 @@ func _run() -> void:
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
 	_check(_has_label_containing(ui.content_box, "里聚 · 建筑用地 4 / 6"), "building page explains occupied and available city lots")
 	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
+	var initial_farm: Dictionary = state.get_building_instances_of_type("farm")[0]
+	ui._on_city_building_selected(str(initial_farm.id))
+	await process_frame
 	_check(_has_label_containing(ui.content_box, "本季产出 20.0 → 40.0石/日"), "building card exposes the actual current and next production")
 	ui.current_tab = 1
 	ui._render_tab()
 	await process_frame
 	_check(_has_label_containing(ui.content_box, "粮 360 / 2000石"), "ledger exposes current storage against capacity")
 	ui.current_tab = 0
+	ui._on_city_slot_selected("slot_04")
 	ui._render_tab()
 	await process_frame
 	var advice: Dictionary = ui._opening_guidance()
@@ -334,27 +338,34 @@ func _run() -> void:
 	_check(ui.modal_layer == null, "back cancels exit confirmation")
 	_check(state.get_effective_time_speed() == 1.0, "canceling exit restores selected speed")
 	state.set_time_speed(0.0)
-	for id in state.BUILDINGS:
-		state.buildings[id] = 5
+	for instance in state.building_instances:
+		instance.level = 5
+	state._rebuild_building_totals()
 	state.changed.emit()
 	state.visual_event.emit("chapter", {"chapter": 3})
 	await process_frame
 	await process_frame
 	_check(state.get_prosperity() > 100, "city visuals accept max state")
 	var visuals = ui.city_visual_layer
-	_check(visuals.displayed_stages.farm == 3 and visuals.master_banners.farm.visible, "level five building has final art and master banner")
+	_check(visuals.slot_buttons["slot_01"].mouse_filter == Control.MOUSE_FILTER_PASS, "slot taps allow horizontal city drags to continue")
+	var farm_instance: Dictionary = state.get_building_instances_of_type("farm")[0]
+	var farm_id := str(farm_instance.id)
+	_check(visuals.building_buttons[farm_id].mouse_filter == Control.MOUSE_FILTER_PASS, "building taps allow horizontal city drags to continue")
+	_check(visuals.displayed_stages[farm_id] == 3 and str(visuals.building_labels[farm_id].text).contains("冠"), "level five building has final art and master mark")
 	var level_signatures := {}
-	for level in 6:
-		state.buildings.farm = level
+	for level in range(1, 6):
+		farm_instance.level = level
+		state._rebuild_building_totals()
 		visuals._refresh_buildings()
-		var signature := "%d/%.2f/%s/%s" % [visuals.displayed_stages.farm, visuals.building_views.farm.scale.x, visuals.veteran_banners.farm.visible, visuals.master_banners.farm.visible]
+		var signature := "%d/%.2f/%s" % [visuals.displayed_stages[farm_id], visuals.building_views[farm_id].scale.x, visuals.building_labels[farm_id].text]
 		level_signatures[signature] = true
-	_check(level_signatures.size() == 6, "all six building levels have distinct persistent appearances")
-	state.buildings.farm = 3
+	_check(level_signatures.size() == 5, "all five instance levels have distinct persistent appearances")
+	farm_instance.level = 3
+	state._rebuild_building_totals()
 	state.changed.emit()
 	await process_frame
-	_check(visuals.displayed_stages.farm == 2 and visuals.veteran_banners.farm.visible and not visuals.master_banners.farm.visible, "level three has distinct veteran appearance")
-	_check(absf(float(visuals.building_views.farm.scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
+	_check(visuals.displayed_stages[farm_id] == 2 and str(visuals.building_labels[farm_id].text).contains("精"), "level three has distinct veteran appearance")
+	_check(absf(float(visuals.building_views[farm_id].scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
 	state.buffs = {"farm_until": state.current_day + 2, "all_until": state.current_day + 2}
 	state.units = {"militia": 35, "archer": 10, "chariot": 5}
 	state.defense_order = "sally"

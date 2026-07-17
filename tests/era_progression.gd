@@ -28,8 +28,15 @@ func _run() -> void:
 		state.buildings[id] = 3
 	_fill_resources(state)
 	_check(state.advance_chapter(), "prosperous village advances to a city")
-	_check(state.chapter == 2 and state.get_building_slot_count() == 7 and state.get_open_building_slots() == 1, "city level opens exactly one new lot")
+	_check(state.chapter == 2 and state.get_building_slot_count() == 9 and state.get_open_building_slots() == 3, "Spring and Autumn mid-tier city opens three new lots")
 	_check(state.upgrade_building("market"), "newly opened lot accepts construction")
+	var duplicate_slot := "slot_08"
+	_check(state.place_building("farm", duplicate_slot), "repeatable building types can occupy a second lot")
+	_check(int(state.buildings.farm) == 2 and state.get_built_building_count() == 8, "duplicate farm contributes its own level and consumes one lot")
+	var duplicate_farm: Dictionary = state.get_building_at_slot(duplicate_slot)
+	_check(state.move_building_instance(str(duplicate_farm.id), "slot_09"), "placed building can move between open lots")
+	_check(state.get_building_at_slot(duplicate_slot).is_empty() and str(state.get_building_at_slot("slot_09").id) == str(duplicate_farm.id), "moving preserves identity and frees the old lot")
+	_check(not state.place_building("wall", duplicate_slot), "unique city wall cannot be placed twice")
 
 	var progress_before_day := int(state.era_progress)
 	state.current_day = 1
@@ -50,13 +57,14 @@ func _run() -> void:
 	_check(state.UNITS.militia.name == "甲士" and state.UNITS.archer.name == "劲弩士" and state.UNITS.chariot.name == "轻骑", "unit catalog is era-configured")
 	_check(state.BUILDINGS.barracks.name == "武备营" and state.RESOURCE_UNITS.stone.name == "版筑料", "building and resource labels are era-configured")
 	_check(state.population == population_before and state.units == army_before and state.chapter == city_before, "era transition preserves residents, army, and city level")
+	_check(state.get_building_slot_count() == 12 and state.get_open_building_slots() == 4, "era transition never relocks occupied city lots")
 	_check(state.era_progress == 0 and state.get_max_city_level() == 5 and is_equal_approx(state.get_city_view_scale(), 1.16), "new era resets its track and extends city growth")
 
 	var warring_snapshot: Dictionary = state.get_snapshot()
-	_check(state._is_valid_save_data(warring_snapshot), "Warring States snapshot passes v4 validation")
+	_check(state._is_valid_save_data(warring_snapshot), "Warring States snapshot passes v5 validation")
 	state.reset_game()
 	state._apply_snapshot(warring_snapshot, false)
-	_check(state.era_id == "warring_states" and state.UNITS.militia.name == "甲士", "v4 load restores the saved era before its catalogs")
+	_check(state.era_id == "warring_states" and state.UNITS.militia.name == "甲士", "v5 load restores the saved era before its catalogs")
 	state.chapter = 5
 	state.era_progress = state.get_era_progress_target()
 	_normalize_resources(state)
@@ -142,7 +150,8 @@ func _run() -> void:
 	v3_snapshot.erase("era_progress")
 	v3_snapshot.erase("city_level")
 	var migrated: Dictionary = state._upgrade_snapshot(v3_snapshot)
-	_check(int(migrated.format_version) == 4 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era")
+	_check(int(migrated.format_version) == 5 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era")
+	_check(migrated.building_instances is Array and migrated.building_instances.size() == 4, "legacy buildings migrate into placed instances")
 	_check(int(migrated.city_level) == int(migrated.chapter) and int(migrated.era_progress) > 0, "migration derives city and era progress")
 	_check(state._is_valid_save_data(migrated), "migrated save passes current validation")
 
@@ -179,6 +188,7 @@ func _check_era_definitions() -> void:
 		_check(era.initial_buildings.keys() == era.buildings.keys(), "%s building defaults match catalog" % era_id)
 		_check(era.initial_units.keys() == era.units.keys() and era.empty_units.keys() == era.units.keys(), "%s unit rosters match catalog" % era_id)
 		_check(ResourceLoader.exists(str(era.visual.background)), "%s era background exists" % era_id)
+		_check(str(era.visual.background).contains("_skeleton.png"), "%s uses a no-building skeleton background" % era_id)
 		for term in ["population", "army_registry", "ledger_title", "military_title", "governance_title", "era_progress"]:
 			_check(not str(era.terms.get(term, "")).is_empty(), "%s defines visible term %s" % [era_id, term])
 		_check(era.logistics.load.keys() == era.units.keys(), "%s logistics load matches unit roles" % era_id)
@@ -192,6 +202,8 @@ func _check_era_definitions() -> void:
 			var city: Dictionary = era.city_levels[level_index]
 			_check(int(city.level) == level_index + 1 and int(city.slots) >= previous_slots, "%s city levels are ordered and never lose lots" % era_id)
 			previous_slots = int(city.slots)
+		_check(int(era.city_levels[0].slots) == 6 and int(era.city_levels[1].slots) == 9 and int(era.city_levels[2].slots) == 12, "%s unlocks lots globally as 6, 9, 12" % era_id)
+		_check(previous_slots == 12, "%s highest city level opens all twelve lots" % era_id)
 	var expected_chain := ["spring_autumn", "warring_states", "qin", "han", "three_kingdoms", "jin", "northern_southern", "sui", "tang", "five_dynasties", "song", "yuan", "ming", "qing"]
 	_check(EraRegistry.ORDER == expected_chain, "era chain order is explicit")
 	for index in expected_chain.size() - 1:

@@ -47,8 +47,12 @@ func _run() -> void:
 	ui._render_tab()
 	state.attack_wave = 2
 	state.chapter = 3
-	for id in state.BUILDINGS:
-		state.buildings[id] = 5
+	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "wall", "farm", "house", "warehouse", "barracks"]
+	var showcase_instances := []
+	for index in showcase_types.size():
+		showcase_instances.append({"id": "showcase_%02d" % (index + 1), "type": showcase_types[index], "level": 5, "slot_id": "slot_%02d" % (index + 1)})
+	state._normalize_building_instances(showcase_instances)
+	ui._render_tab()
 	for capture in [[1, "spring"], [25, "autumn"], [37, "winter"]]:
 		state.current_day = int(capture[0])
 		state.next_attack_day = state.current_day + 6

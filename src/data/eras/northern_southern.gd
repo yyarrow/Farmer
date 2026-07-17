@@ -8,14 +8,14 @@ const NEXT_ID := "sui"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "三长里", "slots": 6, "advance_target": 390, "view_scale": 1.00},
-	{"level": 2, "name": "镇戍县", "slots": 7, "advance_target": 600, "view_scale": 1.11},
-	{"level": 3, "name": "州镇", "slots": 8, "advance_target": 825, "view_scale": 1.22},
-	{"level": 4, "name": "军府城", "slots": 9, "advance_target": 1065, "view_scale": 1.32},
-	{"level": 5, "name": "南北雄镇", "slots": 10, "advance_target": 1320, "view_scale": 1.42},
+	{"level": 2, "name": "镇戍县", "slots": 9, "advance_target": 600, "view_scale": 1.11},
+	{"level": 3, "name": "州镇", "slots": 12, "advance_target": 825, "view_scale": 1.22},
+	{"level": 4, "name": "军府城", "slots": 12, "advance_target": 1065, "view_scale": 1.32},
+	{"level": 5, "name": "南北雄镇", "slots": 12, "advance_target": 1320, "view_scale": 1.42},
 ]
 
 const ERA_GROWTH := {"target": 2700, "minimum_city_level": 5, "daily": 10, "building_base": 27, "city_level": 140, "battle_victory": 106, "patrol_victory": 22}
-const VISUAL := {"tint": Color("#dce7e4"), "background": "res://assets/art/city_northern_southern.png", "map_hint": "北朝镇城纵深开阔，可左右拖动巡视均田、关市、镇仓与军府马苑", "identity": {"earth": Color(0.43, 0.34, 0.24, 0.70), "standard": Color("#a0523c"), "motif": "cataphract"}}
+const VISUAL := {"tint": Color("#dce7e4"), "background": "res://assets/art/city_northern_southern_skeleton.png", "map_hint": "北朝镇城纵深开阔，可左右拖动巡视均田、关市、镇仓与军府马苑", "identity": {"earth": Color(0.43, 0.34, 0.24, 0.70), "standard": Color("#a0523c"), "motif": "cataphract"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

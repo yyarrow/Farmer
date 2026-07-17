@@ -6,8 +6,8 @@ const NEXT_ID := "warring_states"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "里聚", "slots": 6, "advance_target": 140, "view_scale": 1.00},
-	{"level": 2, "name": "邑城", "slots": 7, "advance_target": 235, "view_scale": 1.08},
-	{"level": 3, "name": "大邑", "slots": 8, "advance_target": 340, "view_scale": 1.16},
+	{"level": 2, "name": "邑城", "slots": 9, "advance_target": 235, "view_scale": 1.08},
+	{"level": 3, "name": "大邑", "slots": 12, "advance_target": 340, "view_scale": 1.16},
 ]
 
 const ERA_GROWTH := {
@@ -20,7 +20,7 @@ const ERA_GROWTH := {
 	"patrol_victory": 10,
 }
 
-const VISUAL := {"tint": Color("#ffffff"), "background": "res://assets/art/city_spring.png", "map_hint": "左右拖动巡视城郭"}
+const VISUAL := {"tint": Color("#ffffff"), "background": "res://assets/art/city_spring_skeleton.png", "map_hint": "左右拖动巡视城郭"}
 
 const SEASONS := [
 	{"id": "spring", "name": "春", "grain": 1.00, "wood": 1.00, "stone": 0.90, "coins": 1.00, "food": 1.00},

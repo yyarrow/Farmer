@@ -8,15 +8,15 @@ const NEXT_ID := "ming"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "屯聚", "slots": 6, "advance_target": 570, "view_scale": 1.00},
-	{"level": 2, "name": "县治", "slots": 7, "advance_target": 870, "view_scale": 1.13},
-	{"level": 3, "name": "路城", "slots": 8, "advance_target": 1185, "view_scale": 1.25},
-	{"level": 4, "name": "行省治所", "slots": 9, "advance_target": 1515, "view_scale": 1.35},
-	{"level": 5, "name": "漕运重镇", "slots": 10, "advance_target": 1860, "view_scale": 1.45},
+	{"level": 2, "name": "县治", "slots": 9, "advance_target": 870, "view_scale": 1.13},
+	{"level": 3, "name": "路城", "slots": 12, "advance_target": 1185, "view_scale": 1.25},
+	{"level": 4, "name": "行省治所", "slots": 12, "advance_target": 1515, "view_scale": 1.35},
+	{"level": 5, "name": "漕运重镇", "slots": 12, "advance_target": 1860, "view_scale": 1.45},
 ]
 
 const ERA_GROWTH := {"target": 2950, "minimum_city_level": 5, "daily": 15, "building_base": 37, "city_level": 200, "battle_victory": 146, "patrol_victory": 32}
 const BATTLE_PACING := {"attack_interval_bonus": 1, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#d9e4df"), "background": "res://assets/art/city_yuan.png", "map_hint": "元代路城沟通草原与漕河，可左右拖动巡视屯田、站赤马院、官仓、诸色户坊和万户府", "identity": {"earth": Color(0.35, 0.39, 0.38, 0.74), "standard": Color("#327174"), "motif": "steppe_station"}}
+const VISUAL := {"tint": Color("#d9e4df"), "background": "res://assets/art/city_yuan_skeleton.png", "map_hint": "元代路城沟通草原与漕河，可左右拖动巡视屯田、站赤马院、官仓、诸色户坊和万户府", "identity": {"earth": Color(0.35, 0.39, 0.38, 0.74), "standard": Color("#327174"), "motif": "steppe_station"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

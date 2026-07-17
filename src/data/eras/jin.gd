@@ -8,14 +8,14 @@ const NEXT_ID := "northern_southern"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "侨置里", "slots": 6, "advance_target": 350, "view_scale": 1.00},
-	{"level": 2, "name": "坞壁县", "slots": 7, "advance_target": 540, "view_scale": 1.11},
-	{"level": 3, "name": "州郡治", "slots": 8, "advance_target": 745, "view_scale": 1.21},
-	{"level": 4, "name": "都督府", "slots": 9, "advance_target": 965, "view_scale": 1.31},
-	{"level": 5, "name": "江防雄镇", "slots": 10, "advance_target": 1200, "view_scale": 1.41},
+	{"level": 2, "name": "坞壁县", "slots": 9, "advance_target": 540, "view_scale": 1.11},
+	{"level": 3, "name": "州郡治", "slots": 12, "advance_target": 745, "view_scale": 1.21},
+	{"level": 4, "name": "都督府", "slots": 12, "advance_target": 965, "view_scale": 1.31},
+	{"level": 5, "name": "江防雄镇", "slots": 12, "advance_target": 1200, "view_scale": 1.41},
 ]
 
 const ERA_GROWTH := {"target": 2450, "minimum_city_level": 5, "daily": 9, "building_base": 25, "city_level": 128, "battle_victory": 98, "patrol_victory": 20}
-const VISUAL := {"tint": Color("#eee5dc"), "background": "res://assets/art/city_jin.png", "map_hint": "晋代州城临河铺展，可左右拖动巡视坞壁、津市与都督军府", "identity": {"earth": Color(0.38, 0.30, 0.25, 0.66), "standard": Color("#95594c"), "motif": "river_gate"}}
+const VISUAL := {"tint": Color("#eee5dc"), "background": "res://assets/art/city_jin_skeleton.png", "map_hint": "晋代州城临河铺展，可左右拖动巡视坞壁、津市与都督军府", "identity": {"earth": Color(0.38, 0.30, 0.25, 0.66), "standard": Color("#95594c"), "motif": "river_gate"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

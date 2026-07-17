@@ -8,15 +8,15 @@ const NEXT_ID := ""
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "保甲村", "slots": 6, "advance_target": 630, "view_scale": 1.00},
-	{"level": 2, "name": "县城", "slots": 7, "advance_target": 960, "view_scale": 1.13},
-	{"level": 3, "name": "府城", "slots": 8, "advance_target": 1305, "view_scale": 1.25},
-	{"level": 4, "name": "道治", "slots": 9, "advance_target": 1665, "view_scale": 1.35},
-	{"level": 5, "name": "边疆重镇", "slots": 10, "advance_target": 2040, "view_scale": 1.45},
+	{"level": 2, "name": "县城", "slots": 9, "advance_target": 960, "view_scale": 1.13},
+	{"level": 3, "name": "府城", "slots": 12, "advance_target": 1305, "view_scale": 1.25},
+	{"level": 4, "name": "道治", "slots": 12, "advance_target": 1665, "view_scale": 1.35},
+	{"level": 5, "name": "边疆重镇", "slots": 12, "advance_target": 2040, "view_scale": 1.45},
 ]
 
 const ERA_GROWTH := {"target": 3300, "minimum_city_level": 5, "daily": 17, "building_base": 41, "city_level": 224, "battle_victory": 162, "patrol_victory": 36}
 const BATTLE_PACING := {"attack_interval_bonus": 2, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#e4dfd4"), "background": "res://assets/art/city_qing.png", "map_hint": "清代边疆重镇依驿路设置粮台，可左右拖动巡视屯田、常平仓、商埠、绿营汛署和砖城炮台", "identity": {"earth": Color(0.36, 0.37, 0.39, 0.78), "standard": Color("#334f78"), "motif": "banner_bastion"}}
+const VISUAL := {"tint": Color("#e4dfd4"), "background": "res://assets/art/city_qing_skeleton.png", "map_hint": "清代边疆重镇依驿路设置粮台，可左右拖动巡视屯田、常平仓、商埠、绿营汛署和砖城炮台", "identity": {"earth": Color(0.36, 0.37, 0.39, 0.78), "standard": Color("#334f78"), "motif": "banner_bastion"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

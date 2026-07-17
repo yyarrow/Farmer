@@ -8,14 +8,14 @@ const NEXT_ID := "han"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "亭聚", "slots": 6, "advance_target": 230, "view_scale": 1.00},
-	{"level": 2, "name": "乡邑", "slots": 7, "advance_target": 360, "view_scale": 1.09},
-	{"level": 3, "name": "县治", "slots": 8, "advance_target": 505, "view_scale": 1.18},
-	{"level": 4, "name": "郡县", "slots": 9, "advance_target": 665, "view_scale": 1.27},
-	{"level": 5, "name": "关塞重城", "slots": 10, "advance_target": 840, "view_scale": 1.36},
+	{"level": 2, "name": "乡邑", "slots": 9, "advance_target": 360, "view_scale": 1.09},
+	{"level": 3, "name": "县治", "slots": 12, "advance_target": 505, "view_scale": 1.18},
+	{"level": 4, "name": "郡县", "slots": 12, "advance_target": 665, "view_scale": 1.27},
+	{"level": 5, "name": "关塞重城", "slots": 12, "advance_target": 840, "view_scale": 1.36},
 ]
 
 const ERA_GROWTH := {"target": 1700, "minimum_city_level": 5, "daily": 6, "building_base": 19, "city_level": 92, "battle_victory": 74, "patrol_victory": 14}
-const VISUAL := {"tint": Color("#f0dfce"), "background": "res://assets/art/city_qin.png", "map_hint": "秦制县城纵深更广，可左右拖动巡视县廷与传舍", "identity": {"earth": Color(0.20, 0.17, 0.15, 0.72), "standard": Color("#26211f"), "motif": "qin_road"}}
+const VISUAL := {"tint": Color("#f0dfce"), "background": "res://assets/art/city_qin_skeleton.png", "map_hint": "秦制县城纵深更广，可左右拖动巡视县廷与传舍", "identity": {"earth": Color(0.20, 0.17, 0.15, 0.72), "standard": Color("#26211f"), "motif": "qin_road"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

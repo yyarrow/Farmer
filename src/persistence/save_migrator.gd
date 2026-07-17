@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CityLayout = preload("res://src/data/city_layout.gd")
+
 static func upgrade(
 	data: Dictionary,
 	format_version: int,
@@ -48,6 +50,22 @@ static func upgrade(
 		upgraded.era_progress = mini(int(default_era.era_growth.target), estimated_progress)
 		upgraded.city_level = city_level
 		upgraded.chapter = city_level
+	if from_version < 5:
+		var instances := []
+		var slot_index := 0
+		var saved_buildings: Dictionary = upgraded.get("buildings", {})
+		for building_type in saved_buildings:
+			var level := int(saved_buildings[building_type])
+			if level <= 0 or slot_index >= CityLayout.MAX_SLOTS:
+				continue
+			instances.append({
+				"id": "building_%04d" % (slot_index + 1),
+				"type": str(building_type),
+				"level": level,
+				"slot_id": str(CityLayout.SLOTS[slot_index].id),
+			})
+			slot_index += 1
+		upgraded.building_instances = instances
 	upgraded.format_version = format_version
 	return {"data": upgraded, "migrated": true, "from": from_version}
 

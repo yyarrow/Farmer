@@ -8,14 +8,14 @@ const NEXT_ID := "song"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "军镇聚", "slots": 6, "advance_target": 510, "view_scale": 1.00},
-	{"level": 2, "name": "防御州", "slots": 7, "advance_target": 780, "view_scale": 1.13},
-	{"level": 3, "name": "节镇州城", "slots": 8, "advance_target": 1065, "view_scale": 1.25},
-	{"level": 4, "name": "留后府", "slots": 9, "advance_target": 1365, "view_scale": 1.35},
-	{"level": 5, "name": "藩镇雄城", "slots": 10, "advance_target": 1680, "view_scale": 1.45},
+	{"level": 2, "name": "防御州", "slots": 9, "advance_target": 780, "view_scale": 1.13},
+	{"level": 3, "name": "节镇州城", "slots": 12, "advance_target": 1065, "view_scale": 1.25},
+	{"level": 4, "name": "留后府", "slots": 12, "advance_target": 1365, "view_scale": 1.35},
+	{"level": 5, "name": "藩镇雄城", "slots": 12, "advance_target": 1680, "view_scale": 1.45},
 ]
 
 const ERA_GROWTH := {"target": 3450, "minimum_city_level": 5, "daily": 13, "building_base": 33, "city_level": 176, "battle_victory": 130, "patrol_victory": 28}
-const VISUAL := {"tint": Color("#e8dfd3"), "background": "res://assets/art/city_five_dynasties.png", "map_hint": "五代藩镇层层设防，可左右拖动巡视牙城、转运仓、州市和修筑不断的外郭", "identity": {"earth": Color(0.34, 0.31, 0.28, 0.72), "standard": Color("#6d4035"), "motif": "commandery"}}
+const VISUAL := {"tint": Color("#e8dfd3"), "background": "res://assets/art/city_five_dynasties_skeleton.png", "map_hint": "五代藩镇层层设防，可左右拖动巡视牙城、转运仓、州市和修筑不断的外郭", "identity": {"earth": Color(0.34, 0.31, 0.28, 0.72), "standard": Color("#6d4035"), "motif": "commandery"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

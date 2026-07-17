@@ -8,15 +8,15 @@ const NEXT_ID := "yuan"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "草市镇", "slots": 6, "advance_target": 540, "view_scale": 1.00},
-	{"level": 2, "name": "县城", "slots": 7, "advance_target": 825, "view_scale": 1.13},
-	{"level": 3, "name": "州军城", "slots": 8, "advance_target": 1125, "view_scale": 1.25},
-	{"level": 4, "name": "路府", "slots": 9, "advance_target": 1440, "view_scale": 1.35},
-	{"level": 5, "name": "江淮重镇", "slots": 10, "advance_target": 1770, "view_scale": 1.45},
+	{"level": 2, "name": "县城", "slots": 9, "advance_target": 825, "view_scale": 1.13},
+	{"level": 3, "name": "州军城", "slots": 12, "advance_target": 1125, "view_scale": 1.25},
+	{"level": 4, "name": "路府", "slots": 12, "advance_target": 1440, "view_scale": 1.35},
+	{"level": 5, "name": "江淮重镇", "slots": 12, "advance_target": 1770, "view_scale": 1.45},
 ]
 
 const ERA_GROWTH := {"target": 2850, "minimum_city_level": 5, "daily": 14, "building_base": 35, "city_level": 188, "battle_victory": 138, "patrol_victory": 30}
 const BATTLE_PACING := {"attack_interval_bonus": 1, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#dce8df"), "background": "res://assets/art/city_song.png", "map_hint": "宋代州城沿河开市，可左右拖动巡视圩田、厢坊、转般仓、军寨和城外草市", "identity": {"earth": Color(0.34, 0.40, 0.36, 0.72), "standard": Color("#4f6f68"), "motif": "river_market"}}
+const VISUAL := {"tint": Color("#dce8df"), "background": "res://assets/art/city_song_skeleton.png", "map_hint": "宋代州城沿河开市，可左右拖动巡视圩田、厢坊、转般仓、军寨和城外草市", "identity": {"earth": Color(0.34, 0.40, 0.36, 0.72), "standard": Color("#4f6f68"), "motif": "river_market"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

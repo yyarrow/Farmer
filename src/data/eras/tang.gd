@@ -8,14 +8,14 @@ const NEXT_ID := "five_dynasties"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "乡里", "slots": 6, "advance_target": 470, "view_scale": 1.00},
-	{"level": 2, "name": "县城", "slots": 7, "advance_target": 720, "view_scale": 1.12},
-	{"level": 3, "name": "州治", "slots": 8, "advance_target": 985, "view_scale": 1.24},
-	{"level": 4, "name": "上州城", "slots": 9, "advance_target": 1265, "view_scale": 1.34},
-	{"level": 5, "name": "都护雄城", "slots": 10, "advance_target": 1560, "view_scale": 1.44},
+	{"level": 2, "name": "县城", "slots": 9, "advance_target": 720, "view_scale": 1.12},
+	{"level": 3, "name": "州治", "slots": 12, "advance_target": 985, "view_scale": 1.24},
+	{"level": 4, "name": "上州城", "slots": 12, "advance_target": 1265, "view_scale": 1.34},
+	{"level": 5, "name": "都护雄城", "slots": 12, "advance_target": 1560, "view_scale": 1.44},
 ]
 
 const ERA_GROWTH := {"target": 3200, "minimum_city_level": 5, "daily": 12, "building_base": 31, "city_level": 164, "battle_victory": 122, "patrol_victory": 26}
-const VISUAL := {"tint": Color("#f0e5d6"), "background": "res://assets/art/city_tang.png", "map_hint": "唐代州城坊市开阔，可左右拖动巡视折冲府、漕仓、驿馆与胡商骆驼队", "identity": {"earth": Color(0.45, 0.33, 0.25, 0.66), "standard": Color("#a84635"), "motif": "tang_ward"}}
+const VISUAL := {"tint": Color("#f0e5d6"), "background": "res://assets/art/city_tang_skeleton.png", "map_hint": "唐代州城坊市开阔，可左右拖动巡视折冲府、漕仓、驿馆与胡商骆驼队", "identity": {"earth": Color(0.45, 0.33, 0.25, 0.66), "standard": Color("#a84635"), "motif": "tang_ward"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

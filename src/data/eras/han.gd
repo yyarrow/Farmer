@@ -8,14 +8,14 @@ const NEXT_ID := "three_kingdoms"
 
 const CITY_LEVELS := [
 	{"level": 1, "name": "里邑", "slots": 6, "advance_target": 270, "view_scale": 1.00},
-	{"level": 2, "name": "县城", "slots": 7, "advance_target": 420, "view_scale": 1.10},
-	{"level": 3, "name": "郡治", "slots": 8, "advance_target": 585, "view_scale": 1.20},
-	{"level": 4, "name": "都尉府", "slots": 9, "advance_target": 765, "view_scale": 1.30},
-	{"level": 5, "name": "边郡雄城", "slots": 10, "advance_target": 960, "view_scale": 1.40},
+	{"level": 2, "name": "县城", "slots": 9, "advance_target": 420, "view_scale": 1.10},
+	{"level": 3, "name": "郡治", "slots": 12, "advance_target": 585, "view_scale": 1.20},
+	{"level": 4, "name": "都尉府", "slots": 12, "advance_target": 765, "view_scale": 1.30},
+	{"level": 5, "name": "边郡雄城", "slots": 12, "advance_target": 960, "view_scale": 1.40},
 ]
 
 const ERA_GROWTH := {"target": 1950, "minimum_city_level": 5, "daily": 7, "building_base": 21, "city_level": 105, "battle_victory": 82, "patrol_victory": 16}
-const VISUAL := {"tint": Color("#ffe9cf"), "background": "res://assets/art/city_han.png", "map_hint": "汉郡城坊与厩苑铺展，可左右拖动巡视武库、太仓和传舍", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#a84b39"), "motif": "han_que"}}
+const VISUAL := {"tint": Color("#ffe9cf"), "background": "res://assets/art/city_han_skeleton.png", "map_hint": "汉郡城坊与厩苑铺展，可左右拖动巡视武库、太仓和传舍", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#a84b39"), "motif": "han_que"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {
