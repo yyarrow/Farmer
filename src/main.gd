@@ -435,6 +435,7 @@ func _build_bottom_panel() -> void:
 	content_scroll = ScrollContainer.new()
 	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content_scroll.scroll_deadzone = 10
 	content_scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	layout.add_child(content_scroll)
 	content_box = VBoxContainer.new()
@@ -562,6 +563,13 @@ func _render_tab() -> void:
 		1: _render_market()
 		2: _render_military()
 		3: _render_governance()
+	_allow_content_scroll_gestures(content_box)
+
+func _allow_content_scroll_gestures(control: Control) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_PASS
+	for child in control.get_children():
+		if child is Control:
+			_allow_content_scroll_gestures(child)
 
 func _opening_guidance() -> Dictionary:
 	return OpeningAdvisor.guidance(State)

@@ -27,6 +27,8 @@ func _run() -> void:
 	_check(missing_glyphs.is_empty(), "bundled UI font covers every source glyph: %s" % str(missing_glyphs.keys()))
 	await process_frame
 	_check(ui.content_box != null, "main content built")
+	_check(ui.content_scroll.scroll_deadzone == 10, "content scroll separates taps from intentional drags")
+	_check(_all_controls_pass_scroll_input(ui.content_box), "content cards pass touch drags to their ScrollContainer")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
 	_check(_has_label_containing(ui.content_box, "里聚 · 建筑用地 4 / 6"), "building page explains occupied and available city lots")
 	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
@@ -60,6 +62,7 @@ func _run() -> void:
 		ui._render_tab()
 		await process_frame
 		_check(ui.content_box.get_child_count() > 0, "tab %d renders" % tab)
+		_check(_all_controls_pass_scroll_input(ui.content_box), "tab %d cards preserve touch scrolling" % tab)
 	ui.current_tab = 3
 	ui._render_tab()
 	await process_frame
@@ -431,6 +434,14 @@ func _has_button_containing(parent: Node, text_value: String) -> bool:
 		if str(node.text).contains(text_value):
 			return true
 	return false
+
+func _all_controls_pass_scroll_input(root_node: Node) -> bool:
+	if root_node is Control and root_node.mouse_filter != Control.MOUSE_FILTER_PASS:
+		return false
+	for child in root_node.get_children():
+		if not _all_controls_pass_scroll_input(child):
+			return false
+	return true
 
 func _has_effect_kind(effects: Array[Dictionary], kind: String) -> bool:
 	for effect in effects:
