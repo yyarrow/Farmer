@@ -13,7 +13,7 @@
 - 按兵种结算并在战报中逐项对账的阵亡、伤员、余部与敌损；伤员 2～4 日康复并消耗伤营粮药
 - 旱灾、水患、寒赈、流民、商队、百工、流言、征粮、斥候与丰收十类随机事件，且不会连续重复
 - 城池等级与时代积累两条独立成长线；城池前三阶段依次开放 6、9、12 个建筑槽位，时代更迭不会回收已开放用地
-- 十四个时代均使用独立的无建筑城池骨架；建筑作为可点击、可移动、可重复营造的独立实例放入槽位，主城扩大后可左右拖动巡视
+- 十四个时代均使用独立的无建筑城池骨架与透视锚地；背景空地、点击热区、建筑落脚线和前后遮挡共享同一时代布局，建筑可点击、移动、重复营造，主城扩大后可左右拖动巡视
 - 发展、主动推进日期、巡剿与守城共同积累时代进度；时代更迭保留城池、人口、物资与军队规模
 - 稳定内部兵种/资源 ID 与可配置呈现分离；宋以纲运转般、元以站赤漕运、明以漕运军需、清以驿站粮台，兵种、货币单位、辎重和建筑均随时代换制
 - 离线收益和自动本地存档
@@ -27,7 +27,7 @@
 - 总音量、背景音乐、操作音效、静音和触觉反馈设置，设置写入带损坏恢复且拖动时不反复刷盘
 - 八类建筑六级可辨外观，卡片逐项显示本季产出、仓容、军籍、训练或减伤的当前值与下一阶真实值；建造、升级、买卖、征兵、政令、巡剿、日结、事件和战斗都有对应城景反馈，水利、军民、伤营与近敌状态会持续留在地图上
 - 阵令切换有独立军令鼓点，兵营旗色与士卒队形会持续映射当前守城部署
-- 建筑图按手机实际显示尺寸保留三倍采样精度，降低低端设备常驻纹理与安装包负担
+- 十四时代各有八类建筑的四阶段透明素材，共 112 张时代化成长图；屋制、色彩、地面透视与对应空城骨架一致，并按手机实际显示尺寸保留约三倍采样精度
 - 自动存档、三个手动存档槽及载入、覆盖、删除、重新开始确认；写入采用临时文件与上一版备份，截断、结构损坏或跨字段状态矛盾时自动恢复
 - 完全本地的操作埋点、异常退出检测、引擎日志与诊断报告复制导出
 
@@ -58,6 +58,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/headless_playtest.gd -- --runs=50 --days=1450 --strict
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/ui_smoke.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_city_slots.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3
 python3 tests/audio_assets.py
 python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk

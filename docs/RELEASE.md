@@ -26,6 +26,7 @@ python3 tests/audio_assets.py
 python3 tests/store_assets.py
 python3 tools/android_lint_gate.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_capture.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_city_slots.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
 所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对春秋至清十四时代主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致，时代提示不遮挡商店截图。
@@ -90,7 +91,7 @@ python3 tools/build_release_aab.py --universal-apk
 
 2026年7月17日的`0.12.0`宋元明清候选验证结果：AAB 68.3 MiB，SHA-256 `e898e9942612da553cf65abc54dc2e994c6c3995f662ea96f227ae69ea005c0d`；独立APK 68.3 MiB，SHA-256 `1ac03349cc651518492ac0f39b32f71c54dc3326031632b24a8607aa435efaf8`；上传证书延续为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。AAB通过bundletool、arm64单架构、16 KiB页面对齐与RELRO验证；APK通过版本13/0.12.0、包名、竖屏、权限、签名、主题图标和开发文件排除检查。真实540×960渲染覆盖十四时代，新增宋、元、明、清各一套无遮挡城建/军务画面；四时代十二格专项共36000次战斗推演。四策略共200局×1450日长期严格测试平衡警告0、状态错误0，三条正常路线抵达清均为100%，稳定率为76%—84%，不设防路线抵达清与稳定率均为0%。
 
-2026年7月17日的`0.13.0`自由城建候选验证结果：AAB 95.0 MiB，SHA-256 `936e003893dfee23d0872b77187181b53c8a9c322632b0f971ac3995fc0d73e1`；独立APK 95.1 MiB，SHA-256 `031f10f7eb6adf0956d7454dd0ebd6731e2f782cd9be70e6ab3a55438a3c0f28`；AAB派生通用APK 142.6 MiB，SHA-256 `037584559def53bdad8a122a48d9996c298e228e442dbf8d6c6edba8b152d80a`；上传证书仍为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。三个包均通过签名、权限、arm64单架构、16 KiB页面/ZIP对齐、RELRO、竖屏、主题图标、字体许可和开发文件排除检查，AAB另通过bundletool。真实540×960渲染覆盖十四套无建筑骨架、十二建筑满城、迁建锚点与逐材料状态；四策略共200局×1450日严格长测平衡警告0、状态错误0，三条正常路线抵达清均为100%，稳定率为76%—88%。ADB检查时没有已启动设备；遵守只修改仓库文件的边界，本轮没有启动仓库外AVD，因此不把包结构验收写成模拟器实机证据。
+2026年7月17日的`0.13.0`自由城建与时代美术候选验证结果：AAB 141.4 MiB，SHA-256 `9cb1e1c11e1e1b9d3a4f9b5240e701b3eb0c91f4c50e706b8b53fdb47bee6040`；独立APK 141.5 MiB，SHA-256 `f8c085c690b2664a9e23551b2919aae3b8d135afa73646064e76276c857c79fa`；AAB派生通用APK 189.0 MiB，SHA-256 `71b7bdca2b841c368eb6e06cc0a1e74c59d61021ae3040c9c6f9c1fe2b02b26a`；上传证书仍为SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。三个包均通过签名、权限、arm64单架构、16 KiB页面/ZIP对齐、RELRO、竖屏、主题图标、字体许可和开发文件排除检查，AAB另通过bundletool，Android lint通过固定20条模板警告闸门。运行时包含十四时代×八建筑的112张四阶段透明素材，单阶段384 px、约为最大屏幕显示的三倍。真实540×960渲染除完整界面回归外，另生成十四时代的空城、六建筑和十二建筑共42张锚地验收图，背景地块、点击热区、落脚线、透视方向和HUD层级共享布局并逐时代核对。四策略共200局×1450日严格长测平衡警告0、状态错误0，三条正常路线抵达清均为100%，稳定率为76%—88%。ADB检查时没有已启动设备；遵守只修改仓库文件的边界，本轮没有启动仓库外AVD，因此不把包结构验收写成模拟器实机证据。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 

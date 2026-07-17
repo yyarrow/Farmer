@@ -365,7 +365,7 @@ func _run() -> void:
 	state.changed.emit()
 	await process_frame
 	_check(visuals.displayed_stages[farm_id] == 2 and str(visuals.building_labels[farm_id].text).contains("精"), "level three has distinct veteran appearance")
-	_check(absf(float(visuals.building_views[farm_id].scale.x) - 1.02) < 0.001, "each building level has a distinct scale")
+	_check(absf(float(visuals.building_views[farm_id].scale.x) - 1.0) < 0.001, "each building level has a restrained distinct scale")
 	state.buffs = {"farm_until": state.current_day + 2, "all_until": state.current_day + 2}
 	state.units = {"militia": 35, "archer": 10, "chariot": 5}
 	state.defense_order = "sally"

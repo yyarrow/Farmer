@@ -10,7 +10,7 @@ flowchart TD
     State --> Era["data/era_schema.gd + data/eras/\n时代规范与配置"]
     State --> Systems["systems/\n经济、战斗、发展纯规则"]
     State --> Persistence["persistence/\n原子写入、校验、迁移"]
-    Visuals --> Layout["data/city_layout.gd\n坐标与尺寸"]
+    Visuals --> Layout["data/city_layout.gd\n时代锚地与透视地面"]
 ```
 
 ## 边界
@@ -22,7 +22,7 @@ flowchart TD
 - `src/systems/`：不读取全局单例的纯规则。经济账本、容量、交易、战斗和繁荣度均可无界面调用。
 - `src/persistence/`：存档文件原子替换和备份恢复、结构/跨字段校验、旧版本迁移；`State` 只保留兼容门面和错误埋点。
 - `src/ui/`：统一颜色与组件、数值文案格式化、首战状态引导；`main.gd` 负责页面生命周期和交互连接。
-- `src/data/city_layout.gd`：十四张空城骨架共用的十二槽位布局、默认迁移落点和反馈锚点；建筑实例的槽位是运行时位置真相。
+- `src/data/city_layout.gd`：保存稳定的十二槽位 ID，以及十四张空城骨架各自的锚点网格、地面透视轴、占地、落脚线、行深度和默认迁移落点；背景空地、点击热区、建筑图与选中反馈都从这里解析，建筑实例的槽位是运行时位置真相。
 
 ## 扩展约束
 

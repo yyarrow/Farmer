@@ -1,6 +1,7 @@
 extends SceneTree
 
 const EraRegistry = preload("res://src/data/era_registry.gd")
+const CityLayout = preload("res://src/data/city_layout.gd")
 
 var failures: Array[String] = []
 
@@ -189,6 +190,18 @@ func _check_era_definitions() -> void:
 		_check(era.initial_units.keys() == era.units.keys() and era.empty_units.keys() == era.units.keys(), "%s unit rosters match catalog" % era_id)
 		_check(ResourceLoader.exists(str(era.visual.background)), "%s era background exists" % era_id)
 		_check(str(era.visual.background).contains("_skeleton.png"), "%s uses a no-building skeleton background" % era_id)
+		var anchors := {}
+		for slot_definition in CityLayout.SLOTS:
+			var slot: Dictionary = CityLayout.slot(str(slot_definition.id), era_id)
+			var anchor: Vector2 = slot.anchor
+			anchors[anchor] = true
+			_check(slot.plot_polygon.size() == 4, "%s %s defines a perspective ground plane" % [era_id, slot.id])
+			_check(anchor.x >= 0.0 and anchor.x <= 540.0 and anchor.y >= 184.0 and anchor.y <= 500.0, "%s %s anchor stays inside the visible city" % [era_id, slot.id])
+			_check(Vector2(slot.art_anchor).y > anchor.y and int(slot.z) in [1, 2, 3], "%s %s art foot and row depth follow its lot" % [era_id, slot.id])
+		_check(anchors.size() == CityLayout.MAX_SLOTS, "%s keeps twelve distinct painted lot anchors" % era_id)
+		for building_id in era.buildings:
+			var art_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [era_id, building_id]
+			_check(ResourceLoader.exists(art_path), "%s %s has era-matched four-stage art" % [era_id, building_id])
 		for term in ["population", "army_registry", "ledger_title", "military_title", "governance_title", "era_progress"]:
 			_check(not str(era.terms.get(term, "")).is_empty(), "%s defines visible term %s" % [era_id, term])
 		_check(era.logistics.load.keys() == era.units.keys(), "%s logistics load matches unit roles" % era_id)
