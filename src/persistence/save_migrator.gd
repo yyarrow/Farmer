@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CityLayout = preload("res://src/data/city_layout.gd")
+const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
 
 static func upgrade(
 	data: Dictionary,
@@ -72,6 +73,14 @@ static func upgrade(
 		upgraded.building_instances = CityLayout.repair_instance_layout(
 			upgraded.get("building_instances", []), unlocked_count
 		)
+	if from_version < 8:
+		var city_level := clampi(int(upgraded.get("city_level", upgraded.get("chapter", 1))), 1, 5)
+		var unlocked_count := 6 if city_level == 1 else (9 if city_level == 2 else 12)
+		var previous_instances: Array = upgraded.get("building_instances", [])
+		var arranged := PlacementSolver.arrange(previous_instances, unlocked_count)
+		if arranged.size() != previous_instances.size():
+			return {"data": {}, "migrated": false, "from": from_version}
+		upgraded.building_instances = arranged
 	upgraded.format_version = format_version
 	return {"data": upgraded, "migrated": true, "from": from_version}
 

@@ -51,7 +51,12 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 				return false
 			if int(data.get("format_version", 1)) >= 6:
 				var origin := CityLayout.origin_from_value(instance.get("grid_origin", []))
-				if not CityLayout.can_place(building_type, origin, placed, unlocked_slots):
+				var placement_valid := (
+					CityLayout.can_place_visually(building_type, origin, placed, unlocked_slots)
+					if int(data.get("format_version", 1)) >= 8
+					else CityLayout.can_place(building_type, origin, placed, unlocked_slots)
+				)
+				if not placement_valid:
 					return false
 				placed.append(instance)
 			else:

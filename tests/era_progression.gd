@@ -163,7 +163,7 @@ func _run() -> void:
 	v3_snapshot.erase("era_progress")
 	v3_snapshot.erase("city_level")
 	var migrated: Dictionary = state._upgrade_snapshot(v3_snapshot)
-	_check(int(migrated.format_version) == 7 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era")
+	_check(int(migrated.format_version) == 8 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era and visual layout")
 	_check(migrated.building_instances is Array and migrated.building_instances.size() == 4, "legacy buildings migrate into placed instances")
 	_check(migrated.building_instances.all(func(instance): return instance.has("grid_origin")), "legacy sockets migrate to grid origins")
 	_check(int(migrated.city_level) == int(migrated.chapter) and int(migrated.era_progress) > 0, "migration derives city and era progress")
