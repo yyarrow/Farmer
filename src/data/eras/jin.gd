@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 2450, "minimum_city_level": 5, "daily": 9, "building_base": 25, "city_level": 128, "battle_victory": 98, "patrol_victory": 20}
-const VISUAL := {"tint": Color("#eee5dc"), "background": "res://assets/art/city_jin_skeleton.png", "map_hint": "晋代州城临河铺展，可左右拖动巡视坞壁、津市与都督军府", "identity": {"earth": Color(0.38, 0.30, 0.25, 0.66), "standard": Color("#95594c"), "motif": "river_gate"}}
+const VISUAL := {"tint": Color("#eee5dc"), "background": "res://assets/art/city_jin_terrain.png", "map_hint": "晋代州城临河铺展，可左右拖动巡视坞壁、津市与都督军府", "identity": {"earth": Color(0.38, 0.30, 0.25, 0.66), "standard": Color("#95594c"), "motif": "river_gate"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

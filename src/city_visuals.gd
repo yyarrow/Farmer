@@ -7,12 +7,12 @@ const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
 
 signal building_selected(instance_id: String)
-signal slot_selected(slot_id: String)
+signal cell_selected(cell: Vector2i)
 
 var building_views := {}
 var building_buttons := {}
 var building_labels := {}
-var slot_buttons := {}
+var ground_input: Control
 var displayed_stages := {}
 var displayed_levels := {}
 var displayed_eras := {}
@@ -20,6 +20,10 @@ var world_state := {}
 var effects: Array[Dictionary] = []
 var selected_instance_id := ""
 var move_instance_id := ""
+var selected_cell := CityLayout.INVALID_ORIGIN
+var hovered_cell := CityLayout.INVALID_ORIGIN
+var _pointer_start := Vector2.ZERO
+var _pointer_down := false
 var _effect_font: Font
 var _production_accum := 0.0
 var _world_time := 0.0
@@ -29,7 +33,7 @@ func _ready() -> void:
 	_effect_font = UiFont.medium()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rng.seed = 884422
-	_build_slot_views()
+	_build_ground_input()
 	State.changed.connect(_refresh_buildings)
 	State.visual_event.connect(play_event)
 	_refresh_buildings()
@@ -43,25 +47,64 @@ func _style(fill: Color, border := Color.TRANSPARENT, width := 0) -> StyleBoxFla
 	style.set_corner_radius_all(10)
 	return style
 
-func _build_slot_views() -> void:
-	for slot_data in CityLayout.SLOTS:
-		var button := Button.new()
-		button.name = str(slot_data.id)
-		button.position = slot_data.position
-		button.size = slot_data.size
-		button.z_index = int(slot_data.z)
-		button.mouse_filter = Control.MOUSE_FILTER_PASS
-		button.focus_mode = Control.FOCUS_NONE
-		button.add_theme_font_size_override("font_size", 12)
-		button.add_theme_color_override("font_color", Color("#f4d98b"))
-		button.add_theme_color_override("font_disabled_color", Color(0.35, 0.31, 0.23, 0.48))
-		var captured_slot := str(slot_data.id)
-		button.pressed.connect(func(): slot_selected.emit(captured_slot))
-		add_child(button)
-		slot_buttons[captured_slot] = button
+func _build_ground_input() -> void:
+	ground_input = Control.new()
+	ground_input.name = "PlacementGround"
+	ground_input.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ground_input.mouse_filter = Control.MOUSE_FILTER_PASS
+	ground_input.z_index = 1
+	ground_input.gui_input.connect(_on_ground_input)
+	add_child(ground_input)
+
+func _on_ground_input(event: InputEvent) -> void:
+	var point := Vector2(-999, -999)
+	if event is InputEventMouseMotion:
+		point = event.position
+	elif event is InputEventScreenDrag:
+		point = event.position
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		point = event.position
+		if event.pressed:
+			_pointer_down = true
+			_pointer_start = point
+		else:
+			var is_tap := _pointer_down and _pointer_start.distance_to(point) <= 12.0
+			_pointer_down = false
+			if is_tap:
+				_select_ground_cell(CityLayout.screen_to_grid(point))
+	elif event is InputEventScreenTouch:
+		point = event.position
+		if event.pressed:
+			_pointer_down = true
+			_pointer_start = point
+		else:
+			var is_tap := _pointer_down and _pointer_start.distance_to(point) <= 18.0
+			_pointer_down = false
+			if is_tap:
+				_select_ground_cell(CityLayout.screen_to_grid(point))
+	if point.x > -900:
+		hovered_cell = CityLayout.screen_to_grid(point)
+		queue_redraw()
+
+func _select_ground_cell(cell: Vector2i) -> void:
+	if not CityLayout.is_cell_unlocked(cell, State.get_building_slot_count()):
+		return
+	var occupied := State.get_building_at_cell(cell)
+	if not occupied.is_empty():
+		building_selected.emit(str(occupied.id))
+		return
+	selected_cell = cell
+	cell_selected.emit(cell)
+	queue_redraw()
 
 func set_selected(instance_id: String) -> void:
 	selected_instance_id = instance_id
+	selected_cell = CityLayout.INVALID_ORIGIN
+	_refresh_buildings()
+
+func set_selected_cell(cell: Vector2i) -> void:
+	selected_cell = cell
+	selected_instance_id = ""
 	_refresh_buildings()
 
 func set_move_mode(instance_id: String) -> void:
@@ -72,6 +115,25 @@ func set_move_mode(instance_id: String) -> void:
 func clear_move_mode() -> void:
 	move_instance_id = ""
 	_refresh_buildings()
+
+func _layout_for_instance(instance: Dictionary) -> Dictionary:
+	var building_type := str(instance.get("type", ""))
+	var origin := CityLayout.instance_origin(instance)
+	if origin == CityLayout.INVALID_ORIGIN or building_type.is_empty():
+		return {}
+	var polygon := CityLayout.footprint_polygon(origin, building_type)
+	var ground_rect := Rect2(polygon[0], Vector2.ZERO)
+	for point in polygon:
+		ground_rect = ground_rect.expand(point)
+	var anchor := CityLayout.art_anchor(origin, building_type)
+	var art_size := Vector2.ONE * 128.0 * CityLayout.art_scale(building_type)
+	return {
+		"origin": origin, "polygon": polygon, "anchor": anchor,
+		"position": ground_rect.position, "size": ground_rect.size,
+		"art_size": art_size,
+		"art_rect": Rect2(anchor - Vector2(art_size.x * 0.5, art_size.y), art_size),
+		"z": 20 + CityLayout.depth(origin, building_type),
+	}
 
 func _create_building_view(instance: Dictionary) -> void:
 	var instance_id := str(instance.id)
@@ -111,10 +173,10 @@ func _sync_instance_views() -> void:
 		active[instance_id] = true
 		if not building_views.has(instance_id):
 			_create_building_view(instance)
-		var slot_data := CityLayout.slot(str(instance.slot_id), State.era_id)
+		var slot_data := _layout_for_instance(instance)
 		var button: Button = building_buttons[instance_id]
-		button.position = slot_data.position
-		button.size = slot_data.size
+		button.position = slot_data.art_rect.position
+		button.size = slot_data.art_rect.size
 		button.pivot_offset = button.size * 0.5
 		button.z_index = int(slot_data.z)
 		var is_selected := selected_instance_id == instance_id
@@ -128,19 +190,20 @@ func _sync_instance_views() -> void:
 			displayed_stages[instance_id] = stage
 			displayed_eras[instance_id] = State.era_id
 			building_views[instance_id].texture = _atlas_for(building_type, stage)
-		var art_size := Vector2.ONE * 128.0 * float(slot_data.art_scale)
+		var art_size: Vector2 = slot_data.art_size
 		var view: TextureRect = building_views[instance_id]
 		view.size = art_size
-		var art_anchor: Vector2 = slot_data.get("art_anchor", slot_data.anchor + Vector2(0, 14))
-		var anchor_in_button := art_anchor - button.position
-		view.position = Vector2(anchor_in_button.x - art_size.x * 0.5, anchor_in_button.y - art_size.y)
+		view.position = Vector2.ZERO
 		view.pivot_offset = art_size * 0.5
 		if displayed_levels.get(instance_id, -1) != level:
 			displayed_levels[instance_id] = level
 			view.scale = Vector2.ONE * _scale_for_level(level)
 		view.modulate = Color(1.0, 1.0, 1.0, 0.96)
 		var rank_mark := " 冠" if level >= 5 else (" 精" if level >= 3 else "")
-		building_labels[instance_id].text = "%s · %s%s" % [State.BUILDINGS[building_type].name, _cn_number(level), rank_mark]
+		var label: Label = building_labels[instance_id]
+		label.position = Vector2(-5, art_size.y - 22)
+		label.size = Vector2(art_size.x + 10, 22)
+		label.text = "%s · %s%s" % [State.BUILDINGS[building_type].name, _cn_number(level), rank_mark]
 		building_labels[instance_id].visible = is_selected
 	for instance_id in building_views.keys():
 		if active.has(instance_id):
@@ -152,27 +215,6 @@ func _sync_instance_views() -> void:
 		displayed_stages.erase(instance_id)
 		displayed_levels.erase(instance_id)
 		displayed_eras.erase(instance_id)
-
-func _sync_slot_views() -> void:
-	var unlocked_count := State.get_building_slot_count()
-	for index in CityLayout.SLOTS.size():
-		var slot_id := str(CityLayout.SLOTS[index].id)
-		var slot_data := CityLayout.slot(slot_id, State.era_id)
-		var button: Button = slot_buttons[slot_id]
-		var occupied := not State.get_building_at_slot(slot_id).is_empty()
-		var unlocked := index < unlocked_count
-		button.position = slot_data.position
-		button.size = slot_data.size
-		button.z_index = int(slot_data.z)
-		button.visible = not occupied
-		button.disabled = not unlocked
-		button.text = "迁" if unlocked and not move_instance_id.is_empty() else ("＋" if unlocked else "")
-		var moving := not move_instance_id.is_empty()
-		var fill := Color(0.20, 0.43, 0.30, 0.12) if moving else Color.TRANSPARENT
-		button.add_theme_stylebox_override("normal", _style(fill))
-		button.add_theme_stylebox_override("hover", _style(Color(0.29, 0.53, 0.36, 0.16)))
-		button.add_theme_stylebox_override("pressed", _style(Color(0.48, 0.67, 0.42, 0.22)))
-		button.add_theme_stylebox_override("disabled", _style(Color.TRANSPARENT))
 
 func _cn_number(value: int) -> String:
 	return ["零", "一", "二", "三", "四", "五"][clampi(value, 0, 5)]
@@ -195,8 +237,8 @@ func _process(delta: float) -> void:
 
 func _refresh_buildings() -> void:
 	_sync_instance_views()
-	_sync_slot_views()
 	_refresh_world_state()
+	queue_redraw()
 
 func _refresh_world_state() -> void:
 	var army_count := State.get_army_count()
@@ -217,7 +259,7 @@ func _refresh_world_state() -> void:
 func _building_positions(building_type: String) -> Array[Vector2]:
 	var positions: Array[Vector2] = []
 	for instance in State.get_building_instances_of_type(building_type):
-		var slot_data := CityLayout.slot(str(instance.slot_id), State.era_id)
+		var slot_data := _layout_for_instance(instance)
 		if not slot_data.is_empty():
 			positions.append(slot_data.position)
 	return positions
@@ -343,7 +385,7 @@ func play_event(kind: String, payload: Dictionary) -> void:
 func _position_for_event(kind: String, payload: Dictionary) -> Vector2:
 	var instance := State.get_building_instance(str(payload.get("instance_id", "")))
 	if not instance.is_empty():
-		var slot_data := CityLayout.slot(str(instance.slot_id), State.era_id)
+		var slot_data := _layout_for_instance(instance)
 		return slot_data.anchor
 	if payload.has("building") and POSITIONS.has(payload.building):
 		return POSITIONS[payload.building] + SIZES[payload.building] * 0.5
@@ -517,62 +559,56 @@ func _draw() -> void:
 				draw_line(effect.pos + Vector2(-half, -half * 0.20), effect.pos + Vector2(half, half * 0.32), Color(color.lightened(0.18), alpha * 0.78), 2.0)
 
 func _draw_plot_sockets() -> void:
-	# The ground plane comes from CityLayout, exactly like the buttons and art
-	# anchors. This makes a painted lot an explicit socket instead of relying on
-	# a visually ambiguous center point.
-	var unlocked_count := State.get_building_slot_count()
-	for index in CityLayout.SLOTS.size():
-		var slot_id := str(CityLayout.SLOTS[index].id)
-		var slot_data := CityLayout.slot(slot_id, State.era_id)
-		if slot_data.is_empty():
-			continue
-		var occupied := not State.get_building_at_slot(slot_id).is_empty()
-		var unlocked := index < unlocked_count
-		if not occupied and not unlocked:
-			continue
-		var polygon: PackedVector2Array = slot_data.plot_polygon
-		var anchor: Vector2 = slot_data.anchor
-		var selected := false
-		if occupied and not selected_instance_id.is_empty():
-			var instance := State.get_building_instance(selected_instance_id)
-			selected = not instance.is_empty() and str(instance.slot_id) == slot_id
-		var moving_target := not move_instance_id.is_empty() and unlocked and not occupied
-		# Keep the geometry tied to the full painted lot, but inset the visual cue so
-		# it reads as a contact patch rather than a second road grid.
-		var visual_scale := 0.62 if occupied else 0.72
-		var visual_polygon := PackedVector2Array()
-		for point in polygon:
-			visual_polygon.append(anchor.lerp(point, visual_scale))
-		var fill_alpha := 0.035 if occupied else 0.018
-		if selected:
-			fill_alpha = 0.12
-		elif moving_target:
-			fill_alpha = 0.14
-		draw_colored_polygon(visual_polygon, Color(0.42, 0.30, 0.15, fill_alpha))
-		var outline := Color(0.88, 0.73, 0.42, 0.0)
-		if selected:
-			outline = Color(0.96, 0.84, 0.49, 0.72)
-		elif moving_target:
-			outline = Color(0.88, 0.78, 0.48, 0.52)
-		if outline.a > 0.0:
-			var closed := PackedVector2Array(visual_polygon)
-			closed.append(visual_polygon[0])
-			draw_polyline(closed, outline, 1.15, true)
-		if not occupied:
-			# Four short corner stakes communicate perspective without painting a
-			# second road network over the era background.
-			var corner_color := Color(0.82, 0.69, 0.39, 0.52 if moving_target else 0.18)
-			for corner_index in visual_polygon.size():
-				var corner := visual_polygon[corner_index]
-				var before := visual_polygon[(corner_index + visual_polygon.size() - 1) % visual_polygon.size()]
-				var after := visual_polygon[(corner_index + 1) % visual_polygon.size()]
-				draw_line(corner, corner.lerp(before, 0.14), corner_color, 1.35, true)
-				draw_line(corner, corner.lerp(after, 0.14), corner_color, 1.35, true)
+	var identity: Dictionary = State.era_definition.visual.get("identity", {})
+	var earth: Color = identity.get("earth", Color(0.42, 0.32, 0.22, 0.72))
+	# These exact avenue cells are rejected by placement validation. Render the
+	# union as one worn-earth ribbon, not twelve board-game tiles.
+	var road_polygon := CityLayout.grid_rect_polygon(Vector2i(CityLayout.ROAD_COLUMN, 0), Vector2i(1, CityLayout.GRID_SIZE.y))
+	var road_tint := Color("#cbb98f").lerp(earth.lightened(0.28), 0.24)
+	road_tint.a = 0.46
+	draw_colored_polygon(road_polygon, road_tint)
+	var edge_tint := Color(earth.darkened(0.16), 0.27)
+	draw_line(road_polygon[0], road_polygon[3], edge_tint, 1.15, true)
+	draw_line(road_polygon[1], road_polygon[2], edge_tint, 1.15, true)
+	for y in range(1, CityLayout.GRID_SIZE.y, 2):
+		var center := CityLayout.grid_to_screen(Vector2i(CityLayout.ROAD_COLUMN, y))
+		draw_line(center + Vector2(-6, -3), center + Vector2(6, 3), Color(earth.darkened(0.10), 0.09), 0.8, true)
+
+	var placement_active := not move_instance_id.is_empty() or selected_cell != CityLayout.INVALID_ORIGIN
+	if placement_active:
+		var region := CityLayout.unlocked_region(State.get_building_slot_count())
+		for y in range(region.position.y, region.end.y):
+			for x in range(region.position.x, region.end.x):
+				var cell := Vector2i(x, y)
+				if CityLayout.is_road(cell):
+					continue
+				var polygon := CityLayout.cell_polygon(cell)
+				var closed := PackedVector2Array(polygon)
+				closed.append(polygon[0])
+				draw_polyline(closed, Color(0.90, 0.78, 0.48, 0.13), 0.65, true)
+
+	var preview_cell := hovered_cell if not move_instance_id.is_empty() else selected_cell
+	if preview_cell == CityLayout.INVALID_ORIGIN:
+		return
+	var preview_type := "house"
+	var ignore_id := ""
+	if not move_instance_id.is_empty():
+		var moving := State.get_building_instance(move_instance_id)
+		if moving.is_empty():
+			return
+		preview_type = str(moving.type)
+		ignore_id = move_instance_id
+	var valid := State.can_place_building_at(preview_type, preview_cell, ignore_id)
+	var preview := CityLayout.footprint_polygon(preview_cell, preview_type)
+	var color := Color(0.25, 0.66, 0.38, 0.24) if valid else Color(0.76, 0.22, 0.18, 0.28)
+	draw_colored_polygon(preview, color)
+	var preview_closed := PackedVector2Array(preview)
+	preview_closed.append(preview[0])
+	draw_polyline(preview_closed, Color(color.lightened(0.24), 0.86), 2.0, true)
 
 func _draw_world_state() -> void:
 	if world_state.is_empty():
 		return
-	_draw_era_identity()
 	if bool(world_state.irrigation):
 		for farm_position in _building_positions("farm"):
 			for row in 3:
@@ -582,7 +618,7 @@ func _draw_world_state() -> void:
 				draw_polyline(points, Color(0.30, 0.72, 0.77, 0.70), 2.1, true)
 	if bool(world_state.all_buff):
 		for instance in State.get_building_instances():
-			var slot_data := CityLayout.slot(str(instance.slot_id), State.era_id)
+			var slot_data := _layout_for_instance(instance)
 			var glow := 0.48 + sin(_world_time * 2.2 + slot_data.position.x) * 0.18
 			draw_circle(slot_data.position + Vector2(slot_data.size.x * 0.72, slot_data.size.y * 0.25), 2.6, Color(0.95, 0.80, 0.38, glow))
 	var house_position := _first_building_position("house", POSITIONS.house)

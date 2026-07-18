@@ -31,13 +31,14 @@ func _run() -> void:
 	_check(state.advance_chapter(), "prosperous village advances to a city")
 	_check(state.chapter == 2 and state.get_building_slot_count() == 9 and state.get_open_building_slots() == 3, "Spring and Autumn mid-tier city opens three new lots")
 	_check(state.upgrade_building("market"), "newly opened lot accepts construction")
-	var duplicate_slot := "slot_08"
-	_check(state.place_building("farm", duplicate_slot), "repeatable building types can occupy a second lot")
+	var duplicate_origin := CityLayout.first_open_origin(state.building_instances, state.get_building_slot_count(), "farm")
+	_check(state.place_building("farm", duplicate_origin), "repeatable building types can occupy a second footprint")
 	_check(int(state.buildings.farm) == 2 and state.get_built_building_count() == 8, "duplicate farm contributes its own level and consumes one lot")
-	var duplicate_farm: Dictionary = state.get_building_at_slot(duplicate_slot)
-	_check(state.move_building_instance(str(duplicate_farm.id), "slot_09"), "placed building can move between open lots")
-	_check(state.get_building_at_slot(duplicate_slot).is_empty() and str(state.get_building_at_slot("slot_09").id) == str(duplicate_farm.id), "moving preserves identity and frees the old lot")
-	_check(not state.place_building("wall", duplicate_slot), "unique city wall cannot be placed twice")
+	var duplicate_farm: Dictionary = state.get_building_at_origin(duplicate_origin)
+	var move_origin := CityLayout.first_open_origin(state.building_instances, state.get_building_slot_count(), "farm", CityLayout.INVALID_ORIGIN, str(duplicate_farm.id))
+	_check(state.move_building_instance(str(duplicate_farm.id), move_origin), "placed building can move between valid open footprints")
+	_check(state.get_building_at_origin(duplicate_origin).is_empty() and str(state.get_building_at_origin(move_origin).id) == str(duplicate_farm.id), "moving preserves identity and frees the old footprint")
+	_check(not state.place_building("wall", duplicate_origin), "unique city wall cannot be placed twice")
 
 	var progress_before_day := int(state.era_progress)
 	state.current_day = 1
@@ -151,8 +152,9 @@ func _run() -> void:
 	v3_snapshot.erase("era_progress")
 	v3_snapshot.erase("city_level")
 	var migrated: Dictionary = state._upgrade_snapshot(v3_snapshot)
-	_check(int(migrated.format_version) == 5 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era")
+	_check(int(migrated.format_version) == 6 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era")
 	_check(migrated.building_instances is Array and migrated.building_instances.size() == 4, "legacy buildings migrate into placed instances")
+	_check(migrated.building_instances.all(func(instance): return instance.has("grid_origin")), "legacy sockets migrate to grid origins")
 	_check(int(migrated.city_level) == int(migrated.chapter) and int(migrated.era_progress) > 0, "migration derives city and era progress")
 	_check(state._is_valid_save_data(migrated), "migrated save passes current validation")
 
@@ -189,16 +191,16 @@ func _check_era_definitions() -> void:
 		_check(era.initial_buildings.keys() == era.buildings.keys(), "%s building defaults match catalog" % era_id)
 		_check(era.initial_units.keys() == era.units.keys() and era.empty_units.keys() == era.units.keys(), "%s unit rosters match catalog" % era_id)
 		_check(ResourceLoader.exists(str(era.visual.background)), "%s era background exists" % era_id)
-		_check(str(era.visual.background).contains("_skeleton.png"), "%s uses a no-building skeleton background" % era_id)
+		_check(str(era.visual.background).contains("_terrain.png"), "%s uses a road-free terrain background" % era_id)
 		var anchors := {}
 		for slot_definition in CityLayout.SLOTS:
 			var slot: Dictionary = CityLayout.slot(str(slot_definition.id), era_id)
 			var anchor: Vector2 = slot.anchor
 			anchors[anchor] = true
-			_check(slot.plot_polygon.size() == 4, "%s %s defines a perspective ground plane" % [era_id, slot.id])
+			_check(slot.plot_polygon.size() == 4, "%s %s maps legacy saves onto the shared ground plane" % [era_id, slot.id])
 			_check(anchor.x >= 0.0 and anchor.x <= 540.0 and anchor.y >= 184.0 and anchor.y <= 500.0, "%s %s anchor stays inside the visible city" % [era_id, slot.id])
-			_check(Vector2(slot.art_anchor).y > anchor.y and int(slot.z) in [1, 2, 3], "%s %s art foot and row depth follow its lot" % [era_id, slot.id])
-		_check(anchors.size() == CityLayout.MAX_SLOTS, "%s keeps twelve distinct painted lot anchors" % era_id)
+			_check(int(slot.z) > 20, "%s %s depth derives from its frontmost grid cell" % [era_id, slot.id])
+		_check(anchors.size() == CityLayout.MAX_SLOTS, "%s keeps twelve distinct legacy migration origins" % era_id)
 		for building_id in era.buildings:
 			var art_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [era_id, building_id]
 			_check(ResourceLoader.exists(art_path), "%s %s has era-matched four-stage art" % [era_id, building_id])

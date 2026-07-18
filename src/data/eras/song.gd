@@ -16,7 +16,7 @@ const CITY_LEVELS := [
 
 const ERA_GROWTH := {"target": 2850, "minimum_city_level": 5, "daily": 14, "building_base": 35, "city_level": 188, "battle_victory": 138, "patrol_victory": 30}
 const BATTLE_PACING := {"attack_interval_bonus": 1, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#dce8df"), "background": "res://assets/art/city_song_skeleton.png", "map_hint": "宋代州城沿河开市，可左右拖动巡视圩田、厢坊、转般仓、军寨和城外草市", "identity": {"earth": Color(0.34, 0.40, 0.36, 0.72), "standard": Color("#4f6f68"), "motif": "river_market"}}
+const VISUAL := {"tint": Color("#dce8df"), "background": "res://assets/art/city_song_terrain.png", "map_hint": "宋代州城沿河开市，可左右拖动巡视圩田、厢坊、转般仓、军寨和城外草市", "identity": {"earth": Color(0.34, 0.40, 0.36, 0.72), "standard": Color("#4f6f68"), "motif": "river_market"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

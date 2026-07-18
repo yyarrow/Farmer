@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 3450, "minimum_city_level": 5, "daily": 13, "building_base": 33, "city_level": 176, "battle_victory": 130, "patrol_victory": 28}
-const VISUAL := {"tint": Color("#e8dfd3"), "background": "res://assets/art/city_five_dynasties_skeleton.png", "map_hint": "五代藩镇层层设防，可左右拖动巡视牙城、转运仓、州市和修筑不断的外郭", "identity": {"earth": Color(0.34, 0.31, 0.28, 0.72), "standard": Color("#6d4035"), "motif": "commandery"}}
+const VISUAL := {"tint": Color("#e8dfd3"), "background": "res://assets/art/city_five_dynasties_terrain.png", "map_hint": "五代藩镇层层设防，可左右拖动巡视牙城、转运仓、州市和修筑不断的外郭", "identity": {"earth": Color(0.34, 0.31, 0.28, 0.72), "standard": Color("#6d4035"), "motif": "commandery"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

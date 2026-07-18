@@ -66,6 +66,24 @@ static func upgrade(
 			})
 			slot_index += 1
 		upgraded.building_instances = instances
+	if from_version < 6:
+		var placed := []
+		var city_level := clampi(int(upgraded.get("city_level", upgraded.get("chapter", 1))), 1, 5)
+		var unlocked_count := 6 if city_level == 1 else (9 if city_level == 2 else 12)
+		for raw in upgraded.get("building_instances", []):
+			if raw is not Dictionary:
+				continue
+			var instance: Dictionary = raw.duplicate(true)
+			var building_type := str(instance.get("type", ""))
+			var origin := CityLayout.first_open_origin(
+				placed, unlocked_count, building_type, instance.get("slot_id", "")
+			)
+			if origin == CityLayout.INVALID_ORIGIN:
+				continue
+			instance.grid_origin = CityLayout.encode_origin(origin)
+			instance.slot_id = CityLayout.cell_id(origin)
+			placed.append(instance)
+		upgraded.building_instances = placed
 	upgraded.format_version = format_version
 	return {"data": upgraded, "migrated": true, "from": from_version}
 

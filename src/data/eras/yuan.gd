@@ -16,7 +16,7 @@ const CITY_LEVELS := [
 
 const ERA_GROWTH := {"target": 2950, "minimum_city_level": 5, "daily": 15, "building_base": 37, "city_level": 200, "battle_victory": 146, "patrol_victory": 32}
 const BATTLE_PACING := {"attack_interval_bonus": 1, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#d9e4df"), "background": "res://assets/art/city_yuan_skeleton.png", "map_hint": "元代路城沟通草原与漕河，可左右拖动巡视屯田、站赤马院、官仓、诸色户坊和万户府", "identity": {"earth": Color(0.35, 0.39, 0.38, 0.74), "standard": Color("#327174"), "motif": "steppe_station"}}
+const VISUAL := {"tint": Color("#d9e4df"), "background": "res://assets/art/city_yuan_terrain.png", "map_hint": "元代路城沟通草原与漕河，可左右拖动巡视屯田、站赤马院、官仓、诸色户坊和万户府", "identity": {"earth": Color(0.35, 0.39, 0.38, 0.74), "standard": Color("#327174"), "motif": "steppe_station"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

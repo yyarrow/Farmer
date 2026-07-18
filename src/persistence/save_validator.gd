@@ -37,6 +37,7 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 		for id in totals:
 			totals[id] = 0
 		var occupied := {}
+		var placed: Array = []
 		var instance_ids := {}
 		var unique_types := {}
 		var city_level := clampi(int(data.get("city_level", data.get("chapter", 1))), 1, era.city_levels.size())
@@ -44,20 +45,28 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 		for instance in data.get("building_instances", []):
 			var instance_id := str(instance.get("id", ""))
 			var building_type := str(instance.get("type", ""))
-			var slot_id := str(instance.get("slot_id", ""))
 			if not totals.has(building_type):
 				return false
-			var slot_index := -1
-			for index in CityLayout.SLOTS.size():
-				if str(CityLayout.SLOTS[index].id) == slot_id:
-					slot_index = index
-					break
-			if instance_id.is_empty() or instance_ids.has(instance_id) or occupied.has(slot_id) or slot_index < 0 or slot_index >= unlocked_slots:
+			if instance_id.is_empty() or instance_ids.has(instance_id):
 				return false
+			if int(data.get("format_version", 1)) >= 6:
+				var origin := CityLayout.origin_from_value(instance.get("grid_origin", []))
+				if not CityLayout.can_place(building_type, origin, placed, unlocked_slots):
+					return false
+				placed.append(instance)
+			else:
+				var slot_id := str(instance.get("slot_id", ""))
+				var slot_index := -1
+				for index in CityLayout.SLOTS.size():
+					if str(CityLayout.SLOTS[index].id) == slot_id:
+						slot_index = index
+						break
+				if occupied.has(slot_id) or slot_index < 0 or slot_index >= unlocked_slots:
+					return false
+				occupied[slot_id] = true
 			if building_type in CityLayout.UNIQUE_BUILDINGS and unique_types.has(building_type):
 				return false
 			instance_ids[instance_id] = true
-			occupied[slot_id] = true
 			unique_types[building_type] = true
 			totals[building_type] += int(instance.level)
 		built_count = instance_ids.size()
@@ -154,6 +163,10 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 			var building_type := str(instance.get("type", ""))
 			if not era.buildings.has(building_type) or instance.get("id") is not String or instance.get("slot_id") is not String:
 				return false
+			if format_version >= 6:
+				var origin = instance.get("grid_origin")
+				if origin is not Array or origin.size() != 2 or not valid_number(origin[0], 0.0, float(CityLayout.GRID_SIZE.x - 1)) or not valid_number(origin[1], 0.0, float(CityLayout.GRID_SIZE.y - 1)):
+					return false
 			if not valid_number(instance.get("level"), 1.0, float(era.buildings[building_type].max)):
 				return false
 	for roster_key in ["units", "wounded"]:

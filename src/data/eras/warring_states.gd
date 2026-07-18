@@ -24,7 +24,7 @@ const ERA_GROWTH := {
 	"patrol_victory": 12,
 }
 
-const VISUAL := {"tint": Color("#fff4e4"), "background": "res://assets/art/city_warring_states_skeleton.png", "map_hint": "战国城郭已扩展，可左右拖动巡视", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#963e35"), "motif": "rammed_earth"}}
+const VISUAL := {"tint": Color("#fff4e4"), "background": "res://assets/art/city_warring_states_terrain.png", "map_hint": "战国城郭已扩展，可左右拖动巡视自由营造区", "identity": {"earth": Color(0.37, 0.24, 0.17, 0.66), "standard": Color("#963e35"), "motif": "rammed_earth"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

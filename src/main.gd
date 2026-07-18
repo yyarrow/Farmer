@@ -45,7 +45,7 @@ var _displayed_era := ""
 var _displayed_city_scale := 0.0
 var _city_pan_x := 0.0
 var _selected_building_instance := ""
-var _selected_building_slot := ""
+var _selected_building_origin := CityLayout.INVALID_ORIGIN
 var _moving_building_instance := ""
 
 func _ready() -> void:
@@ -153,7 +153,7 @@ func _build_scene() -> void:
 	city_visual_layer.z_index = 2
 	city_world.add_child(city_visual_layer)
 	city_visual_layer.building_selected.connect(_on_city_building_selected)
-	city_visual_layer.slot_selected.connect(_on_city_slot_selected)
+	city_visual_layer.cell_selected.connect(_on_city_cell_selected)
 
 	_build_top_panel()
 	_build_city_pan_hint()
@@ -301,7 +301,7 @@ func _on_city_building_selected(instance_id: String) -> void:
 	if State.get_building_instance(instance_id).is_empty():
 		return
 	_selected_building_instance = instance_id
-	_selected_building_slot = ""
+	_selected_building_origin = CityLayout.INVALID_ORIGIN
 	_moving_building_instance = ""
 	city_visual_layer.set_selected(instance_id)
 	current_tab = 0
@@ -309,36 +309,41 @@ func _on_city_building_selected(instance_id: String) -> void:
 	content_scroll.scroll_vertical = 0
 	_render_tab()
 	var instance := State.get_building_instance(instance_id)
-	Telemetry.track("building_instance_selected", {"instance_id": instance_id, "building": instance.type, "slot": instance.slot_id})
+	Telemetry.track("building_instance_selected", {"instance_id": instance_id, "building": instance.type, "grid_origin": instance.grid_origin})
 
 func _clear_building_selection() -> void:
 	_selected_building_instance = ""
-	_selected_building_slot = ""
+	_selected_building_origin = CityLayout.INVALID_ORIGIN
 	_moving_building_instance = ""
 	if city_visual_layer:
 		city_visual_layer.clear_move_mode()
 		city_visual_layer.set_selected("")
 
-func _on_city_slot_selected(slot_id: String) -> void:
+func _on_city_cell_selected(origin: Vector2i) -> void:
 	if not _moving_building_instance.is_empty():
 		var moved_id := _moving_building_instance
-		if State.move_building_instance(moved_id, slot_id):
+		if State.move_building_instance(moved_id, origin):
 			_moving_building_instance = ""
 			_selected_building_instance = moved_id
-			_selected_building_slot = ""
+			_selected_building_origin = CityLayout.INVALID_ORIGIN
 			city_visual_layer.clear_move_mode()
 			city_visual_layer.set_selected(moved_id)
 			_show_toast("建筑已迁至新用地")
 			_render_tab()
 		return
 	_selected_building_instance = ""
-	_selected_building_slot = slot_id
+	_selected_building_origin = origin
 	city_visual_layer.set_selected("")
+	city_visual_layer.set_selected_cell(origin)
 	current_tab = 0
 	_update_tab_buttons()
 	content_scroll.scroll_vertical = 0
 	_render_tab()
-	Telemetry.track("building_slot_selected", {"slot": slot_id, "city_level": State.chapter})
+	Telemetry.track("building_cell_selected", {"grid_origin": CityLayout.encode_origin(origin), "city_level": State.chapter})
+
+func _on_city_slot_selected(slot_id: String) -> void:
+	# Compatibility entry point for v5 UI tests and external diagnostics.
+	_on_city_cell_selected(CityLayout.origin_from_value(slot_id))
 
 func _build_city_pan_hint() -> void:
 	city_pan_hint = Label.new()
@@ -637,10 +642,10 @@ func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
 		_render_tab()
 
 func _render_buildings() -> void:
-	_add_section_heading("营造城邑", "直接点选城中建筑或空地；城池扩建会逐步开放十二处用地")
+	_add_section_heading("营造城邑", "直接点选城中建筑或任意可建格；城池扩建会扩大区域并提升容量")
 	content_box.add_child(_info_banner(
-		"%s · 建筑用地 %d / %d" % [State.get_city_level_name(), State.get_built_building_count(), State.get_building_slot_count()],
-		"尚余%d处空地 · 同类建筑可重复营造，城垣仅限一处" % State.get_open_building_slots(),
+		"%s · 建设容量 %d / %d" % [State.get_city_level_name(), State.get_built_building_count(), State.get_building_slot_count()],
+		"尚可营造%d座 · 同类建筑可重复营造，城垣仅限一处" % State.get_open_building_slots(),
 		JADE if State.get_open_building_slots() > 0 else GOLD
 	))
 	if not _moving_building_instance.is_empty():
@@ -659,11 +664,11 @@ func _render_buildings() -> void:
 			_add_building_inspector(instance)
 			return
 		_selected_building_instance = ""
-	if not _selected_building_slot.is_empty() and State.get_building_at_slot(_selected_building_slot).is_empty():
-		_add_building_catalog(_selected_building_slot)
+	if _selected_building_origin != CityLayout.INVALID_ORIGIN and State.get_building_at_cell(_selected_building_origin).is_empty():
+		_add_building_catalog(_selected_building_origin)
 		return
-	_selected_building_slot = ""
-	content_box.add_child(_info_banner("城景即是建造界面", "点建筑查看独立等级、升级与迁建；点“＋空地”选择要营造的建筑", JADE))
+	_selected_building_origin = CityLayout.INVALID_ORIGIN
+	content_box.add_child(_info_banner("城景即是建造界面", "点建筑查看独立等级、升级与迁建；点城内空地选择要营造的建筑", JADE))
 
 func _add_building_inspector(instance: Dictionary) -> void:
 	var id := str(instance.type)
@@ -715,7 +720,6 @@ func _add_building_inspector(instance: Dictionary) -> void:
 	actions.add_child(action)
 	var move_button := _action_button("迁建")
 	move_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	move_button.disabled = State.get_open_building_slots() <= 0
 	move_button.pressed.connect(func():
 		_moving_building_instance = str(instance.id)
 		city_visual_layer.set_move_mode(str(instance.id))
@@ -723,17 +727,19 @@ func _add_building_inspector(instance: Dictionary) -> void:
 	)
 	actions.add_child(move_button)
 
-func _add_building_catalog(slot_id: String) -> void:
-	_add_section_heading("选择营造", "此处为空地；建成后可直接在城景中点选和升级")
+func _add_building_catalog(origin: Vector2i) -> void:
+	_add_section_heading("选择营造", "建筑会占据完整地块；道路、边界和其他建筑不可重叠")
 	for id in State.BUILDINGS:
 		var data: Dictionary = State.BUILDINGS[id]
 		var cost := State.new_building_cost(id)
+		var type_allowed := State.can_place_building_type(id)
+		var placeable := type_allowed and State.can_place_building_at(id, origin)
 		var card := _card(92)
 		content_box.add_child(card)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 9)
 		card.add_child(row)
-		row.add_child(_glyph_badge(data.glyph, JADE if State.can_place_building_type(id) else Color("#8d8774")))
+		row.add_child(_glyph_badge(data.glyph, JADE if placeable else Color("#8d8774")))
 		var text_stack := VBoxContainer.new()
 		text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		text_stack.add_theme_constant_override("separation", 4)
@@ -744,21 +750,21 @@ func _add_building_catalog(slot_id: String) -> void:
 		name_label.add_theme_color_override("font_color", INK)
 		text_stack.add_child(name_label)
 		var desc := Label.new()
-		desc.text = str(data.desc)
+		desc.text = str(data.desc) if placeable else ("%s · %s" % [data.desc, State.building_placement_reason(id, origin)] if type_allowed else "%s · 仅限一处" % data.desc)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.add_theme_font_size_override("font_size", 9)
 		desc.add_theme_color_override("font_color", INK_SOFT)
 		text_stack.add_child(desc)
 		text_stack.add_child(_building_cost_row(cost))
-		var build := _action_button("已有" if not State.can_place_building_type(id) else State.term("build_action", "建造"))
-		build.disabled = not State.can_place_building_type(id)
+		var build := _action_button("已有" if not type_allowed else State.term("build_action", "建造"))
+		build.disabled = not placeable
 		var captured_id := str(id)
 		build.pressed.connect(func():
 			_play_chime(600.0)
-			if State.place_building(captured_id, slot_id):
-				var placed := State.get_building_at_slot(slot_id)
+			if State.place_building(captured_id, origin):
+				var placed := State.get_building_at_origin(origin)
 				_selected_building_instance = str(placed.id)
-				_selected_building_slot = ""
+				_selected_building_origin = CityLayout.INVALID_ORIGIN
 				city_visual_layer.set_selected(_selected_building_instance)
 				_render_tab()
 		)
@@ -961,7 +967,7 @@ func _render_governance() -> void:
 	content_box.add_child(_progress_card(
 		"%s · 城池等级%d" % [State.get_city_level_name(), State.chapter],
 		mini(prosperity, target), target,
-		"繁荣%d · 建筑用地%d处 · 建筑、人口与军队共同提升" % [prosperity, State.get_building_slot_count()]
+		"繁荣%d · 建设容量%d座 · 建筑、人口与军队共同提升" % [prosperity, State.get_building_slot_count()]
 	))
 	if State.get_next_era_id().is_empty():
 		content_box.add_child(_progress_card(
@@ -996,7 +1002,7 @@ func _render_governance() -> void:
 	name_label.add_theme_color_override("font_color", INK)
 	stack.add_child(name_label)
 	var detail := Label.new()
-	detail.text = "达到繁荣目标后开放建筑用地，城景也会扩大" if not city_at_max else "继续发展与征战，积累进入下一时代所需的制度经验"
+	detail.text = "达到繁荣目标后扩大可建区域与建设容量，城景也会扩大" if not city_at_max else "继续发展与征战，积累进入下一时代所需的制度经验"
 	detail.add_theme_font_size_override("font_size", 11)
 	detail.add_theme_color_override("font_color", INK_SOFT)
 	stack.add_child(detail)
@@ -1504,7 +1510,7 @@ func _battle_breakdown(result: Dictionary) -> String:
 func _show_chapter_modal() -> void:
 	_show_modal(
 		"城池扩建 · %s" % State.get_city_level_name(),
-		"青禾的城郭与建筑用地已经扩展。当前可容纳%d处建筑，城景可左右拖动巡视；繁荣与时代积累仍会分别增长。" % State.get_building_slot_count(),
+		"青禾的城郭与可建区域已经扩展。当前可容纳%d座建筑，城景可左右拖动巡视；繁荣与时代积累仍会分别增长。" % State.get_building_slot_count(),
 		[{"text": "巡视新城", "callback": func(): pass}],
 		GOLD
 	)

@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 2950, "minimum_city_level": 5, "daily": 11, "building_base": 29, "city_level": 152, "battle_victory": 114, "patrol_victory": 24}
-const VISUAL := {"tint": Color("#e5e8df"), "background": "res://assets/art/city_sui_skeleton.png", "map_hint": "隋代运河州城沿漕渠展开，可左右拖动巡视官仓、里坊、军府与水陆驿路", "identity": {"earth": Color(0.40, 0.38, 0.32, 0.68), "standard": Color("#304d63"), "motif": "canal_axis"}}
+const VISUAL := {"tint": Color("#e5e8df"), "background": "res://assets/art/city_sui_terrain.png", "map_hint": "隋代运河州城沿漕渠展开，可左右拖动巡视官仓、里坊、军府与水陆驿路", "identity": {"earth": Color(0.40, 0.38, 0.32, 0.68), "standard": Color("#304d63"), "motif": "canal_axis"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

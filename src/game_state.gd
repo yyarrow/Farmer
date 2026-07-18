@@ -21,7 +21,7 @@ const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
 const AUTO_SAVE_PATH := "user://saves/autosave.json"
 const SLOT_COUNT := 3
-const FORMAT_VERSION := 5
+const FORMAT_VERSION := 6
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
@@ -199,10 +199,25 @@ func get_building_instance(instance_id: String) -> Dictionary:
 	return {}
 
 func get_building_at_slot(slot_id: String) -> Dictionary:
+	return get_building_at_origin(CityLayout.origin_from_value(slot_id))
+
+func get_building_at_origin(origin: Vector2i) -> Dictionary:
 	for instance in building_instances:
-		if str(instance.get("slot_id", "")) == slot_id:
+		if CityLayout.instance_origin(instance) == origin:
 			return instance
 	return {}
+
+func get_building_at_cell(cell: Vector2i) -> Dictionary:
+	for instance in building_instances:
+		if cell in CityLayout.occupied_cells(CityLayout.instance_origin(instance), str(instance.get("type", ""))):
+			return instance
+	return {}
+
+func can_place_building_at(building_type: String, origin: Vector2i, ignore_instance_id := "") -> bool:
+	return CityLayout.can_place(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
+
+func building_placement_reason(building_type: String, origin: Vector2i, ignore_instance_id := "") -> String:
+	return CityLayout.placement_reason(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
 
 func get_building_instances_of_type(building_type: String) -> Array:
 	var result := []
@@ -231,21 +246,31 @@ func _seed_instances_from_buildings() -> void:
 		if level <= 0:
 			continue
 		var preferred := str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, ""))
-		var slot_id := CityLayout.first_open_slot(building_instances, get_building_slot_count(), preferred)
-		if slot_id.is_empty():
+		var origin := CityLayout.first_open_origin(building_instances, get_building_slot_count(), id, preferred)
+		if origin == CityLayout.INVALID_ORIGIN:
 			break
-		building_instances.append({"id": _new_building_instance_id(), "type": id, "level": level, "slot_id": slot_id})
+		building_instances.append({
+			"id": _new_building_instance_id(), "type": id, "level": level,
+			"grid_origin": CityLayout.encode_origin(origin), "slot_id": CityLayout.cell_id(origin),
+		})
 
 func _normalize_building_instances(raw_instances: Array) -> void:
 	building_instances = []
 	_next_building_instance_seq = 1
-	var occupied := {}
+	var unique_types := {}
 	for raw in raw_instances:
 		if raw is not Dictionary:
 			continue
 		var building_type := str(raw.get("type", ""))
-		var slot_id := str(raw.get("slot_id", ""))
-		if not BUILDINGS.has(building_type) or CityLayout.slot(slot_id).is_empty() or occupied.has(slot_id):
+		if not BUILDINGS.has(building_type):
+			continue
+		if building_type in CityLayout.UNIQUE_BUILDINGS and unique_types.has(building_type):
+			continue
+		var preferred: Variant = raw.get("grid_origin", raw.get("slot_id", ""))
+		var origin := CityLayout.origin_from_value(preferred)
+		if not CityLayout.can_place(building_type, origin, building_instances, get_building_slot_count()):
+			origin = CityLayout.first_open_origin(building_instances, get_building_slot_count(), building_type, preferred)
+		if origin == CityLayout.INVALID_ORIGIN:
 			continue
 		var instance_id := str(raw.get("id", ""))
 		if instance_id.is_empty() or not get_building_instance(instance_id).is_empty():
@@ -258,9 +283,10 @@ func _normalize_building_instances(raw_instances: Array) -> void:
 			"id": instance_id,
 			"type": building_type,
 			"level": clampi(int(raw.get("level", 1)), 1, int(BUILDINGS[building_type].max)),
-			"slot_id": slot_id,
+			"grid_origin": CityLayout.encode_origin(origin),
+			"slot_id": CityLayout.cell_id(origin),
 		})
-		occupied[slot_id] = true
+		unique_types[building_type] = true
 	_rebuild_building_totals()
 
 func _rebuild_building_totals() -> void:
@@ -548,21 +574,15 @@ func upgrade_building(id: String) -> bool:
 		return false
 	var instances := get_building_instances_of_type(id)
 	if instances.is_empty():
-		var slot_id := CityLayout.first_open_slot(building_instances, get_building_slot_count(), str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, "")))
-		return place_building(id, slot_id)
+		var origin := CityLayout.first_open_origin(
+			building_instances, get_building_slot_count(), id,
+			str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, ""))
+		)
+		return place_building(id, origin)
 	return upgrade_building_instance(str(instances[0].id))
 
-func place_building(id: String, slot_id: String) -> bool:
-	if not BUILDINGS.has(id) or CityLayout.slot(slot_id).is_empty():
-		return false
-	var unlocked_ids := []
-	for slot_data in CityLayout.unlocked_slots(get_building_slot_count()):
-		unlocked_ids.append(str(slot_data.id))
-	if slot_id not in unlocked_ids:
-		notice.emit("这片用地尚未随城池扩建开放")
-		return false
-	if not get_building_at_slot(slot_id).is_empty():
-		notice.emit("此处已有建筑")
+func place_building(id: String, placement: Variant) -> bool:
+	if not BUILDINGS.has(id):
 		return false
 	if not can_place_building_type(id):
 		notice.emit("%s只能营造一处" % BUILDINGS[id].name)
@@ -571,19 +591,27 @@ func place_building(id: String, slot_id: String) -> bool:
 		notice.emit("城内用地已满，请先提升城池等级")
 		visual_event.emit("slot_full", {"building": id, "city_level": chapter})
 		return false
+	var origin := CityLayout.origin_from_value(placement)
+	var placement_error := building_placement_reason(id, origin)
+	if not placement_error.is_empty():
+		notice.emit(placement_error)
+		return false
 	var cost := new_building_cost(id)
 	if not spend(cost):
 		return false
 	var instance_id := _new_building_instance_id()
-	building_instances.append({"id": instance_id, "type": id, "level": 1, "slot_id": slot_id})
+	building_instances.append({
+		"id": instance_id, "type": id, "level": 1,
+		"grid_origin": CityLayout.encode_origin(origin), "slot_id": CityLayout.cell_id(origin),
+	})
 	_rebuild_building_totals()
 	_apply_building_reward(id)
 	_add_era_progress(int(era_definition.era_growth.building_base) + 4, "building")
 	changed.emit()
 	notice.emit("建成 %s" % BUILDINGS[id].name)
-	visual_event.emit("build", {"building": id, "instance_id": instance_id, "slot_id": slot_id, "level": 1})
+	visual_event.emit("build", {"building": id, "instance_id": instance_id, "grid_origin": CityLayout.encode_origin(origin), "level": 1})
 	Audio.play_sfx("build")
-	Telemetry.track("building_build", {"building": id, "instance_id": instance_id, "slot_id": slot_id, "to": 1, "cost": cost})
+	Telemetry.track("building_build", {"building": id, "instance_id": instance_id, "grid_origin": CityLayout.encode_origin(origin), "to": 1, "cost": cost})
 	save_game()
 	return true
 
@@ -605,30 +633,28 @@ func upgrade_building_instance(instance_id: String) -> bool:
 	_add_era_progress(int(era_definition.era_growth.building_base) + int(instance.level) * 4, "building")
 	changed.emit()
 	notice.emit("升级 %s" % BUILDINGS[id].name)
-	visual_event.emit("upgrade", {"building": id, "instance_id": instance_id, "slot_id": instance.slot_id, "level": instance.level})
+	visual_event.emit("upgrade", {"building": id, "instance_id": instance_id, "grid_origin": instance.grid_origin, "level": instance.level})
 	Audio.play_sfx("upgrade")
 	Telemetry.track("building_upgrade", {"building": id, "instance_id": instance_id, "from": level, "to": instance.level, "cost": cost})
 	save_game()
 	return true
 
-func move_building_instance(instance_id: String, slot_id: String) -> bool:
+func move_building_instance(instance_id: String, placement: Variant) -> bool:
 	var instance := get_building_instance(instance_id)
-	if instance.is_empty() or CityLayout.slot(slot_id).is_empty() or not get_building_at_slot(slot_id).is_empty():
+	if instance.is_empty():
 		return false
-	var unlocked := false
-	for slot_data in CityLayout.unlocked_slots(get_building_slot_count()):
-		if str(slot_data.id) == slot_id:
-			unlocked = true
-			break
-	if not unlocked:
-		notice.emit("这片用地尚未开放")
+	var origin := CityLayout.origin_from_value(placement)
+	var placement_error := building_placement_reason(str(instance.type), origin, instance_id)
+	if not placement_error.is_empty():
+		notice.emit(placement_error)
 		return false
-	var previous := str(instance.slot_id)
-	instance.slot_id = slot_id
+	var previous := CityLayout.instance_origin(instance)
+	instance.grid_origin = CityLayout.encode_origin(origin)
+	instance.slot_id = CityLayout.cell_id(origin)
 	changed.emit()
-	visual_event.emit("move", {"building": instance.type, "instance_id": instance_id, "from_slot": previous, "slot_id": slot_id})
+	visual_event.emit("move", {"building": instance.type, "instance_id": instance_id, "from_origin": CityLayout.encode_origin(previous), "grid_origin": CityLayout.encode_origin(origin)})
 	Audio.play_sfx("ui_tap")
-	Telemetry.track("building_moved", {"building": instance.type, "instance_id": instance_id, "from": previous, "to": slot_id})
+	Telemetry.track("building_moved", {"building": instance.type, "instance_id": instance_id, "from": CityLayout.encode_origin(previous), "to": CityLayout.encode_origin(origin)})
 	save_game()
 	return true
 
@@ -1215,7 +1241,7 @@ func advance_chapter() -> bool:
 	next_attack_day = mini(next_attack_day, current_day + 4)
 	patrol_delay_wave = 0
 	enemy_army = _make_enemy_army(attack_wave)
-	notice.emit("城池晋升为%s：新增建筑用地已经开放" % get_city_level_name())
+	notice.emit("城池晋升为%s：可建区域与建设容量已经扩展" % get_city_level_name())
 	changed.emit()
 	visual_event.emit("chapter", {"chapter": chapter})
 	Audio.play_sfx("upgrade")
@@ -1336,6 +1362,7 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	resources.merge(snapshot.get("resources", {}), true)
 	buildings = era_definition.initial_buildings.duplicate(true)
 	buildings.merge(snapshot.get("buildings", {}), true)
+	chapter = int(snapshot.get("city_level", snapshot.get("chapter", 1)))
 	var saved_instances: Array = snapshot.get("building_instances", [])
 	if saved_instances.is_empty():
 		_seed_instances_from_buildings()
@@ -1349,7 +1376,6 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	population = int(snapshot.get("population", 110))
 	morale = float(snapshot.get("morale", 70.0))
 	current_day = int(snapshot.get("current_day", 1))
-	chapter = int(snapshot.get("city_level", snapshot.get("chapter", 1)))
 	day_progress = float(snapshot.get("day_progress", 0.0))
 	next_attack_day = int(snapshot.get("next_attack_day", 7))
 	attack_wave = int(snapshot.get("attack_wave", 1))

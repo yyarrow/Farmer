@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 3200, "minimum_city_level": 5, "daily": 12, "building_base": 31, "city_level": 164, "battle_victory": 122, "patrol_victory": 26}
-const VISUAL := {"tint": Color("#f0e5d6"), "background": "res://assets/art/city_tang_skeleton.png", "map_hint": "唐代州城坊市开阔，可左右拖动巡视折冲府、漕仓、驿馆与胡商骆驼队", "identity": {"earth": Color(0.45, 0.33, 0.25, 0.66), "standard": Color("#a84635"), "motif": "tang_ward"}}
+const VISUAL := {"tint": Color("#f0e5d6"), "background": "res://assets/art/city_tang_terrain.png", "map_hint": "唐代州城采用自由营造格局，可左右拖动巡视折冲府、漕仓、驿馆与胡商骆驼队", "identity": {"earth": Color(0.45, 0.33, 0.25, 0.66), "standard": Color("#a84635"), "motif": "tang_ward"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

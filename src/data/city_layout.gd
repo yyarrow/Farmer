@@ -1,79 +1,39 @@
 extends RefCounted
 
-# The painted city is a skeleton. Buildings live in twelve independent sockets
-# shared by every city tier; tiers only reveal more sockets and pan range.
+# One placement model drives rendering, hit testing, persistence and validation.
+# The painted era background contains terrain and distant walls only.
 const MAX_SLOTS := 12
 const UNIQUE_BUILDINGS := ["wall"]
+const GRID_SIZE := Vector2i(15, 12)
+const CELL_SIZE := Vector2(36.0, 18.0)
+const GRID_ORIGIN := Vector2(270.0, 220.0)
+const ROAD_COLUMN := 7
+const INVALID_ORIGIN := Vector2i(-1, -1)
 
+const BUILDING_FOOTPRINTS := {
+	"farm": Vector2i(3, 3),
+	"woodcut": Vector2i(2, 2),
+	"quarry": Vector2i(2, 2),
+	"house": Vector2i(2, 2),
+	"market": Vector2i(3, 2),
+	"warehouse": Vector2i(3, 2),
+	"barracks": Vector2i(3, 3),
+	"wall": Vector2i(4, 2),
+}
+
+# v5 saves used twelve named sockets. Their ids remain readable, but each now
+# resolves to a real grid origin. New saves persist grid_origin instead.
+const LEGACY_ORIGINS := [
+	Vector2i(2, 1), Vector2i(4, 1), Vector2i(8, 1), Vector2i(10, 1),
+	Vector2i(2, 4), Vector2i(4, 4), Vector2i(8, 4), Vector2i(10, 4),
+	Vector2i(2, 7), Vector2i(4, 7), Vector2i(8, 7), Vector2i(10, 7),
+]
 const SLOTS := [
-	{"id": "slot_01", "position": Vector2(45, 206), "size": Vector2(100, 82), "z": 1},
-	{"id": "slot_02", "position": Vector2(160, 199), "size": Vector2(100, 82), "z": 2},
-	{"id": "slot_03", "position": Vector2(278, 203), "size": Vector2(100, 82), "z": 3},
-	{"id": "slot_04", "position": Vector2(395, 211), "size": Vector2(100, 82), "z": 4},
-	{"id": "slot_05", "position": Vector2(28, 294), "size": Vector2(100, 82), "z": 5},
-	{"id": "slot_06", "position": Vector2(145, 287), "size": Vector2(100, 82), "z": 6},
-	{"id": "slot_07", "position": Vector2(267, 289), "size": Vector2(100, 82), "z": 7},
-	{"id": "slot_08", "position": Vector2(389, 301), "size": Vector2(100, 82), "z": 8},
-	{"id": "slot_09", "position": Vector2(44, 386), "size": Vector2(100, 82), "z": 9},
-	{"id": "slot_10", "position": Vector2(163, 381), "size": Vector2(100, 82), "z": 10},
-	{"id": "slot_11", "position": Vector2(285, 385), "size": Vector2(100, 82), "z": 11},
-	{"id": "slot_12", "position": Vector2(405, 397), "size": Vector2(100, 82), "z": 12},
+	{"id": "slot_01"}, {"id": "slot_02"}, {"id": "slot_03"}, {"id": "slot_04"},
+	{"id": "slot_05"}, {"id": "slot_06"}, {"id": "slot_07"}, {"id": "slot_08"},
+	{"id": "slot_09"}, {"id": "slot_10"}, {"id": "slot_11"}, {"id": "slot_12"},
 ]
 
-# Slot ids remain stable for saves, while every painted skeleton supplies a
-# compact, data-only 4x3 perspective grid. Later city tiers zoom and pan this
-# grid horizontally, so the third row deliberately stays above the HUD.
-const ERA_SLOT_GRIDS := {
-	"spring_autumn": {"columns": [75, 205, 340, 475], "rows": [245, 325, 405]},
-	"warring_states": {"columns": [70, 200, 335, 470], "rows": [242, 320, 398]},
-	"qin": {"columns": [72, 202, 337, 472], "rows": [240, 316, 392]},
-	"han": {"columns": [70, 200, 335, 470], "rows": [238, 312, 386]},
-	"three_kingdoms": {
-		"columns": [75, 205, 340, 480],
-		"rows": [245, 325, 405],
-		"offsets": [Vector2.ZERO, Vector2(0, -5), Vector2(-5, -1), Vector2(-5, 7), Vector2(-5, 0), Vector2(-5, -5), Vector2(-5, 1), Vector2(-5, 10), Vector2.ZERO, Vector2(0, -8), Vector2(0, -5), Vector2(0, 5)],
-	},
-	"jin": {"columns": [70, 200, 335, 470], "rows": [235, 305, 380]},
-	"northern_southern": {"columns": [70, 200, 335, 470], "rows": [230, 300, 372]},
-	"sui": {"columns": [70, 200, 340, 480], "rows": [220, 295, 365]},
-	"tang": {"columns": [70, 200, 340, 480], "rows": [220, 292, 362]},
-	"five_dynasties": {"columns": [70, 200, 335, 470], "rows": [222, 292, 360]},
-	"song": {"columns": [70, 200, 335, 470], "rows": [230, 305, 380]},
-	"yuan": {"columns": [68, 195, 340, 480], "rows": [225, 305, 380]},
-	"ming": {"columns": [70, 200, 335, 470], "rows": [230, 305, 375]},
-	"qing": {"columns": [70, 200, 335, 470], "rows": [220, 290, 360]},
-}
-const ROW_FOOTPRINTS := [Vector2(86, 50), Vector2(98, 57), Vector2(112, 65)]
-const ROW_ART_SCALES := [0.73, 0.84, 0.96]
-
-# The painted lots use the same oblique two-axis perspective in every era.
-# These axes turn a socket center into the actual ground plane used by the
-# background lot, empty-slot affordance, hit target and building foot line.
-# Era overrides are intentionally data-only so a future skeleton can tune its
-# camera without touching rendering or save data.
-const DEFAULT_PLOT_AXES := {
-	"x": Vector2(1.0, -0.13),
-	"y": Vector2(0.24, 1.0),
-}
-const ERA_PLOT_AXES := {
-	"spring_autumn": {"x": Vector2(1.0, -0.11), "y": Vector2(0.26, 1.0)},
-	"warring_states": {"x": Vector2(1.0, -0.12), "y": Vector2(0.24, 1.0)},
-	"qin": {"x": Vector2(1.0, -0.12), "y": Vector2(0.23, 1.0)},
-	"han": {"x": Vector2(1.0, -0.12), "y": Vector2(0.24, 1.0)},
-	"three_kingdoms": {"x": Vector2(1.0, -0.13), "y": Vector2(0.25, 1.0)},
-	"jin": {"x": Vector2(1.0, -0.13), "y": Vector2(0.25, 1.0)},
-	"northern_southern": {"x": Vector2(1.0, -0.12), "y": Vector2(0.24, 1.0)},
-	"sui": {"x": Vector2(1.0, -0.06), "y": Vector2(0.16, 1.0)},
-	"tang": {"x": Vector2(1.0, -0.13), "y": Vector2(0.24, 1.0)},
-	"five_dynasties": {"x": Vector2(1.0, -0.13), "y": Vector2(0.25, 1.0)},
-	"song": {"x": Vector2(1.0, -0.10), "y": Vector2(0.24, 1.0)},
-	"yuan": {"x": Vector2(1.0, -0.09), "y": Vector2(0.27, 1.0)},
-	"ming": {"x": Vector2(1.0, -0.12), "y": Vector2(0.24, 1.0)},
-	"qing": {"x": Vector2(1.0, -0.11), "y": Vector2(0.24, 1.0)},
-}
-
-# Preferred migration/ambient anchors. They are only defaults; instance slots
-# remain the source of truth after the player moves a building.
 const BUILDING_SLOT_DEFAULTS := {
 	"farm": "slot_09",
 	"woodcut": "slot_01",
@@ -86,103 +46,215 @@ const BUILDING_SLOT_DEFAULTS := {
 }
 
 const BUILDING_POSITIONS := {
-	"farm": Vector2(44, 386),
-	"woodcut": Vector2(45, 206),
-	"quarry": Vector2(405, 397),
-	"house": Vector2(267, 289),
-	"market": Vector2(28, 294),
-	"warehouse": Vector2(145, 287),
-	"barracks": Vector2(395, 211),
-	"wall": Vector2(278, 203),
+	"farm": Vector2(84, 326),
+	"woodcut": Vector2(180, 218),
+	"quarry": Vector2(390, 326),
+	"house": Vector2(312, 272),
+	"market": Vector2(132, 272),
+	"warehouse": Vector2(228, 272),
+	"barracks": Vector2(390, 236),
+	"wall": Vector2(336, 218),
 }
-
 const BUILDING_SIZES := {
-	"farm": Vector2(100, 82),
-	"woodcut": Vector2(100, 82),
-	"quarry": Vector2(100, 82),
-	"house": Vector2(100, 82),
-	"market": Vector2(100, 82),
-	"warehouse": Vector2(100, 82),
-	"barracks": Vector2(100, 82),
-	"wall": Vector2(100, 82),
+	"farm": Vector2(108, 54), "woodcut": Vector2(72, 36),
+	"quarry": Vector2(72, 36), "house": Vector2(72, 36),
+	"market": Vector2(90, 45), "warehouse": Vector2(90, 45),
+	"barracks": Vector2(108, 54), "wall": Vector2(108, 54),
 }
-
 const EFFECT_POSITIONS := {
-	"trade": Vector2(96, 338),
-	"recruit": Vector2(445, 268),
-	"defense_order": Vector2(438, 281),
-	"policy": Vector2(270, 410),
-	"siege": Vector2(330, 238),
-	"shortage": Vector2(270, 460),
+	"trade": Vector2(140, 340), "recruit": Vector2(408, 300),
+	"defense_order": Vector2(420, 290), "policy": Vector2(270, 410),
+	"siege": Vector2(410, 238), "shortage": Vector2(270, 460),
 	"storage_full": Vector2(270, 350),
 }
 
-static func slot(id: String, era_id := "") -> Dictionary:
-	for index in SLOTS.size():
-		var data: Dictionary = SLOTS[index]
-		if str(data.id) == id:
-			var resolved: Dictionary = data.duplicate()
-			var grid: Dictionary = ERA_SLOT_GRIDS.get(era_id, {})
-			if not grid.is_empty():
-				var row := int(index / 4)
-				var column := index % 4
-				resolved.anchor = Vector2(float(grid.columns[column]), float(grid.rows[row]))
-				var offsets: Array = grid.get("offsets", [])
-				if index < offsets.size():
-					var offset: Vector2 = offsets[index]
-					resolved.anchor += offset
-				resolved.footprint = ROW_FOOTPRINTS[row]
-				resolved.art_scale = ROW_ART_SCALES[row]
-				var axes: Dictionary = ERA_PLOT_AXES.get(era_id, DEFAULT_PLOT_AXES)
-				var axis_x: Vector2 = Vector2(axes.x).normalized()
-				var axis_y: Vector2 = Vector2(axes.y).normalized()
-				var half_x := axis_x * float(resolved.footprint.x) * 0.5
-				var half_y := axis_y * float(resolved.footprint.y) * 0.5
-				resolved.plot_axis_x = axis_x
-				resolved.plot_axis_y = axis_y
-				resolved.plot_polygon = PackedVector2Array([
-					resolved.anchor - half_x - half_y,
-					resolved.anchor + half_x - half_y,
-					resolved.anchor + half_x + half_y,
-					resolved.anchor - half_x + half_y,
-				])
-				# Art sheets share a bottom-center origin. Seat that origin slightly
-				# toward the lot's front edge instead of on the abstract center dot.
-				resolved.art_anchor = resolved.anchor + axis_y * float(resolved.footprint.y) * 0.27
-				resolved.position = resolved.anchor - resolved.footprint * 0.5
-				resolved.size = resolved.footprint
-				# Only the three perspective rows need depth sorting. Keeping this
-				# local to the world layer prevents roofs from drawing over HUD cards.
-				resolved.z = row + 1
-			else:
-				resolved.anchor = resolved.position + resolved.size * 0.5
-				resolved.footprint = resolved.size
-				resolved.art_scale = 0.86
-				resolved.plot_axis_x = Vector2.RIGHT
-				resolved.plot_axis_y = Vector2.DOWN
-				resolved.plot_polygon = PackedVector2Array([
-					resolved.position,
-					resolved.position + Vector2(resolved.size.x, 0),
-					resolved.position + resolved.size,
-					resolved.position + Vector2(0, resolved.size.y),
-				])
-				resolved.art_anchor = resolved.anchor + Vector2(0, resolved.size.y * 0.27)
-				resolved.z = int(index / 4) + 1
-			return resolved
-	return {}
+static func footprint(building_type: String) -> Vector2i:
+	return BUILDING_FOOTPRINTS.get(building_type, Vector2i(2, 2))
+
+static func grid_to_screen(cell: Vector2i) -> Vector2:
+	return GRID_ORIGIN + Vector2(
+		float(cell.x - cell.y) * CELL_SIZE.x * 0.5,
+		float(cell.x + cell.y) * CELL_SIZE.y * 0.5
+	)
+
+static func screen_to_grid(point: Vector2) -> Vector2i:
+	var local := point - GRID_ORIGIN
+	var gx := local.x / CELL_SIZE.x + local.y / CELL_SIZE.y
+	var gy := local.y / CELL_SIZE.y - local.x / CELL_SIZE.x
+	return Vector2i(roundi(gx), roundi(gy))
+
+static func cell_polygon(cell: Vector2i) -> PackedVector2Array:
+	var center := grid_to_screen(cell)
+	var half := CELL_SIZE * 0.5
+	return PackedVector2Array([
+		center + Vector2(0, -half.y), center + Vector2(half.x, 0),
+		center + Vector2(0, half.y), center + Vector2(-half.x, 0),
+	])
+
+static func footprint_polygon(origin: Vector2i, building_type: String) -> PackedVector2Array:
+	return grid_rect_polygon(origin, footprint(building_type))
+
+static func grid_rect_polygon(origin: Vector2i, size: Vector2i) -> PackedVector2Array:
+	var half := CELL_SIZE * 0.5
+	return PackedVector2Array([
+		grid_to_screen(origin) + Vector2(0, -half.y),
+		grid_to_screen(origin + Vector2i(size.x - 1, 0)) + Vector2(half.x, 0),
+		grid_to_screen(origin + size - Vector2i.ONE) + Vector2(0, half.y),
+		grid_to_screen(origin + Vector2i(0, size.y - 1)) + Vector2(-half.x, 0),
+	])
+
+static func art_anchor(origin: Vector2i, building_type: String) -> Vector2:
+	var polygon := footprint_polygon(origin, building_type)
+	return polygon[2]
+
+static func depth(origin: Vector2i, building_type: String) -> int:
+	var size := footprint(building_type)
+	return (origin.x + size.x + origin.y + size.y) * 10 + origin.x
+
+static func art_scale(building_type: String) -> float:
+	var size := footprint(building_type)
+	return clampf(0.72 + float(size.x + size.y - 4) * 0.07, 0.72, 0.93)
+
+static func unlocked_region(unlocked_count: int) -> Rect2i:
+	if unlocked_count <= 6:
+		return Rect2i(2, 1, 11, 10)
+	if unlocked_count <= 9:
+		return Rect2i(1, 0, 13, 12)
+	return Rect2i(Vector2i.ZERO, GRID_SIZE)
+
+static func road_cells() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for y in GRID_SIZE.y:
+		result.append(Vector2i(ROAD_COLUMN, y))
+	return result
+
+static func is_road(cell: Vector2i) -> bool:
+	return cell.x == ROAD_COLUMN and cell.y >= 0 and cell.y < GRID_SIZE.y
+
+static func is_cell_unlocked(cell: Vector2i, unlocked_count: int) -> bool:
+	return unlocked_region(unlocked_count).has_point(cell) and not is_road(cell)
+
+static func occupied_cells(origin: Vector2i, building_type: String) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var size := footprint(building_type)
+	for y in size.y:
+		for x in size.x:
+			result.append(origin + Vector2i(x, y))
+	return result
+
+static func origin_from_value(value: Variant) -> Vector2i:
+	if value is Vector2i:
+		return value
+	if value is Vector2:
+		return Vector2i(roundi(value.x), roundi(value.y))
+	if value is Array and value.size() == 2:
+		return Vector2i(int(value[0]), int(value[1]))
+	var id := str(value)
+	if id.begins_with("slot_"):
+		var index := int(id.trim_prefix("slot_")) - 1
+		return LEGACY_ORIGINS[index] if index >= 0 and index < LEGACY_ORIGINS.size() else INVALID_ORIGIN
+	if id.begins_with("cell_"):
+		var parts := id.trim_prefix("cell_").split("_")
+		if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
+			return Vector2i(int(parts[0]), int(parts[1]))
+	return INVALID_ORIGIN
+
+static func encode_origin(origin: Vector2i) -> Array[int]:
+	return [origin.x, origin.y]
+
+static func cell_id(origin: Vector2i) -> String:
+	return "cell_%02d_%02d" % [origin.x, origin.y]
+
+static func instance_origin(instance: Dictionary) -> Vector2i:
+	if instance.has("grid_origin"):
+		return origin_from_value(instance.grid_origin)
+	return origin_from_value(instance.get("slot_id", ""))
+
+static func can_place(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> bool:
+	if not BUILDING_FOOTPRINTS.has(building_type) or origin == INVALID_ORIGIN:
+		return false
+	var candidate := {}
+	for cell in occupied_cells(origin, building_type):
+		if not is_cell_unlocked(cell, unlocked_count):
+			return false
+		candidate[cell] = true
+	for raw in instances:
+		if raw is not Dictionary or str(raw.get("id", "")) == ignore_instance_id:
+			continue
+		var other_type := str(raw.get("type", ""))
+		var other_origin := instance_origin(raw)
+		for cell in occupied_cells(other_origin, other_type):
+			if candidate.has(cell):
+				return false
+	return true
+
+static func placement_reason(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> String:
+	if origin == INVALID_ORIGIN:
+		return "请选择城内空地"
+	for cell in occupied_cells(origin, building_type):
+		if is_road(cell):
+			return "建筑占地不能压住城内道路"
+		if not unlocked_region(unlocked_count).has_point(cell):
+			return "这片土地尚未随城池扩建开放"
+	if not can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
+		return "建筑占地与现有建筑重叠"
+	return ""
+
+static func first_open_origin(
+	instances: Array,
+	unlocked_count: int,
+	building_type: String,
+	preferred: Variant = INVALID_ORIGIN,
+	ignore_instance_id := ""
+) -> Vector2i:
+	var ignored_origin := INVALID_ORIGIN
+	if not ignore_instance_id.is_empty():
+		for instance in instances:
+			if instance is Dictionary and str(instance.get("id", "")) == ignore_instance_id:
+				ignored_origin = instance_origin(instance)
+				break
+	var preferred_origin := origin_from_value(preferred)
+	if preferred_origin != ignored_origin and can_place(building_type, preferred_origin, instances, unlocked_count, ignore_instance_id):
+		return preferred_origin
+	var region := unlocked_region(unlocked_count)
+	for y in range(region.position.y, region.end.y):
+		for x in range(region.position.x, region.end.x):
+			var candidate := Vector2i(x, y)
+			if candidate == ignored_origin:
+				continue
+			if can_place(building_type, candidate, instances, unlocked_count, ignore_instance_id):
+				return candidate
+	return INVALID_ORIGIN
+
+# Compatibility helpers for v5 tests and migration callers.
+static func slot(id: String, _era_id := "") -> Dictionary:
+	var origin := origin_from_value(id)
+	if origin == INVALID_ORIGIN:
+		return {}
+	var polygon := footprint_polygon(origin, "house")
+	var anchor := art_anchor(origin, "house")
+	return {
+		"id": id, "grid_origin": encode_origin(origin), "anchor": anchor,
+		"art_anchor": anchor, "plot_polygon": polygon, "position": anchor - Vector2(55, 82),
+		"size": Vector2(110, 82), "footprint": Vector2(72, 36),
+		"art_scale": art_scale("house"), "z": depth(origin, "house"),
+	}
 
 static func unlocked_slots(count: int) -> Array:
 	return SLOTS.slice(0, clampi(count, 0, MAX_SLOTS))
 
 static func first_open_slot(instances: Array, unlocked_count: int, preferred := "") -> String:
-	var occupied := {}
-	for instance in instances:
-		occupied[str(instance.get("slot_id", ""))] = true
-	if not preferred.is_empty() and not occupied.has(preferred):
-		for data in unlocked_slots(unlocked_count):
-			if str(data.id) == preferred:
-				return preferred
-	for data in unlocked_slots(unlocked_count):
-		if not occupied.has(str(data.id)):
-			return str(data.id)
-	return ""
+	var origin := first_open_origin(instances, unlocked_count, "house", preferred)
+	return "" if origin == INVALID_ORIGIN else cell_id(origin)

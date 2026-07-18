@@ -30,7 +30,9 @@ func _run() -> void:
 	_check(ui.content_scroll.scroll_deadzone == 10, "content scroll separates taps from intentional drags")
 	_check(_all_controls_pass_scroll_input(ui.content_box), "content cards pass touch drags to their ScrollContainer")
 	_check(ui.time_buttons.size() == 3 and ui.advance_day_button != null, "time controls built")
-	_check(_has_label_containing(ui.content_box, "里聚 · 建筑用地 4 / 6"), "building page explains occupied and available city lots")
+	_check(_has_label_containing(ui.content_box, "里聚 · 建设容量 4 / 6"), "building page explains occupied and available city capacity")
+	var mixed_cost_row = ui._building_cost_row({"grain": 100, "wood": 1000})
+	_check(mixed_cost_row.get_child_count() == 2 and mixed_cost_row.get_child(0).get_theme_color("font_color") != mixed_cost_row.get_child(1).get_theme_color("font_color"), "building costs color each sufficient or insufficient material independently")
 	_check(ui._format_save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "save timestamps use the device time-zone offset")
 	var initial_farm: Dictionary = state.get_building_instances_of_type("farm")[0]
 	ui._on_city_building_selected(str(initial_farm.id))
@@ -347,7 +349,7 @@ func _run() -> void:
 	await process_frame
 	_check(state.get_prosperity() > 100, "city visuals accept max state")
 	var visuals = ui.city_visual_layer
-	_check(visuals.slot_buttons["slot_01"].mouse_filter == Control.MOUSE_FILTER_PASS, "slot taps allow horizontal city drags to continue")
+	_check(visuals.ground_input.mouse_filter == Control.MOUSE_FILTER_PASS, "placement-grid taps allow horizontal city drags to continue")
 	var farm_instance: Dictionary = state.get_building_instances_of_type("farm")[0]
 	var farm_id := str(farm_instance.id)
 	_check(visuals.building_buttons[farm_id].mouse_filter == Control.MOUSE_FILTER_PASS, "building taps allow horizontal city drags to continue")
@@ -366,6 +368,11 @@ func _run() -> void:
 	await process_frame
 	_check(visuals.displayed_stages[farm_id] == 2 and str(visuals.building_labels[farm_id].text).contains("精"), "level three has distinct veteran appearance")
 	_check(absf(float(visuals.building_views[farm_id].scale.x) - 1.0) < 0.001, "each building level has a restrained distinct scale")
+	visuals.effects.clear()
+	visuals.play_event("upgrade", {"instance_id": farm_id})
+	_check(_has_effect_kind(visuals.effects, "construction") and float(visuals.building_views[farm_id].scale.x) < 0.80, "upgrade begins with a visible scaffold and covered building state")
+	await create_timer(1.45).timeout
+	_check(absf(float(visuals.building_views[farm_id].scale.x) - 1.0) < 0.01, "upgrade animation reveals the target building appearance")
 	state.buffs = {"farm_until": state.current_day + 2, "all_until": state.current_day + 2}
 	state.units = {"militia": 35, "archer": 10, "chariot": 5}
 	state.defense_order = "sally"

@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 2700, "minimum_city_level": 5, "daily": 10, "building_base": 27, "city_level": 140, "battle_victory": 106, "patrol_victory": 22}
-const VISUAL := {"tint": Color("#dce7e4"), "background": "res://assets/art/city_northern_southern_skeleton.png", "map_hint": "北朝镇城纵深开阔，可左右拖动巡视均田、关市、镇仓与军府马苑", "identity": {"earth": Color(0.43, 0.34, 0.24, 0.70), "standard": Color("#a0523c"), "motif": "cataphract"}}
+const VISUAL := {"tint": Color("#dce7e4"), "background": "res://assets/art/city_northern_southern_terrain.png", "map_hint": "北朝镇城纵深开阔，可左右拖动巡视均田、关市、镇仓与军府马苑", "identity": {"earth": Color(0.43, 0.34, 0.24, 0.70), "standard": Color("#a0523c"), "motif": "cataphract"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

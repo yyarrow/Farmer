@@ -12,8 +12,8 @@
 - 持重、坚壁、雁行、锋矢四种守城阵令；兵种构成与风险偏好会改变真实杀伤、战损和推演结果
 - 按兵种结算并在战报中逐项对账的阵亡、伤员、余部与敌损；伤员 2～4 日康复并消耗伤营粮药
 - 旱灾、水患、寒赈、流民、商队、百工、流言、征粮、斥候与丰收十类随机事件，且不会连续重复
-- 城池等级与时代积累两条独立成长线；城池前三阶段依次开放 6、9、12 个建筑槽位，时代更迭不会回收已开放用地
-- 十四个时代均使用独立的无建筑城池骨架与透视锚地；背景空地、点击热区、建筑落脚线和前后遮挡共享同一时代布局，建筑可点击、移动、重复营造，主城扩大后可左右拖动巡视
+- 城池等级与时代积累两条独立成长线；城池前三阶段依次扩展可建区域并开放 6、9、12 座建设容量，时代更迭不会回收已开放用地
+- 十四个时代均使用独立的无建筑地形骨架；统一 15×12 等距网格驱动大道禁建、建筑占地、命中测试、前后遮挡与存档校验，建筑可在任意合法空地点选、移动、重复营造，主城扩大后可左右拖动巡视
 - 发展、主动推进日期、巡剿与守城共同积累时代进度；时代更迭保留城池、人口、物资与军队规模
 - 稳定内部兵种/资源 ID 与可配置呈现分离；宋以纲运转般、元以站赤漕运、明以漕运军需、清以驿站粮台，兵种、货币单位、辎重和建筑均随时代换制
 - 离线收益和自动本地存档
@@ -49,6 +49,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/full_flow.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_grid.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd
@@ -64,7 +65,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，当前版本 `0.13.0`，最低 Android 7.0。旧版存档读取时会依次迁移为按人计数的军籍/资源制、v4 时代/城池双成长和 v5 独立建筑实例存档；既有建筑会安全落入开放槽位，等级与产能保持不变。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.14.0`，最低 Android 7.0。旧版存档读取时会依次迁移为按人计数的军籍/资源制、v4 时代/城池双成长、v5 独立建筑实例和 v6 网格坐标存档；既有建筑会在不跨越道路、不重叠的前提下安全落位，等级与产能保持不变。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 首次生成本机发布签名并构建不可调试的 ARM64 正式 APK：
 

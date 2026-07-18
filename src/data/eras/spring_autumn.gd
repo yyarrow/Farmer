@@ -20,7 +20,7 @@ const ERA_GROWTH := {
 	"patrol_victory": 10,
 }
 
-const VISUAL := {"tint": Color("#ffffff"), "background": "res://assets/art/city_spring_skeleton.png", "map_hint": "左右拖动巡视城郭"}
+const VISUAL := {"tint": Color("#ffffff"), "background": "res://assets/art/city_spring_terrain.png", "map_hint": "左右拖动巡视自由营造的城郭"}
 
 const SEASONS := [
 	{"id": "spring", "name": "春", "grain": 1.00, "wood": 1.00, "stone": 0.90, "coins": 1.00, "food": 1.00},

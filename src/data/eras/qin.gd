@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 1700, "minimum_city_level": 5, "daily": 6, "building_base": 19, "city_level": 92, "battle_victory": 74, "patrol_victory": 14}
-const VISUAL := {"tint": Color("#f0dfce"), "background": "res://assets/art/city_qin_skeleton.png", "map_hint": "秦制县城纵深更广，可左右拖动巡视县廷与传舍", "identity": {"earth": Color(0.20, 0.17, 0.15, 0.72), "standard": Color("#26211f"), "motif": "qin_road"}}
+const VISUAL := {"tint": Color("#f0dfce"), "background": "res://assets/art/city_qin_terrain.png", "map_hint": "秦制县城纵深更广，可左右拖动巡视县廷与传舍", "identity": {"earth": Color(0.20, 0.17, 0.15, 0.72), "standard": Color("#26211f"), "motif": "qin_road"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

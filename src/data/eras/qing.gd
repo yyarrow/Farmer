@@ -16,7 +16,7 @@ const CITY_LEVELS := [
 
 const ERA_GROWTH := {"target": 3300, "minimum_city_level": 5, "daily": 17, "building_base": 41, "city_level": 224, "battle_victory": 162, "patrol_victory": 36}
 const BATTLE_PACING := {"attack_interval_bonus": 2, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#e4dfd4"), "background": "res://assets/art/city_qing_skeleton.png", "map_hint": "清代边疆重镇依驿路设置粮台，可左右拖动巡视屯田、常平仓、商埠、绿营汛署和砖城炮台", "identity": {"earth": Color(0.36, 0.37, 0.39, 0.78), "standard": Color("#334f78"), "motif": "banner_bastion"}}
+const VISUAL := {"tint": Color("#e4dfd4"), "background": "res://assets/art/city_qing_terrain.png", "map_hint": "清代边疆重镇依驿路设置粮台，可左右拖动巡视屯田、常平仓、商埠、绿营汛署和砖城炮台", "identity": {"earth": Color(0.36, 0.37, 0.39, 0.78), "standard": Color("#334f78"), "motif": "banner_bastion"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {

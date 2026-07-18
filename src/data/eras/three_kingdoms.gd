@@ -15,7 +15,7 @@ const CITY_LEVELS := [
 ]
 
 const ERA_GROWTH := {"target": 2200, "minimum_city_level": 5, "daily": 8, "building_base": 23, "city_level": 116, "battle_victory": 90, "patrol_victory": 18}
-const VISUAL := {"tint": Color("#e6e5dc"), "background": "res://assets/art/city_three_kingdoms_skeleton.png", "map_hint": "魏郡坞城与军屯铺展，可左右拖动巡视军仓、武库和马苑", "identity": {"earth": Color(0.29, 0.28, 0.25, 0.70), "standard": Color("#344c60"), "motif": "palisade"}}
+const VISUAL := {"tint": Color("#e6e5dc"), "background": "res://assets/art/city_three_kingdoms_terrain.png", "map_hint": "魏郡坞城与军屯铺展，可左右拖动巡视军仓、武库和马苑", "identity": {"earth": Color(0.29, 0.28, 0.25, 0.70), "standard": Color("#344c60"), "motif": "palisade"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {
