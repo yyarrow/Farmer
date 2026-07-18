@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
+
 # Pure city-placement geometry. Rendering, persistence and UI consume this
 # module through CityLayout's compatibility facade.
 const MAX_SLOTS := 12
@@ -9,6 +11,7 @@ const CELL_SIZE := Vector2(36.0, 18.0)
 const GRID_ORIGIN := Vector2(270.0, 220.0)
 const ROAD_COLUMN := 7
 const INVALID_ORIGIN := Vector2i(-1, -1)
+const CITY_SAFE_RECT := Rect2(18, 188, 504, 322)
 
 const BUILDING_FOOTPRINTS := {
 	"farm": Vector2i(3, 3),
@@ -72,6 +75,67 @@ static func depth(origin: Vector2i, building_type: String) -> int:
 static func art_scale(building_type: String) -> float:
 	var size := footprint(building_type)
 	return clampf(0.72 + float(size.x + size.y - 4) * 0.07, 0.72, 0.93)
+
+static func visual_rect(origin: Vector2i, building_type: String, level := 5) -> Rect2:
+	return BuildingProfiles.render_rect(art_anchor(origin, building_type), building_type, level)
+
+static func visual_clearance_rect(origin: Vector2i, building_type: String) -> Rect2:
+	return BuildingProfiles.clearance_rect(art_anchor(origin, building_type), building_type)
+
+static func rect_overlap_ratio(first: Rect2, second: Rect2) -> float:
+	if not first.intersects(second):
+		return 0.0
+	var overlap := first.intersection(second)
+	var denominator := minf(first.get_area(), second.get_area())
+	return 0.0 if denominator <= 0.0 else overlap.get_area() / denominator
+
+static func visual_conflict(
+	building_type: String,
+	origin: Vector2i,
+	other_type: String,
+	other_origin: Vector2i
+) -> bool:
+	var gap := maxf(BuildingProfiles.minimum_gap(building_type), BuildingProfiles.minimum_gap(other_type))
+	return visual_clearance_rect(origin, building_type).grow(gap * 0.5).intersects(
+		visual_clearance_rect(other_origin, other_type).grow(gap * 0.5)
+	)
+
+static func visual_outside_ratio(origin: Vector2i, building_type: String) -> float:
+	var rect := visual_rect(origin, building_type)
+	var visible := rect.intersection(CITY_SAFE_RECT)
+	return 1.0 if rect.get_area() <= 0.0 else 1.0 - visible.get_area() / rect.get_area()
+
+static func layout_visual_metrics(instances: Array) -> Dictionary:
+	var conflicts := 0
+	var total_overlap := 0.0
+	var max_overlap := 0.0
+	var outside := 0.0
+	for index in instances.size():
+		var instance = instances[index]
+		if instance is not Dictionary:
+			continue
+		var building_type := str(instance.get("type", ""))
+		var origin := instance_origin(instance)
+		outside += visual_outside_ratio(origin, building_type)
+		for other_index in range(index + 1, instances.size()):
+			var other = instances[other_index]
+			if other is not Dictionary:
+				continue
+			var other_type := str(other.get("type", ""))
+			var other_origin := instance_origin(other)
+			if visual_conflict(building_type, origin, other_type, other_origin):
+				conflicts += 1
+			var overlap := rect_overlap_ratio(
+				visual_rect(origin, building_type), visual_rect(other_origin, other_type)
+			)
+			total_overlap += overlap
+			max_overlap = maxf(max_overlap, overlap)
+	return {
+		"conflicts": conflicts,
+		"total_overlap": total_overlap,
+		"max_overlap": max_overlap,
+		"outside": outside,
+	}
 
 static func unlocked_region(unlocked_count: int) -> Rect2i:
 	if unlocked_count <= 6:
