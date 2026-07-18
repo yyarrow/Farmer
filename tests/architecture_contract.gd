@@ -6,6 +6,8 @@ const EconomySystem = preload("res://src/systems/economy_system.gd")
 const ProgressionSystem = preload("res://src/systems/progression_system.gd")
 const SaveValidator = preload("res://src/persistence/save_validator.gd")
 const UiPresentation = preload("res://src/ui/presentation_formatter.gd")
+const CityLayout = preload("res://src/data/city_layout.gd")
+const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 
 var failures: Array[String] = []
 
@@ -45,10 +47,13 @@ func _run() -> void:
 	snapshot.population = state.get_population_cap() + 1
 	_check(not SaveValidator.is_valid(snapshot, state._save_validation_context()), "cross-field invalid snapshot is rejected")
 	_check(UiPresentation.save_time_with_bias(0.0, 480) == "1970-01-01  08:00", "presentation formatter preserves local timestamp")
+	var sample_cell := Vector2i(4, 6)
+	_check(CityLayout.grid_to_screen(sample_cell) == PlacementEngine.grid_to_screen(sample_cell), "city layout compatibility facade matches pure placement engine")
+	_check(CityLayout.can_place("house", sample_cell, [], 12) == PlacementEngine.can_place("house", sample_cell, [], 12), "placement validation is owned by the pure engine")
 
 	state.reset_game()
 	if failures.is_empty():
-		print("ARCHITECTURE_CONTRACT_OK boundaries=6")
+		print("ARCHITECTURE_CONTRACT_OK boundaries=7")
 		quit(0)
 	else:
 		for failure in failures:
