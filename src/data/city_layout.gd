@@ -238,6 +238,66 @@ static func first_open_origin(
 				return candidate
 	return INVALID_ORIGIN
 
+static func repair_instance_layout(raw_instances: Array, unlocked_count: int) -> Array:
+	# v5 sockets had no physical footprint, while early v6 migration packed every
+	# collision toward the first grid rows. Reflow once from large to small onto
+	# a deliberately distributed pattern; IDs, types and levels stay untouched.
+	var pending := []
+	for index in raw_instances.size():
+		var raw = raw_instances[index]
+		if raw is not Dictionary or not BUILDING_FOOTPRINTS.has(str(raw.get("type", ""))):
+			continue
+		pending.append({"index": index, "instance": raw.duplicate(true)})
+	pending.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_type := str(a.instance.get("type", ""))
+		var b_type := str(b.instance.get("type", ""))
+		var a_size := footprint(a_type)
+		var b_size := footprint(b_type)
+		var a_score := a_size.x * a_size.y + (100 if a_type == "wall" else 0)
+		var b_score := b_size.x * b_size.y + (100 if b_type == "wall" else 0)
+		return int(a.index) < int(b.index) if a_score == b_score else a_score > b_score
+	)
+	var placed := []
+	var repaired_by_index := {}
+	for entry in pending:
+		var instance: Dictionary = entry.instance
+		var building_type := str(instance.get("type", ""))
+		var origin := INVALID_ORIGIN
+		for candidate in repair_origin_candidates(unlocked_count):
+			if can_place(building_type, candidate, placed, unlocked_count):
+				origin = candidate
+				break
+		if origin == INVALID_ORIGIN:
+			origin = first_open_origin(placed, unlocked_count, building_type)
+		if origin == INVALID_ORIGIN:
+			continue
+		instance.grid_origin = encode_origin(origin)
+		instance.slot_id = cell_id(origin)
+		placed.append(instance)
+		repaired_by_index[int(entry.index)] = instance
+	var repaired := []
+	for index in raw_instances.size():
+		if repaired_by_index.has(index):
+			repaired.append(repaired_by_index[index])
+	return repaired
+
+static func repair_origin_candidates(unlocked_count: int) -> Array[Vector2i]:
+	if unlocked_count <= 6:
+		return [
+			Vector2i(2, 1), Vector2i(8, 1),
+			Vector2i(2, 4), Vector2i(8, 4),
+			Vector2i(2, 7), Vector2i(8, 7),
+		]
+	var left := 1 if unlocked_count <= 9 else 0
+	return [
+		Vector2i(left, 1), Vector2i(8, 1),
+		Vector2i(left + 3, 4), Vector2i(11, 4),
+		Vector2i(left, 7), Vector2i(8, 7),
+		Vector2i(left + 3, 1), Vector2i(11, 1),
+		Vector2i(left, 4), Vector2i(8, 4),
+		Vector2i(left + 3, 7), Vector2i(11, 7),
+	]
+
 # Compatibility helpers for v5 tests and migration callers.
 static func slot(id: String, _era_id := "") -> Dictionary:
 	var origin := origin_from_value(id)

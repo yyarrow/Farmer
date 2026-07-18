@@ -20,6 +20,13 @@ func _run() -> void:
 	root.add_child(ui)
 	await process_frame
 	await process_frame
+	var start_image := root.get_viewport().get_texture().get_image()
+	if start_image.is_empty() or start_image.get_width() != 540 or start_image.get_height() != 960:
+		failures.append("invalid start menu frame")
+	elif start_image.save_png("res://.qa/visual_start_menu.png") != OK:
+		failures.append("cannot save start menu frame")
+	ui._finish_startup()
+	await process_frame
 	var onboarding_image := root.get_viewport().get_texture().get_image()
 	if onboarding_image.is_empty() or onboarding_image.get_width() != 540 or onboarding_image.get_height() != 960:
 		failures.append("invalid opening advice frame")

@@ -185,7 +185,7 @@ def verify() -> None:
     ).stdout
     manifest_checks = {
         "package": 'package="com.qinghe.farmer"' in manifest,
-        "version": 'android:versionCode="15"' in manifest and 'android:versionName="0.14.0"' in manifest,
+        "version": 'android:versionCode="16"' in manifest and 'android:versionName="0.14.1"' in manifest,
         "sdk": 'android:minSdkVersion="24"' in manifest and 'android:targetSdkVersion="36"' in manifest,
         "permission": 'android.permission.VIBRATE' in manifest and 'android.permission.INTERNET' not in manifest,
         "launcher": "com.godot.game.GodotAppLauncher" in manifest and "android.intent.category.LAUNCHER" in manifest,

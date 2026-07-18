@@ -47,6 +47,7 @@ var _city_pan_x := 0.0
 var _selected_building_instance := ""
 var _selected_building_origin := CityLayout.INVALID_ORIGIN
 var _moving_building_instance := ""
+var _startup_pending := true
 
 func _ready() -> void:
 	theme = UiFont.make_theme()
@@ -60,12 +61,7 @@ func _ready() -> void:
 	Telemetry.unexpected_exit_detected.connect(_show_toast)
 	_refresh_dynamic()
 	_render_tab()
-	if not State.offline_report.is_empty():
-		call_deferred("_show_toast", State.offline_report)
-	if not State.tutorial_seen:
-		call_deferred("_show_tutorial")
-	elif not State.current_event.is_empty():
-		call_deferred("_on_event_started", State.current_event)
+	call_deferred("_show_start_menu")
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -1129,6 +1125,160 @@ func _show_toast(message: String) -> void:
 	_toast_tween.tween_property(toast_panel, "modulate:a", 0.0, 0.35)
 	_toast_tween.tween_callback(func(): toast_panel.visible = false)
 
+func _show_start_menu() -> void:
+	State.set_modal_paused(true)
+	Telemetry.track("start_menu_opened", {})
+	if modal_layer and is_instance_valid(modal_layer):
+		modal_layer.queue_free()
+	modal_layer = Control.new()
+	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_layer.z_index = 220
+	add_child(modal_layer)
+	_modal_back_action = _show_start_exit_confirmation
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.055, 0.075, 0.06, 0.82)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	modal_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.anchor_left = 0.055
+	panel.anchor_right = 0.945
+	panel.anchor_top = 0.065
+	panel.anchor_bottom = 0.67
+	panel.add_theme_stylebox_override("panel", _style(PAPER, 25, 2, Color(JADE, 0.68), 17))
+	modal_layer.add_child(panel)
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 9)
+	panel.add_child(layout)
+	var seal := Label.new()
+	seal.text = "禾"
+	seal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	seal.add_theme_font_size_override("font_size", 30)
+	seal.add_theme_color_override("font_color", CINNABAR)
+	layout.add_child(seal)
+	var title := Label.new()
+	title.text = "青禾邑"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", INK)
+	layout.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "选择本次进入的城邑进度"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 12)
+	subtitle.add_theme_color_override("font_color", INK_SOFT)
+	layout.add_child(subtitle)
+
+	var autosave := State.get_autosave_info()
+	if bool(autosave.exists):
+		layout.add_child(_info_banner(
+			"自动存档 · %s · 第%d日" % [autosave.era_name, autosave.day],
+			"城池等级%d · 繁荣%d · %s" % [autosave.chapter, autosave.prosperity, _format_save_time(float(autosave.saved_at))],
+			JADE
+		))
+		var continue_button := _action_button("继续当前城邑")
+		continue_button.custom_minimum_size.y = 50
+		continue_button.pressed.connect(func():
+			_play_chime(680.0)
+			if State.load_game():
+				_finish_startup()
+			else:
+				_show_toast("自动存档无法载入，请选择手动档位")
+				_show_start_menu()
+		)
+		layout.add_child(continue_button)
+	else:
+		layout.add_child(_info_banner("尚无自动存档", "可从新城邑开始，或载入下方的手动档位", GOLD))
+
+	var manual_heading := Label.new()
+	manual_heading.text = "手动存档"
+	manual_heading.add_theme_font_size_override("font_size", 16)
+	manual_heading.add_theme_color_override("font_color", INK)
+	layout.add_child(manual_heading)
+	for data in State.list_save_slots():
+		var slot := int(data.slot)
+		var row_card := PanelContainer.new()
+		row_card.custom_minimum_size.y = 58
+		row_card.add_theme_stylebox_override("panel", _style(Color(1.0, 0.98, 0.89, 0.72), 12, 1, Color(JADE, 0.20), 8))
+		layout.add_child(row_card)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row_card.add_child(row)
+		var copy := Label.new()
+		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		copy.add_theme_font_size_override("font_size", 11)
+		copy.add_theme_color_override("font_color", INK_SOFT)
+		copy.text = "档位%d · %s · 第%d日 · 城池%d级" % [slot, data.era_name, data.day, data.chapter] if bool(data.exists) else "档位%d · 空" % slot
+		row.add_child(copy)
+		if bool(data.exists):
+			var captured_slot := slot
+			var load_button := _action_button("载入")
+			load_button.custom_minimum_size = Vector2(58, 38)
+			load_button.pressed.connect(func():
+				_play_chime()
+				if State.load_slot(captured_slot):
+					_finish_startup()
+			)
+			row.add_child(load_button)
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	layout.add_child(actions)
+	var settings := _action_button("声音与设置")
+	settings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings.custom_minimum_size.y = 46
+	settings.pressed.connect(func():
+		_play_chime()
+		_show_settings()
+	)
+	actions.add_child(settings)
+	var new_game := _danger_button("新建城邑")
+	new_game.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	new_game.custom_minimum_size.y = 46
+	new_game.pressed.connect(func(): _confirm_start_new_game(bool(autosave.exists)))
+	actions.add_child(new_game)
+
+func _confirm_start_new_game(has_autosave: bool) -> void:
+	var start_new := func():
+		State.reset_game()
+		_finish_startup()
+	_show_modal(
+		"新建城邑？",
+		"现有自动存档会被新进度覆盖，三个手动档位不会删除。" if has_autosave else "将从春秋初始城邑开始，三个手动档位不会删除。",
+		[
+			{"text": "返回", "callback": _show_start_menu},
+			{"text": "开始新城邑", "callback": start_new},
+		],
+		CINNABAR,
+		_show_start_menu
+	)
+
+func _show_start_exit_confirmation() -> void:
+	_show_modal(
+		"暂离青禾？",
+		"尚未载入任何进度，可以安全退出。",
+		[
+			{"text": "返回", "callback": _show_start_menu},
+			{"text": "退出", "callback": func(): get_tree().quit()},
+		],
+		CINNABAR,
+		_show_start_menu
+	)
+
+func _finish_startup() -> void:
+	_startup_pending = false
+	_dismiss_modal()
+	_clear_building_selection()
+	_refresh_dynamic()
+	_render_tab()
+	if not State.offline_report.is_empty():
+		call_deferred("_show_toast", State.offline_report)
+	if not State.tutorial_seen:
+		call_deferred("_show_tutorial")
+	elif not State.current_event.is_empty():
+		call_deferred("_on_event_started", State.current_event)
+
 func _show_settings() -> void:
 	State.set_modal_paused(true)
 	Telemetry.track("settings_opened", {})
@@ -1195,20 +1345,24 @@ func _show_settings() -> void:
 	haptics.toggled.connect(func(value: bool): Audio.set_haptics_enabled(value))
 	content.add_child(haptics)
 
-	_add_settings_heading(content, "存档管理", "自动存档持续运行，手动档位用于保留关键节点")
-	content.add_child(_info_banner("自动存档", "第 %d 日 · 繁荣 %d · 每十秒与关键操作保存" % [State.current_day, State.get_prosperity()], JADE))
-	for slot_data in State.list_save_slots():
-		_add_save_slot_row(content, slot_data)
-	var new_game := _danger_button("重新开始新城邑")
-	new_game.pressed.connect(func():
-		_confirm_action("重新开始？", "当前自动进度将被新游戏覆盖。三个手动档位不会删除。", "重新开始", func():
-			State.reset_game()
-			_clear_building_selection()
-			_render_tab()
-			_show_tutorial()
+	if _startup_pending:
+		_add_settings_heading(content, "存档管理", "返回入口页后选择自动存档、手动档位或新城邑")
+		content.add_child(_info_banner("尚未进入城邑", "此时时间与自动存档均已停止，不会覆盖现有进度", GOLD))
+	else:
+		_add_settings_heading(content, "存档管理", "自动存档持续运行，手动档位用于保留关键节点")
+		content.add_child(_info_banner("自动存档", "第 %d 日 · 繁荣 %d · 每十秒与关键操作保存" % [State.current_day, State.get_prosperity()], JADE))
+		for slot_data in State.list_save_slots():
+			_add_save_slot_row(content, slot_data)
+		var new_game := _danger_button("重新开始新城邑")
+		new_game.pressed.connect(func():
+			_confirm_action("重新开始？", "当前自动进度将被新游戏覆盖。三个手动档位不会删除。", "重新开始", func():
+				State.reset_game()
+				_clear_building_selection()
+				_render_tab()
+				_show_tutorial()
+			)
 		)
-	)
-	content.add_child(new_game)
+		content.add_child(new_game)
 
 	_add_settings_heading(content, "诊断与埋点", "只在本机滚动记录，不联网、不含个人信息")
 	var diag_toggle := CheckButton.new()
@@ -1243,14 +1397,15 @@ func _show_settings() -> void:
 	content.add_child(clear_logs)
 
 	_add_settings_heading(content, "关于", "版本 %s · 离线单机 · 无广告与联网权限" % ProjectSettings.get_setting("application/config/version", "未知"))
-	var tutorial_button := _action_button("重看上任说明")
-	tutorial_button.custom_minimum_size.y = 46
-	tutorial_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tutorial_button.pressed.connect(func():
-		_play_chime()
-		_show_tutorial(true)
-	)
-	content.add_child(tutorial_button)
+	if not _startup_pending:
+		var tutorial_button := _action_button("重看上任说明")
+		tutorial_button.custom_minimum_size.y = 46
+		tutorial_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tutorial_button.pressed.connect(func():
+			_play_chime()
+			_show_tutorial(true)
+		)
+		content.add_child(tutorial_button)
 	var licenses_button := _action_button("开源软件许可与鸣谢")
 	licenses_button.custom_minimum_size.y = 46
 	licenses_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1326,7 +1481,10 @@ func _style_settings_toggle(toggle: CheckButton) -> void:
 
 func _close_settings() -> void:
 	Audio.save_settings()
-	_dismiss_modal()
+	if _startup_pending:
+		_show_start_menu()
+	else:
+		_dismiss_modal()
 	Telemetry.track("settings_closed", {})
 
 func _add_settings_heading(parent: VBoxContainer, title_text: String, subtitle_text: String) -> void:

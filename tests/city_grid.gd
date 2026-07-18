@@ -44,7 +44,7 @@ func _run() -> void:
 		farms.append({"id": "farm_%02d" % index, "type": "farm", "grid_origin": CityLayout.encode_origin(origin)})
 
 	var current: Dictionary = state.get_snapshot()
-	_check(SaveValidator.is_valid(current, state._save_validation_context()), "v6 grid snapshot passes cross-field validation")
+	_check(SaveValidator.is_valid(current, state._save_validation_context()), "v7 grid snapshot passes cross-field validation")
 	var overlap: Dictionary = current.duplicate(true)
 	if overlap.building_instances.size() >= 2:
 		overlap.building_instances[1].grid_origin = overlap.building_instances[0].grid_origin.duplicate()
@@ -61,8 +61,44 @@ func _run() -> void:
 		v5.building_instances[index].erase("grid_origin")
 		v5.building_instances[index].slot_id = "slot_%02d" % (index + 1)
 	var migrated: Dictionary = state._upgrade_snapshot(v5)
-	_check(int(migrated.format_version) == 6, "v5 sockets migrate to v6 grid format")
+	_check(int(migrated.format_version) == 7, "v5 sockets migrate to v7 repaired grid format")
 	_check(SaveValidator.is_valid(migrated, state._save_validation_context()), "migrated grid snapshot remains valid")
+
+	var v6: Dictionary = current.duplicate(true)
+	v6.format_version = 6
+	v6.city_level = 3
+	v6.chapter = 3
+	v6.population = 65
+	var preserved_resources: Dictionary = v6.resources.duplicate(true)
+	var preserved_units: Dictionary = v6.units.duplicate(true)
+	var preserved_day := int(v6.current_day)
+	for id in v6.buildings:
+		v6.buildings[id] = 0
+	v6.buildings.farm = 8
+	v6.building_instances = []
+	var broken_origins := [
+		Vector2i(0, 1), Vector2i(3, 1), Vector2i(8, 1), Vector2i(11, 1),
+		Vector2i(0, 4), Vector2i(3, 4), Vector2i(8, 4), Vector2i(11, 4),
+	]
+	for index in broken_origins.size():
+		v6.building_instances.append({
+			"id": "legacy_%02d" % index, "type": "farm", "level": 1,
+			"grid_origin": CityLayout.encode_origin(broken_origins[index]),
+			"slot_id": CityLayout.cell_id(broken_origins[index]),
+		})
+	var repaired_v6: Dictionary = state._upgrade_snapshot(v6)
+	_check(SaveValidator.is_valid(repaired_v6, state._save_validation_context()), "already-damaged v6 autosave repairs into a valid v7 snapshot")
+	_check(repaired_v6.resources == preserved_resources and repaired_v6.units == preserved_units and int(repaired_v6.current_day) == preserved_day, "v7 repair preserves resources, army and progression")
+	for index in repaired_v6.building_instances.size():
+		var repaired_instance: Dictionary = repaired_v6.building_instances[index]
+		_check(str(repaired_instance.id) == "legacy_%02d" % index and int(repaired_instance.level) == 1, "v7 repair preserves building identity and level %d" % index)
+	var repaired_rows := {}
+	var repaired_sides := {}
+	for instance in repaired_v6.building_instances:
+		var origin := CityLayout.instance_origin(instance)
+		repaired_rows[origin.y] = true
+		repaired_sides["left" if origin.x < CityLayout.ROAD_COLUMN else "right"] = true
+	_check(repaired_rows.size() >= 3 and repaired_sides.size() == 2, "v6 repair redistributes existing buildings across rows and both sides of the avenue")
 
 	state.reset_game()
 	if failures.is_empty():

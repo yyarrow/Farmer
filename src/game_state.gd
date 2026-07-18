@@ -21,7 +21,7 @@ const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
 const AUTO_SAVE_PATH := "user://saves/autosave.json"
 const SLOT_COUNT := 3
-const FORMAT_VERSION := 6
+const FORMAT_VERSION := 7
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
@@ -70,6 +70,7 @@ var last_day_report := ""
 var time_speed := 0.0
 var modal_paused := false
 var persistence_enabled := true
+var game_session_active := false
 var rng := RandomNumberGenerator.new()
 var _change_accum := 0.0
 var _save_accum := 0.0
@@ -78,7 +79,6 @@ func _ready() -> void:
 	rng.randomize()
 	SaveRepository.ensure_directory(SAVE_DIR)
 	_migrate_legacy_save()
-	load_game()
 	if building_instances.is_empty():
 		_seed_instances_from_buildings()
 	if enemy_army.is_empty():
@@ -87,6 +87,8 @@ func _ready() -> void:
 	Telemetry.track("game_state_ready", {"day": current_day, "chapter": chapter, "era": era_id, "format": FORMAT_VERSION})
 
 func _process(delta: float) -> void:
+	if not game_session_active:
+		return
 	var simulation_delta := delta * get_effective_time_speed()
 	if simulation_delta > 0.0:
 		_tick_economy(simulation_delta)
@@ -100,7 +102,7 @@ func _process(delta: float) -> void:
 		save_game()
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+	if game_session_active and (what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED):
 		save_game()
 
 func _tick_economy(delta: float) -> void:
@@ -1292,20 +1294,44 @@ func mark_tutorial_seen() -> void:
 	save_game()
 
 func save_game() -> void:
-	if not persistence_enabled:
+	if not persistence_enabled or not game_session_active:
 		return
 	if _write_save(AUTO_SAVE_PATH, get_snapshot()):
 		Telemetry.track("autosave", {"day": current_day, "chapter": chapter})
 
-func load_game() -> void:
+func load_game() -> bool:
 	if not FileAccess.file_exists(AUTO_SAVE_PATH):
-		return
+		return false
 	var data := _read_save(AUTO_SAVE_PATH)
 	if data.is_empty():
 		Telemetry.track_error("autosave_invalid", "自动存档无法解析")
-		return
-	_apply_snapshot(data, true)
+		return false
+	if not _apply_snapshot(data, true):
+		Telemetry.track_error("autosave_migration_failed", "自动存档迁移后无法载入")
+		return false
+	game_session_active = true
+	changed.emit()
+	visual_event.emit("load", {"slot": 0})
 	Telemetry.track("autosave_loaded", {"day": current_day, "chapter": chapter})
+	save_game()
+	return true
+
+func get_autosave_info() -> Dictionary:
+	var data := _read_save(AUTO_SAVE_PATH)
+	if data.is_empty():
+		return {"exists": false}
+	var upgraded := _upgrade_snapshot(data)
+	if not _is_valid_save_data(upgraded):
+		return {"exists": false}
+	var saved_era := str(upgraded.get("era_id", EraRegistry.DEFAULT_ID))
+	return {
+		"exists": true,
+		"day": int(upgraded.get("current_day", 1)),
+		"chapter": int(upgraded.get("city_level", upgraded.get("chapter", 1))),
+		"era_name": str(EraRegistry.definition(saved_era).display_name),
+		"prosperity": int(upgraded.get("prosperity", 0)),
+		"saved_at": float(upgraded.get("saved_at", 0.0)),
+	}
 
 func get_snapshot() -> Dictionary:
 	# Instance placement is authoritative. Reconcile the compatibility aggregate
@@ -1348,14 +1374,14 @@ func _upgrade_snapshot(data: Dictionary) -> Dictionary:
 		Telemetry.track("save_format_migrated", {"from": result.from, "to": FORMAT_VERSION})
 	return result.data
 
-func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
+func _apply_snapshot(data: Dictionary, apply_offline: bool) -> bool:
 	if not _is_valid_save_data(data):
 		Telemetry.track_error("save_snapshot_rejected", "存档结构或数值范围无效")
-		return
+		return false
 	var snapshot := _upgrade_snapshot(data)
 	if not _is_valid_save_data(snapshot):
 		Telemetry.track_error("save_migration_rejected", "迁移后的存档状态不一致")
-		return
+		return false
 	_configure_era(str(snapshot.get("era_id", EraRegistry.DEFAULT_ID)))
 	era_progress = int(snapshot.get("era_progress", 0))
 	resources = era_definition.initial_resources.duplicate(true)
@@ -1394,6 +1420,7 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> void:
 	last_day_report = ""
 	if apply_offline:
 		_apply_offline_progress(snapshot)
+	return true
 
 func _apply_offline_progress(data: Dictionary) -> void:
 	var elapsed := clampf(Time.get_unix_time_from_system() - float(data.get("saved_at", Time.get_unix_time_from_system())), 0.0, MAX_OFFLINE_SECONDS)
@@ -1435,7 +1462,10 @@ func load_slot(slot: int) -> bool:
 	if data.is_empty():
 		notice.emit("该档位存档损坏且无可用备份" if had_save_file else "该档位尚无存档")
 		return false
-	_apply_snapshot(data, true)
+	if not _apply_snapshot(data, true):
+		notice.emit("该档位迁移失败，原存档未覆盖")
+		return false
+	game_session_active = true
 	changed.emit()
 	save_game()
 	notice.emit("已载入档位 %d" % slot)
@@ -1524,6 +1554,7 @@ func _migrate_legacy_save() -> void:
 		Telemetry.track("legacy_save_migrated", {"format": data.get("format_version", 1)})
 
 func reset_game() -> void:
+	game_session_active = true
 	_configure_era(EraRegistry.DEFAULT_ID)
 	era_progress = 0
 	resources = era_definition.initial_resources.duplicate(true)

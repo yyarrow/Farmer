@@ -11,6 +11,13 @@ func _run() -> void:
 	_check(not ProjectSettings.get_setting("application/config/quit_on_go_back", true), "Android back is handled in game")
 	state.reset_game()
 	state.tutorial_seen = true
+	state.save_game()
+	state.manual_save(1)
+	state.game_session_active = false
+	var autosave_before_start := FileAccess.get_file_as_string(state.AUTO_SAVE_PATH)
+	state.current_day = 99
+	state._process(10.5)
+	_check(FileAccess.get_file_as_string(state.AUTO_SAVE_PATH) == autosave_before_start, "inactive startup cannot overwrite the autosave")
 	var scene: PackedScene = load("res://main.tscn")
 	var ui = scene.instantiate()
 	root.add_child(ui)
@@ -26,6 +33,19 @@ func _run() -> void:
 				missing_glyphs[glyph] = true
 	_check(missing_glyphs.is_empty(), "bundled UI font covers every source glyph: %s" % str(missing_glyphs.keys()))
 	await process_frame
+	_check(ui._startup_pending and ui.modal_layer != null and _has_label_containing(ui.modal_layer, "选择本次进入的城邑进度"), "startup opens the save-selection home instead of entering gameplay")
+	_check(_has_button(ui.modal_layer, "继续当前城邑") and _has_button(ui.modal_layer, "载入") and _has_button(ui.modal_layer, "新建城邑") and _has_button(ui.modal_layer, "声音与设置"), "startup exposes autosave, manual save, new game and settings")
+	_check(not state.game_session_active, "startup selection keeps simulation and autosave inactive")
+	ui._show_settings()
+	await process_frame
+	_check(_has_label_containing(ui.modal_layer, "尚未进入城邑") and not _has_button(ui.modal_layer, "重新开始新城邑") and not _has_button(ui.modal_layer, "重看上任说明"), "startup settings cannot mutate or bypass an unloaded save")
+	ui._close_settings()
+	await process_frame
+	_check(ui._startup_pending and _has_label_containing(ui.modal_layer, "选择本次进入的城邑进度"), "closing startup settings returns to save selection")
+	_check(state.load_game(), "startup continue loads the autosave explicitly")
+	ui._finish_startup()
+	await process_frame
+	_check(not ui._startup_pending and ui.modal_layer == null and state.game_session_active, "startup continue enters gameplay only after selection")
 	_check(ui.content_box != null, "main content built")
 	_check(ui.content_scroll.scroll_deadzone == 10, "content scroll separates taps from intentional drags")
 	_check(_all_controls_pass_scroll_input(ui.content_box), "content cards pass touch drags to their ScrollContainer")

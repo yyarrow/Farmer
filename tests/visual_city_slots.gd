@@ -24,7 +24,7 @@ func _run() -> void:
 	root.add_child(ui)
 	await process_frame
 	await process_frame
-	ui._dismiss_modal()
+	ui._finish_startup()
 	ui.current_tab = 0
 	ui._update_tab_buttons()
 
@@ -80,11 +80,29 @@ func _run() -> void:
 	await process_frame
 	_save_frame("res://.qa/grid_tang_valid.png")
 
+	state._configure_era("spring_autumn")
+	state.chapter = 3
+	var broken_instances := []
+	for index in 8:
+		var building_type: String = showcase_types[index]
+		var origin := CityLayout.first_open_origin(broken_instances, 12, building_type)
+		broken_instances.append({
+			"id": "migrated_%02d" % index, "type": building_type, "level": 2,
+			"grid_origin": CityLayout.encode_origin(origin), "slot_id": CityLayout.cell_id(origin),
+		})
+	state._normalize_building_instances(CityLayout.repair_instance_layout(broken_instances, 12))
+	ui.city_visual_layer.clear_move_mode()
+	ui.city_visual_layer.set_selected("")
+	ui._render_tab()
+	state.changed.emit()
+	await process_frame
+	_save_frame("res://.qa/grid_migrated_eight.png")
+
 	ui.queue_free()
 	state.reset_game()
 	await process_frame
 	if failures.is_empty():
-		print("VISUAL_CITY_SLOTS_OK eras=%d densities=3 placement=2 size=540x960" % EraRegistry.ORDER.size())
+		print("VISUAL_CITY_SLOTS_OK eras=%d densities=3 placement=2 migration=1 size=540x960" % EraRegistry.ORDER.size())
 		quit(0)
 		return
 	for failure in failures:
