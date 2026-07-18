@@ -31,11 +31,22 @@ func _run() -> void:
 	_check(state.advance_chapter(), "prosperous village advances to a city")
 	_check(state.chapter == 2 and state.get_building_slot_count() == 9 and state.get_open_building_slots() == 3, "Spring and Autumn mid-tier city opens three new lots")
 	_check(state.upgrade_building("market"), "newly opened lot accepts construction")
-	var duplicate_origin := CityLayout.first_open_origin(state.building_instances, state.get_building_slot_count(), "farm")
+	var duplicate_origin := CityLayout.best_visual_origin(state.building_instances, state.get_building_slot_count(), "farm")
+	if duplicate_origin == CityLayout.INVALID_ORIGIN:
+		var pending: Array = state.get_building_instances()
+		pending.append({"id": "test_new_farm", "type": "farm", "level": 1})
+		var arranged: Array = CityLayout.arrange_visual_layout(pending, state.get_building_slot_count())
+		var existing: Array = []
+		for instance in arranged:
+			if str(instance.id) == "test_new_farm":
+				duplicate_origin = CityLayout.instance_origin(instance)
+			else:
+				existing.append(instance)
+		state._normalize_building_instances(existing)
 	_check(state.place_building("farm", duplicate_origin), "repeatable building types can occupy a second footprint")
 	_check(int(state.buildings.farm) == 2 and state.get_built_building_count() == 8, "duplicate farm contributes its own level and consumes one lot")
 	var duplicate_farm: Dictionary = state.get_building_at_origin(duplicate_origin)
-	var move_origin := CityLayout.first_open_origin(state.building_instances, state.get_building_slot_count(), "farm", CityLayout.INVALID_ORIGIN, str(duplicate_farm.id))
+	var move_origin := CityLayout.best_visual_origin(state.building_instances, state.get_building_slot_count(), "farm", CityLayout.INVALID_ORIGIN, str(duplicate_farm.id))
 	_check(state.move_building_instance(str(duplicate_farm.id), move_origin), "placed building can move between valid open footprints")
 	_check(state.get_building_at_origin(duplicate_origin).is_empty() and str(state.get_building_at_origin(move_origin).id) == str(duplicate_farm.id), "moving preserves identity and frees the old footprint")
 	_check(not state.place_building("wall", duplicate_origin), "unique city wall cannot be placed twice")

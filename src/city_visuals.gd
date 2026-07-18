@@ -2,6 +2,7 @@ extends Control
 
 const UiFont = preload("res://src/ui_font.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
+const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
 const POSITIONS := CityLayout.BUILDING_POSITIONS
 const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
@@ -28,6 +29,7 @@ var _effect_font: Font
 var _production_accum := 0.0
 var _world_time := 0.0
 var _rng := RandomNumberGenerator.new()
+var debug_geometry_enabled := false
 
 func _ready() -> void:
 	_effect_font = UiFont.medium()
@@ -116,6 +118,10 @@ func clear_move_mode() -> void:
 	move_instance_id = ""
 	_refresh_buildings()
 
+func set_debug_geometry_enabled(enabled: bool) -> void:
+	debug_geometry_enabled = enabled
+	queue_redraw()
+
 func _layout_for_instance(instance: Dictionary) -> Dictionary:
 	var building_type := str(instance.get("type", ""))
 	var origin := CityLayout.instance_origin(instance)
@@ -126,12 +132,13 @@ func _layout_for_instance(instance: Dictionary) -> Dictionary:
 	for point in polygon:
 		ground_rect = ground_rect.expand(point)
 	var anchor := CityLayout.art_anchor(origin, building_type)
-	var art_size := Vector2.ONE * 128.0 * CityLayout.art_scale(building_type)
+	var level := int(instance.get("level", 1))
+	var art_rect := BuildingProfiles.render_rect(anchor, building_type, level)
 	return {
 		"origin": origin, "polygon": polygon, "anchor": anchor,
 		"position": ground_rect.position, "size": ground_rect.size,
-		"art_size": art_size,
-		"art_rect": Rect2(anchor - Vector2(art_size.x * 0.5, art_size.y), art_size),
+		"art_size": art_rect.size,
+		"art_rect": art_rect,
 		"z": 20 + CityLayout.depth(origin, building_type),
 	}
 
@@ -197,7 +204,7 @@ func _sync_instance_views() -> void:
 		view.pivot_offset = art_size * 0.5
 		if displayed_levels.get(instance_id, -1) != level:
 			displayed_levels[instance_id] = level
-			view.scale = Vector2.ONE * _scale_for_level(level)
+			view.scale = Vector2.ONE
 		view.modulate = Color(1.0, 1.0, 1.0, 0.96)
 		var rank_mark := " 冠" if level >= 5 else (" 精" if level >= 3 else "")
 		var label: Label = building_labels[instance_id]
@@ -276,11 +283,6 @@ func _stage_for_level(level: int) -> int:
 	if level <= 3:
 		return 2
 	return 3
-
-func _scale_for_level(level: int) -> float:
-	# The four art stages already grow visually. Keep transform growth restrained
-	# so late-stage buildings remain seated inside their painted plots.
-	return [0.90, 0.94, 0.97, 1.0, 1.02, 1.04][clampi(level, 0, 5)]
 
 func _atlas_for(id: String, stage: int) -> AtlasTexture:
 	var era_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [State.era_id, id]
@@ -399,7 +401,7 @@ func _animate_building(instance_id: String, is_new: bool) -> void:
 	var instance := State.get_building_instance(instance_id)
 	var view: TextureRect = building_views[instance_id]
 	var button: Button = building_buttons[instance_id]
-	var target_scale := Vector2.ONE * _scale_for_level(int(instance.level))
+	var target_scale := Vector2.ONE
 	view.scale = Vector2(0.46, 0.46) if is_new else Vector2(0.78, 0.78)
 	view.modulate = Color(0.52, 0.43, 0.30, 0.20)
 	button.add_theme_stylebox_override("normal", _style(Color(0.35, 0.25, 0.14, 0.30), Color("#d6aa54"), 2))
@@ -515,9 +517,26 @@ func _spawn_smoke(position: Vector2) -> void:
 	for i in 14:
 		effects.append({"kind": "smoke", "pos": position + Vector2(_rng.randf_range(-20, 20), _rng.randf_range(-8, 8)), "vel": Vector2(_rng.randf_range(-6, 6), _rng.randf_range(-24, -12)), "life": _rng.randf_range(1.4, 2.6), "max_life": 2.6, "color": Color("#4a4038"), "size": _rng.randf_range(5.0, 10.0)})
 
+func _draw_debug_geometry() -> void:
+	if not debug_geometry_enabled:
+		return
+	for instance in State.get_building_instances():
+		var building_type := str(instance.get("type", ""))
+		var origin := CityLayout.instance_origin(instance)
+		var plot := CityLayout.footprint_polygon(origin, building_type)
+		var closed_plot := PackedVector2Array(plot)
+		closed_plot.append(plot[0])
+		draw_polyline(closed_plot, Color(0.28, 0.92, 0.52, 0.95), 1.4, true)
+		var clearance := CityLayout.visual_clearance_rect(origin, building_type)
+		draw_rect(clearance, Color(1.0, 0.62, 0.18, 0.88), false, 1.2)
+		var visual := CityLayout.visual_rect(origin, building_type)
+		draw_rect(visual, Color(0.25, 0.72, 1.0, 0.72), false, 0.9)
+		draw_circle(CityLayout.art_anchor(origin, building_type), 2.8, Color(0.95, 0.22, 0.28, 0.96))
+
 func _draw() -> void:
 	_draw_plot_sockets()
 	_draw_world_state()
+	_draw_debug_geometry()
 	for effect in effects:
 		var alpha := clampf(effect.life / effect.max_life, 0.0, 1.0)
 		var color: Color = effect.color

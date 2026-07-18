@@ -27,10 +27,18 @@ static func ranked_origins(
 		if preferred_origin != PlacementEngine.INVALID_ORIGIN else PlacementEngine.CITY_SAFE_RECT.get_center()
 	)
 	var scored := []
+	var ignored_origin := PlacementEngine.INVALID_ORIGIN
+	if not ignore_instance_id.is_empty():
+		for instance in instances:
+			if instance is Dictionary and str(instance.get("id", "")) == ignore_instance_id:
+				ignored_origin = PlacementEngine.instance_origin(instance)
+				break
 	var region := PlacementEngine.unlocked_region(unlocked_count)
 	for y in range(region.position.y, region.end.y):
 		for x in range(region.position.x, region.end.x):
 			var candidate := Vector2i(x, y)
+			if candidate == ignored_origin:
+				continue
 			if not PlacementEngine.can_place_visually(building_type, candidate, instances, unlocked_count, ignore_instance_id):
 				continue
 			var score := candidate_score(building_type, candidate, instances, preferred_anchor, ignore_instance_id)

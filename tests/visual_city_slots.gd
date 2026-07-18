@@ -40,7 +40,8 @@ func _run() -> void:
 					"level": 1 + (index % 3) * 2,
 					"slot_id": "slot_%02d" % (index + 1),
 				})
-			state._normalize_building_instances(instances)
+			var arranged: Array = CityLayout.arrange_visual_layout(instances, maxi(6, density)) if density > 0 else []
+			state._normalize_building_instances(arranged)
 			ui._render_tab()
 			state.changed.emit()
 			await create_timer(0.35).timeout
@@ -51,6 +52,32 @@ func _run() -> void:
 				failures.append("invalid %s %s frame" % [era_id, suffix])
 			elif image.save_png(path) != OK:
 				failures.append("cannot save %s" % path)
+
+	state._configure_era("warring_states")
+	state.chapter = 2
+	var warring_nine := []
+	for index in 9:
+		warring_nine.append({
+			"id": "warring_solver_%02d" % index,
+			"type": showcase_types[index],
+			"level": 5,
+		})
+	var arranged_nine: Array = CityLayout.arrange_visual_layout(warring_nine, 9)
+	if arranged_nine.size() != 9:
+		failures.append("warring nine-building visual solver dropped an instance")
+	else:
+		var metrics := CityLayout.layout_visual_metrics(arranged_nine)
+		if int(metrics.conflicts) > 0 or float(metrics.outside) >= 0.08:
+			failures.append("warring nine-building visual solver is crowded or clipped: %s" % metrics)
+	state._normalize_building_instances(arranged_nine)
+	ui._render_tab()
+	state.changed.emit()
+	await process_frame
+	_save_frame("res://.qa/grid_solver_warring_nine.png")
+	ui.city_visual_layer.set_debug_geometry_enabled(true)
+	await process_frame
+	_save_frame("res://.qa/grid_solver_warring_nine_debug.png")
+	ui.city_visual_layer.set_debug_geometry_enabled(false)
 
 	# Placement-mode acceptance frames: the drawn footprint uses the same road
 	# and collision rules as the save validator.

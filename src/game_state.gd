@@ -216,10 +216,10 @@ func get_building_at_cell(cell: Vector2i) -> Dictionary:
 	return {}
 
 func can_place_building_at(building_type: String, origin: Vector2i, ignore_instance_id := "") -> bool:
-	return CityLayout.can_place(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
+	return CityLayout.can_place_visually(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
 
 func building_placement_reason(building_type: String, origin: Vector2i, ignore_instance_id := "") -> String:
-	return CityLayout.placement_reason(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
+	return CityLayout.visual_placement_reason(building_type, origin, building_instances, get_building_slot_count(), ignore_instance_id)
 
 func get_building_instances_of_type(building_type: String) -> Array:
 	var result := []
@@ -241,20 +241,27 @@ func _new_building_instance_id() -> String:
 	return id
 
 func _seed_instances_from_buildings() -> void:
-	building_instances = []
+	var raw_instances := []
 	_next_building_instance_seq = 1
 	for id in BUILDINGS:
 		var level := int(buildings.get(id, 0))
 		if level <= 0:
 			continue
-		var preferred := str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, ""))
-		var origin := CityLayout.first_open_origin(building_instances, get_building_slot_count(), id, preferred)
-		if origin == CityLayout.INVALID_ORIGIN:
-			break
-		building_instances.append({
+		raw_instances.append({
 			"id": _new_building_instance_id(), "type": id, "level": level,
-			"grid_origin": CityLayout.encode_origin(origin), "slot_id": CityLayout.cell_id(origin),
+			"slot_id": str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, "")),
 		})
+	building_instances = CityLayout.arrange_visual_layout(raw_instances, get_building_slot_count())
+	if building_instances.size() != raw_instances.size():
+		building_instances = []
+		for raw in raw_instances:
+			var building_type := str(raw.type)
+			var origin := CityLayout.first_open_origin(building_instances, get_building_slot_count(), building_type, raw.slot_id)
+			if origin == CityLayout.INVALID_ORIGIN:
+				break
+			raw.grid_origin = CityLayout.encode_origin(origin)
+			raw.slot_id = CityLayout.cell_id(origin)
+			building_instances.append(raw)
 
 func _normalize_building_instances(raw_instances: Array) -> void:
 	building_instances = []
@@ -576,12 +583,32 @@ func upgrade_building(id: String) -> bool:
 		return false
 	var instances := get_building_instances_of_type(id)
 	if instances.is_empty():
-		var origin := CityLayout.first_open_origin(
+		var origin := CityLayout.best_visual_origin(
 			building_instances, get_building_slot_count(), id,
 			str(CityLayout.BUILDING_SLOT_DEFAULTS.get(id, ""))
 		)
+		if origin == CityLayout.INVALID_ORIGIN and get_open_building_slots() > 0 and can_afford(new_building_cost(id)):
+			origin = _reflow_for_automatic_build(id)
 		return place_building(id, origin)
 	return upgrade_building_instance(str(instances[0].id))
+
+func _reflow_for_automatic_build(id: String) -> Vector2i:
+	var placeholder_id := "__auto_build__"
+	var pending := building_instances.duplicate(true)
+	pending.append({"id": placeholder_id, "type": id, "level": 1})
+	var arranged := CityLayout.arrange_visual_layout(pending, get_building_slot_count())
+	if arranged.size() != pending.size():
+		return CityLayout.INVALID_ORIGIN
+	var origin := CityLayout.INVALID_ORIGIN
+	var existing := []
+	for instance in arranged:
+		if str(instance.get("id", "")) == placeholder_id:
+			origin = CityLayout.instance_origin(instance)
+		else:
+			existing.append(instance)
+	if origin != CityLayout.INVALID_ORIGIN:
+		building_instances = existing
+	return origin
 
 func place_building(id: String, placement: Variant) -> bool:
 	if not BUILDINGS.has(id):

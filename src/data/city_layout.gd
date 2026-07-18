@@ -1,6 +1,7 @@
 extends RefCounted
 
 const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
+const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
 
 # One placement model drives rendering, hit testing, persistence and validation.
 # The painted era background contains terrain and distant walls only.
@@ -119,6 +120,15 @@ static func can_place(
 ) -> bool:
 	return PlacementEngine.can_place(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
+static func can_place_visually(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> bool:
+	return PlacementEngine.can_place_visually(building_type, origin, instances, unlocked_count, ignore_instance_id)
+
 static func placement_reason(
 	building_type: String,
 	origin: Vector2i,
@@ -127,6 +137,36 @@ static func placement_reason(
 	ignore_instance_id := ""
 ) -> String:
 	return PlacementEngine.placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+
+static func visual_placement_reason(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> String:
+	return PlacementEngine.visual_placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+
+static func best_visual_origin(
+	instances: Array,
+	unlocked_count: int,
+	building_type: String,
+	preferred: Variant = INVALID_ORIGIN,
+	ignore_instance_id := ""
+) -> Vector2i:
+	return PlacementSolver.best_origin(building_type, instances, unlocked_count, preferred, ignore_instance_id)
+
+static func arrange_visual_layout(instances: Array, unlocked_count: int) -> Array:
+	return PlacementSolver.arrange(instances, unlocked_count)
+
+static func visual_rect(origin: Vector2i, building_type: String, level := 5) -> Rect2:
+	return PlacementEngine.visual_rect(origin, building_type, level)
+
+static func visual_clearance_rect(origin: Vector2i, building_type: String) -> Rect2:
+	return PlacementEngine.visual_clearance_rect(origin, building_type)
+
+static func layout_visual_metrics(instances: Array) -> Dictionary:
+	return PlacementEngine.layout_visual_metrics(instances)
 
 static func first_open_origin(
 	instances: Array,
