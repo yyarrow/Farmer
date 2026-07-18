@@ -2,6 +2,7 @@ extends SceneTree
 
 const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
+const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
 
 var failures: Array[String] = []
 
@@ -33,6 +34,20 @@ func _run() -> void:
 	var separated_metrics := PlacementEngine.layout_visual_metrics(separated)
 	_check(int(separated_metrics.conflicts) == 0, "visually separated buildings have no base-envelope conflicts")
 	_check(float(separated_metrics.outside) < 0.05, "separated buildings remain inside the city HUD-safe rectangle")
+
+	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "wall", "farm", "house", "warehouse", "barracks"]
+	for capacity in [6, 9, 12]:
+		var raw := []
+		for index in capacity:
+			raw.append({"id": "solver_%02d" % index, "type": showcase_types[index], "level": 5})
+		var arranged := PlacementSolver.arrange(raw, capacity)
+		_check(arranged.size() == capacity, "solver arranges all %d buildings without dropping an instance" % capacity)
+		if arranged.size() == capacity:
+			var metrics := PlacementEngine.layout_visual_metrics(arranged)
+			_check(int(metrics.conflicts) == 0, "%d-building solver layout has no base-envelope conflict" % capacity)
+			_check(float(metrics.outside) < 0.08, "%d-building solver layout stays clear of HUD and city edges" % capacity)
+			for instance in arranged:
+				_check(PlacementEngine.has_road_clearance(PlacementEngine.instance_origin(instance), str(instance.type)), "%d-building solver keeps the avenue visually clear" % capacity)
 
 	if failures.is_empty():
 		print("CITY_PLACEMENT_ENGINE_OK profiles=%d crowded_conflicts=%d" % [BuildingProfiles.PROFILES.size(), int(crowded_metrics.conflicts)])

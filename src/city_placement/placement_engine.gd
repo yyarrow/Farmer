@@ -24,6 +24,8 @@ const BUILDING_FOOTPRINTS := {
 	"wall": Vector2i(4, 2),
 }
 
+static var _road_overlap_cache := {}
+
 const LEGACY_ORIGINS := [
 	Vector2i(2, 1), Vector2i(4, 1), Vector2i(8, 1), Vector2i(10, 1),
 	Vector2i(2, 4), Vector2i(4, 4), Vector2i(8, 4), Vector2i(10, 4),
@@ -96,9 +98,10 @@ static func visual_conflict(
 	other_origin: Vector2i
 ) -> bool:
 	var gap := maxf(BuildingProfiles.minimum_gap(building_type), BuildingProfiles.minimum_gap(other_type))
-	return visual_clearance_rect(origin, building_type).grow(gap * 0.5).intersects(
+	return rect_overlap_ratio(
+		visual_clearance_rect(origin, building_type).grow(gap * 0.5),
 		visual_clearance_rect(other_origin, other_type).grow(gap * 0.5)
-	)
+	) > 0.18
 
 static func visual_outside_ratio(origin: Vector2i, building_type: String) -> float:
 	var rect := visual_rect(origin, building_type)
@@ -155,6 +158,37 @@ static func is_road(cell: Vector2i) -> bool:
 
 static func is_cell_unlocked(cell: Vector2i, unlocked_count: int) -> bool:
 	return unlocked_region(unlocked_count).has_point(cell) and not is_road(cell)
+
+static func has_road_clearance(origin: Vector2i, building_type: String) -> bool:
+	return road_overlap_ratio(origin, building_type) <= 0.18
+
+static func road_overlap_ratio(origin: Vector2i, building_type: String) -> float:
+	var cache_key := "%s:%d:%d" % [building_type, origin.x, origin.y]
+	if _road_overlap_cache.has(cache_key):
+		return float(_road_overlap_cache[cache_key])
+	var clearance := visual_clearance_rect(origin, building_type)
+	if clearance.get_area() <= 0.0:
+		return 0.0
+	var clearance_polygon := PackedVector2Array([
+		clearance.position,
+		Vector2(clearance.end.x, clearance.position.y),
+		clearance.end,
+		Vector2(clearance.position.x, clearance.end.y),
+	])
+	var overlap_area := 0.0
+	for cell in road_cells():
+		for polygon in Geometry2D.intersect_polygons(clearance_polygon, cell_polygon(cell)):
+			overlap_area += absf(_polygon_area(polygon))
+	var ratio := overlap_area / clearance.get_area()
+	_road_overlap_cache[cache_key] = ratio
+	return ratio
+
+static func _polygon_area(polygon: PackedVector2Array) -> float:
+	var area := 0.0
+	for index in polygon.size():
+		var next := (index + 1) % polygon.size()
+		area += polygon[index].x * polygon[next].y - polygon[next].x * polygon[index].y
+	return area * 0.5
 
 static func occupied_cells(origin: Vector2i, building_type: String) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
@@ -215,6 +249,25 @@ static func can_place(
 				return false
 	return true
 
+static func can_place_visually(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> bool:
+	if not can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
+		return false
+	if visual_outside_ratio(origin, building_type) > 0.065 or road_overlap_ratio(origin, building_type) > 0.18:
+		return false
+	for raw in instances:
+		if raw is not Dictionary or str(raw.get("id", "")) == ignore_instance_id:
+			continue
+		var other_type := str(raw.get("type", ""))
+		if visual_conflict(building_type, origin, other_type, instance_origin(raw)):
+			return false
+	return true
+
 static func placement_reason(
 	building_type: String,
 	origin: Vector2i,
@@ -231,6 +284,27 @@ static func placement_reason(
 			return "这片土地尚未随城池扩建开放"
 	if not can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
 		return "建筑占地与现有建筑重叠"
+	return ""
+
+static func visual_placement_reason(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> String:
+	var logical_reason := placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	if not logical_reason.is_empty():
+		return logical_reason
+	if visual_outside_ratio(origin, building_type) > 0.065:
+		return "建筑会被城景边缘或上方界面遮挡"
+	if road_overlap_ratio(origin, building_type) > 0.18:
+		return "建筑院落会遮住城内大道"
+	for raw in instances:
+		if raw is not Dictionary or str(raw.get("id", "")) == ignore_instance_id:
+			continue
+		if visual_conflict(building_type, origin, str(raw.get("type", "")), instance_origin(raw)):
+			return "建筑院落与现有建筑过于拥挤"
 	return ""
 
 static func first_open_origin(
