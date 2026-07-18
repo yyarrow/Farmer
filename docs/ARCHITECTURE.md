@@ -10,7 +10,8 @@ flowchart TD
     State --> Era["data/era_schema.gd + data/eras/\n时代规范与配置"]
     State --> Systems["systems/\n经济、战斗、发展纯规则"]
     State --> Persistence["persistence/\n原子写入、校验、迁移"]
-    Visuals --> Layout["data/city_layout.gd\n统一等距网格、道路与占地"]
+    Visuals --> Layout["city_placement/\n网格、视觉档案、评分求解与视口"]
+    Layout --> Facade["data/city_layout.gd\n兼容门面"]
 ```
 
 ## 边界
@@ -22,7 +23,8 @@ flowchart TD
 - `src/systems/`：不读取全局单例的纯规则。经济账本、容量、交易、战斗和繁荣度均可无界面调用。
 - `src/persistence/`：存档文件原子替换和备份恢复、结构/跨字段校验、旧版本迁移；`State` 只保留兼容门面和错误埋点。
 - `src/ui/`：统一颜色与组件、数值文案格式化、首战状态引导；`main.gd` 负责页面生命周期和交互连接。
-- `src/data/city_layout.gd`：定义 15×12 等距网格、大道禁建掩码、八类建筑占地、城级可建区域、坐标反算、落脚锚点与行深度。渲染、触控、放置、迁建、存档和校验共享这一份位置真相；v5 的十二槽位 ID 只作为旧存档迁移入口保留。
+- `src/city_placement/`：独立纯放置引擎。`placement_engine.gd` 定义 15×12 等距网格、道路、逻辑占地、最高等级视觉包围盒、院落安全带和 HUD 安全区；`building_profiles.gd` 管理八类建筑的成长尺寸；`placement_solver.gd` 以硬碰撞和软拥挤评分安排 6/9/12 座城池；`city_view_transform.gd` 统一镜头缩放与横向巡视边界。
+- `src/data/city_layout.gd`：放置引擎的兼容门面，保留旧 API、v5 十二槽位 ID 和旧档入口；渲染、触控、放置、迁建、存档与校验均通过门面消费同一份位置真相。
 
 ## 扩展约束
 
@@ -30,6 +32,6 @@ flowchart TD
 
 经济、辎重与战役节奏都由正式系统消费配置，而不只是换文案：`EconomySystem` 应用各时代生产倍率、仓容、人口与军籍容量；`BattleSystem` 读取当前兵种的近战/远射参数；`State.get_logistics_status()` 根据仓廪、市易、采运设施与各兵种负载计算承载率，超载会实际降低训练效能；`battle_pacing` 控制时代化的围城间隔与败后整顿。UI、存档校验和无界面玩家共享这些入口。
 
-存档 v5 在 v4 的 `era_id`、`era_progress` 与 `city_level` 之上新增 `building_instances`；v6 将其固定槽位改为 `grid_origin` 网格坐标；v7 一次性修复早期迁移将存量建筑挤向前两排的问题。修复器按占地从大到小将建筑分散到大道两侧和多个纵深，只更新 `grid_origin` 与兼容 `slot_id`，不修改实例 ID、类型、等级或任何经营数值。每座建筑拥有稳定实例 ID、类型、独立等级和完整占地；同类生产建筑可重复营造，城垣保持唯一，`buildings` 聚合值只供经济和旧 API 兼容。校验器会拒绝实例 ID 重复、跨越大道、占用未开放区域、建筑互相重叠、唯一建筑重复或聚合等级不一致的存档；v4/v5/v6 旧建筑会依次迁入合法空地。
+存档 v5 在 v4 的 `era_id`、`era_progress` 与 `city_level` 之上新增 `building_instances`；v6 将固定槽位改为 `grid_origin` 网格坐标；v7 修复早期迁移的前排拥挤；v8 再由视觉求解器按最高等级外观、院落间距、大道和界面安全区一次性重排。迁移只更新 `grid_origin` 与兼容 `slot_id`，不修改实例 ID、类型、等级或任何经营数值；求解失败时拒绝覆盖原档。每座建筑拥有稳定实例 ID、类型、独立等级和完整占地；同类生产建筑可重复营造，城垣保持唯一，`buildings` 聚合值只供经济和旧 API 兼容。当前格式校验同时拒绝逻辑重叠和严重视觉冲突，旧格式则先按对应历史规则读取再迁移。
 
 新增规则应先进入 `systems/` 并通过无界面测试，再由 `State` 编排，最后接入 UI 和城景反馈。存档字段变化必须提升格式版本并在 `save_migrator.gd` 中提供迁移。
