@@ -11,7 +11,7 @@ const CELL_SIZE := Vector2(36.0, 18.0)
 const GRID_ORIGIN := Vector2(270.0, 220.0)
 const ROAD_COLUMN := 7
 const INVALID_ORIGIN := Vector2i(-1, -1)
-const CITY_SAFE_RECT := Rect2(18, 188, 504, 322)
+const CITY_SAFE_RECT := Rect2(20, 188, 500, 322)
 
 const BUILDING_FOOTPRINTS := {
 	"farm": Vector2i(3, 3),

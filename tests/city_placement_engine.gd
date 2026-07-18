@@ -3,6 +3,7 @@ extends SceneTree
 const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
 const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
+const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
 
 var failures: Array[String] = []
 
@@ -34,6 +35,9 @@ func _run() -> void:
 	var separated_metrics := PlacementEngine.layout_visual_metrics(separated)
 	_check(int(separated_metrics.conflicts) == 0, "visually separated buildings have no base-envelope conflicts")
 	_check(float(separated_metrics.outside) < 0.05, "separated buildings remain inside the city HUD-safe rectangle")
+	_check(is_equal_approx(CityViewTransform.scale_for_capacity(6, 1.16), 1.0), "six-building settlement keeps the full city in view")
+	_check(is_equal_approx(CityViewTransform.scale_for_capacity(9, 1.16), 1.04), "nine-building city adds restrained horizontal inspection")
+	_check(is_equal_approx(CityViewTransform.scale_for_capacity(12, 1.16), 1.08), "twelve-building city expands without the old 1.16 edge clipping")
 
 	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "wall", "farm", "house", "warehouse", "barracks"]
 	for capacity in [6, 9, 12]:

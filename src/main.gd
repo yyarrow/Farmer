@@ -3,6 +3,7 @@ extends Control
 const UiFont = preload("res://src/ui_font.gd")
 const LicenseNotice = preload("res://src/license_notice.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
+const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
 const UiComponents = preload("res://src/ui/component_factory.gd")
 const UiPresentation = preload("res://src/ui/presentation_formatter.gd")
 const OpeningAdvisor = preload("res://src/ui/opening_advisor.gd")
@@ -531,15 +532,15 @@ func _resource_meta(id: String) -> Dictionary:
 func _apply_city_view(recenter_on_change := true) -> void:
 	if not city_world:
 		return
-	var view_scale := State.get_city_view_scale()
+	var view_scale := CityViewTransform.scale_for_capacity(State.get_building_slot_count(), State.get_city_view_scale())
 	var viewport_width := size.x if size.x > 1.0 else 540.0
-	var min_x := viewport_width - viewport_width * view_scale
+	var pan_bounds := CityViewTransform.horizontal_bounds(viewport_width, view_scale)
 	if recenter_on_change and not is_equal_approx(_displayed_city_scale, view_scale):
 		_displayed_city_scale = view_scale
-		_city_pan_x = min_x * 0.5
-	_city_pan_x = clampf(_city_pan_x, min_x, 0.0)
+		_city_pan_x = CityViewTransform.centered_pan(viewport_width, view_scale)
+	_city_pan_x = clampf(_city_pan_x, pan_bounds.x, pan_bounds.y)
 	city_world.scale = Vector2.ONE * view_scale
-	city_world.position = Vector2(_city_pan_x, 184.0 * (1.0 - view_scale))
+	city_world.position = CityViewTransform.world_position(_city_pan_x, view_scale)
 	city_pan_hint.visible = view_scale > 1.001
 	city_pan_hint.text = "左 · %s · 右" % State.get_city_map_hint()
 

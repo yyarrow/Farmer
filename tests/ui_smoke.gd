@@ -96,7 +96,7 @@ func _run() -> void:
 	state.chapter = 2
 	state.changed.emit()
 	await process_frame
-	_check(is_equal_approx(ui.city_world.scale.x, 1.08) and ui.city_pan_hint.visible, "larger city expands the map and enables horizontal inspection")
+	_check(is_equal_approx(ui.city_world.scale.x, 1.04) and ui.city_pan_hint.visible, "larger city expands the map without excessive edge clipping")
 	var pan_before: float = ui._city_pan_x
 	var drag := InputEventScreenDrag.new()
 	drag.position = Vector2(200, 320)
@@ -107,7 +107,7 @@ func _run() -> void:
 	state.era_progress = state.get_era_progress_target()
 	_check(state.advance_era(), "UI fixture advances into Warring States")
 	await process_frame
-	_check(str(ui.title_label.text).contains("战国") and is_equal_approx(ui.city_world.scale.x, 1.16), "era and preserved city scale refresh together")
+	_check(str(ui.title_label.text).contains("战国") and is_equal_approx(ui.city_world.scale.x, 1.08), "era and restrained full-city scale refresh together")
 	_check(str(ui.tab_buttons[0].text).contains("营城") and str(ui.tab_buttons[1].text).contains("互市"), "Warring States replaces primary tab vocabulary")
 	_check(str(ui.city_background.texture.resource_path).contains("city_warring_states") and str(ui.city_visual_layer.world_state.era) == "warring_states", "era transition replaces the painted city and persistent visual state")
 	ui.current_tab = 0
