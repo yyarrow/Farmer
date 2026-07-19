@@ -60,6 +60,11 @@ func _assemble(building_type: String, footprint: Vector2i) -> bool:
 		var left := _edge_point(source, bounds, "left")
 		var right := _edge_point(source, bounds, "right")
 		var bottom := _edge_point(source, bounds, "bottom")
+		# Wide gate segments must retain a vertical architectural axis. A tiny
+		# generated-pixel offset at the front corner otherwise shears the whole
+		# gatehouse while fitting its 4x2 plot.
+		if building_type == "wall":
+			bottom.x = (left.x + right.x) * 0.5
 		var top := left + right - bottom
 		var frame := _affine_map(source, PackedVector2Array([top, right, bottom, left]), target_quad)
 		if frame.is_empty():

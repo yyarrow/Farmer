@@ -9,6 +9,8 @@ const BUILDINGS := {
 	"house": Vector2i(2, 2),
 	"market": Vector2i(3, 2),
 	"warehouse": Vector2i(3, 2),
+	"barracks": Vector2i(3, 3),
+	"wall": Vector2i(4, 2),
 }
 
 var failures: Array[String] = []
@@ -31,12 +33,13 @@ func _check_asset(building_type: String, footprint: Vector2i) -> void:
 		var frame := atlas.get_region(Rect2i(origin, FRAME_SIZE))
 		var bounds := _alpha_bounds(frame)
 		_check(bounds.size != Vector2i.ZERO, "%s stage %d is visible" % [building_type, stage + 1])
-		_check(bounds.position.x >= 4 and bounds.end.x <= FRAME_SIZE.x - 4, "%s stage %d keeps horizontal render padding" % [building_type, stage + 1])
+		var horizontal_padding := 2 if building_type == "wall" else 4
+		_check(bounds.position.x >= horizontal_padding and bounds.end.x <= FRAME_SIZE.x - horizontal_padding, "%s stage %d keeps horizontal render padding" % [building_type, stage + 1])
 		_check(bounds.position.y >= 4 and bounds.end.y <= FRAME_SIZE.y - 4, "%s stage %d keeps vertical render padding" % [building_type, stage + 1])
 		for corner_index in expected_quad.size():
 			var corner := expected_quad[corner_index]
 			var distance := _nearest_alpha_distance(frame, corner)
-			var tolerance := 15.0 if corner_index == 0 else 5.0
+			var tolerance := 15.0 if corner_index == 0 or building_type == "wall" else 5.0
 			_check(distance <= tolerance, "%s stage %d paints canonical corner %s (nearest %.1fpx)" % [building_type, stage + 1, corner, distance])
 
 func _alpha_bounds(image: Image) -> Rect2i:
