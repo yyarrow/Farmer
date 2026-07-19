@@ -2,6 +2,7 @@ extends SceneTree
 
 const HeadlessPlayer = preload("res://tests/headless_player.gd")
 const EraRegistry = preload("res://src/data/era_registry.gd")
+const CityLayout = preload("res://src/data/city_layout.gd")
 const DEFAULT_POLICIES := ["balanced", "agrarian", "militarist", "greedy"]
 const POLICY_NAMES := {
 	"balanced": "均衡经营",
@@ -268,6 +269,15 @@ func _collect_invariants(policy: String, seed: int, errors: Array[String]) -> vo
 			_append_unique(errors, "building %s outside bounds" % id)
 	if state.get_built_building_count() > state.get_building_slot_count():
 		_append_unique(errors, "constructed buildings exceed city lots")
+	if int(state.get_defense_level()) != int(state.buildings.wall):
+		_append_unique(errors, "independent defense level diverged from battle aggregate")
+	if state.get_building_instances().any(func(instance): return str(instance.get("type", "")) == "wall"):
+		_append_unique(errors, "city defense leaked back into ordinary building lots")
+	var infrastructure := CityLayout.infrastructure_network(
+		state.get_building_instances(), state.get_building_slot_count()
+	)
+	if not bool(infrastructure.success):
+		_append_unique(errors, "building layout lost gate access: %s" % infrastructure.code)
 	var queued := {"militia": 0, "archer": 0, "chariot": 0}
 	for entry in state.recovery_queue:
 		var unit := str(entry.get("unit", ""))
@@ -288,7 +298,7 @@ func _check_snapshot_roundtrip(errors: Array[String]) -> void:
 	var before: Dictionary = state.get_snapshot()
 	state._apply_snapshot(before, false)
 	var after: Dictionary = state.get_snapshot()
-	for key in ["era_id", "era_progress", "city_level", "resources", "buildings", "units", "wounded", "recovery_queue", "population", "morale", "current_day", "chapter", "day_progress", "next_attack_day", "attack_wave", "enemy_army", "last_patrol_day", "patrol_delay_wave", "buffs"]:
+	for key in ["era_id", "era_progress", "city_level", "resources", "buildings", "defense_level", "building_instances", "units", "wounded", "recovery_queue", "population", "morale", "current_day", "chapter", "day_progress", "next_attack_day", "attack_wave", "enemy_army", "last_patrol_day", "patrol_delay_wave", "buffs"]:
 		if before.get(key) != after.get(key):
 			_append_unique(errors, "snapshot roundtrip changed %s on day %d" % [key, int(state.current_day)])
 
