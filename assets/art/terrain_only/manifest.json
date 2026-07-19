@@ -12,9 +12,9 @@
     {"id": "sui", "source": "res://assets/art/city_sui_terrain.png", "target": "res://assets/art/terrain_only/city_sui_terrain_only.png", "status": "ready", "review": "gatehouse and city wall removed; canal plain preserved without a foreground road"},
     {"id": "tang", "source": "res://assets/art/city_tang_terrain.png", "target": "res://assets/art/terrain_only/city_tang_terrain_only.png", "status": "ready", "review": "stone wall and watchtowers removed; muted meadow reconstructed"},
     {"id": "five_dynasties", "source": "res://assets/art/city_five_dynasties_terrain.png", "target": "res://assets/art/terrain_only/city_five_dynasties_terrain_only.png", "status": "ready", "review": "foreground fortress and distant hill forts removed; storm-gray river terrain preserved"},
-    {"id": "song", "source": "res://assets/art/city_song_terrain.png", "target": "res://assets/art/terrain_only/city_song_terrain_only.png", "status": "pending"},
-    {"id": "yuan", "source": "res://assets/art/city_yuan_terrain.png", "target": "res://assets/art/terrain_only/city_yuan_terrain_only.png", "status": "pending"},
-    {"id": "ming", "source": "res://assets/art/city_ming_terrain.png", "target": "res://assets/art/terrain_only/city_ming_terrain_only.png", "status": "pending"},
-    {"id": "qing", "source": "res://assets/art/city_qing_terrain.png", "target": "res://assets/art/terrain_only/city_qing_terrain_only.png", "status": "pending"}
+    {"id": "song", "source": "res://assets/art/city_song_terrain.png", "target": "res://assets/art/terrain_only/city_song_terrain_only.png", "status": "ready", "review": "curved wall removed; river trade landscape, boats and fields preserved"},
+    {"id": "yuan", "source": "res://assets/art/city_yuan_terrain.png", "target": "res://assets/art/terrain_only/city_yuan_terrain_only.png", "status": "ready", "review": "fortress wall and towers removed; rolling steppe and dark vignette preserved"},
+    {"id": "ming", "source": "res://assets/art/city_ming_terrain.png", "target": "res://assets/art/terrain_only/city_ming_terrain_only.png", "status": "ready", "review": "brick wall and watchtowers removed; pale mountains and frontier fog preserved"},
+    {"id": "qing", "source": "res://assets/art/city_qing_terrain.png", "target": "res://assets/art/terrain_only/city_qing_terrain_only.png", "status": "ready", "review": "wall and banners removed; autumn river valley and dark vignette preserved"}
   ]
 }

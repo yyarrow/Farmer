@@ -25,4 +25,4 @@ composition, camera, natural scenery, palette, lighting, paper texture and empty
 foreground. No new paths, structures, people, text, UI, logos or watermark.
 ```
 
-当前合格样本覆盖春秋、战国和唐三种差异明显的视觉环境；其余时代的明确状态见清单，不能视为已经完成。
+春秋至清共十四个时代的地形底图均已按上述流程完成并逐张复核；各时代移除内容与保留景观记录在 `manifest.json`。

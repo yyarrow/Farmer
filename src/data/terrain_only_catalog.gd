@@ -1,7 +1,6 @@
 extends RefCounted
 
-# Curated terrain-only assets. Missing eras deliberately fall back to their
-# existing background until an image-edited and human-reviewed asset is ready.
+# Image-edited and human-reviewed terrain-only assets for every era.
 const READY := {
 	"spring_autumn": "res://assets/art/terrain_only/city_spring_terrain_only.png",
 	"warring_states": "res://assets/art/terrain_only/city_warring_states_terrain_only.png",
@@ -13,6 +12,10 @@ const READY := {
 	"sui": "res://assets/art/terrain_only/city_sui_terrain_only.png",
 	"tang": "res://assets/art/terrain_only/city_tang_terrain_only.png",
 	"five_dynasties": "res://assets/art/terrain_only/city_five_dynasties_terrain_only.png",
+	"song": "res://assets/art/terrain_only/city_song_terrain_only.png",
+	"yuan": "res://assets/art/terrain_only/city_yuan_terrain_only.png",
+	"ming": "res://assets/art/terrain_only/city_ming_terrain_only.png",
+	"qing": "res://assets/art/terrain_only/city_qing_terrain_only.png",
 }
 
 static func has(era_id: String) -> bool:
