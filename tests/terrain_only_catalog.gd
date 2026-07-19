@@ -30,7 +30,7 @@ func _run() -> void:
 		_check(not source.is_empty() and not target.is_empty(), "%s reviewed images decode" % entry.id)
 		_check(target.get_size() == source.get_size(), "%s terrain-only asset preserves exact source dimensions" % entry.id)
 	_check(ids == EraRegistry.ORDER, "manifest order is the canonical era order")
-	_check(ready == 3 and TerrainOnlyCatalog.READY.size() == 3, "three diverse reviewed samples are ready without overstating pending eras")
+	_check(ready == 7 and TerrainOnlyCatalog.READY.size() == 7, "seven reviewed terrains are ready without overstating pending eras")
 
 	if failures.is_empty():
 		print("TERRAIN_ONLY_CATALOG_OK eras=%d ready=%d" % [entries.size(), ready])

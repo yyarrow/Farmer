@@ -5,6 +5,10 @@ extends RefCounted
 const READY := {
 	"spring_autumn": "res://assets/art/terrain_only/city_spring_terrain_only.png",
 	"warring_states": "res://assets/art/terrain_only/city_warring_states_terrain_only.png",
+	"qin": "res://assets/art/terrain_only/city_qin_terrain_only.png",
+	"han": "res://assets/art/terrain_only/city_han_terrain_only.png",
+	"three_kingdoms": "res://assets/art/terrain_only/city_three_kingdoms_terrain_only.png",
+	"jin": "res://assets/art/terrain_only/city_jin_terrain_only.png",
 	"tang": "res://assets/art/terrain_only/city_tang_terrain_only.png",
 }
 
