@@ -601,13 +601,21 @@ func _refresh_infrastructure_visuals() -> void:
 	var standard: Color = identity.get("standard", Color("#9b4438"))
 	earth.a = 1.0
 	standard.a = 1.0
+	var road_surface := earth.lightened(0.30)
+	var road_edge := earth.darkened(0.22)
+	var road_rut := earth.darkened(0.10)
+	var road_stone := earth.lightened(0.48)
+	road_surface.a = 0.38
+	road_edge.a = 0.42
+	road_rut.a = 0.46
+	road_stone.a = 0.58
 	city_road_layer.configure(
 		CityLayout.infrastructure_network(State.get_building_instances(), State.get_building_slot_count()),
 		{
-			"surface": earth.lightened(0.30),
-			"edge": earth.darkened(0.22),
-			"rut": earth.darkened(0.10),
-			"stone": earth.lightened(0.48),
+			"surface": road_surface,
+			"edge": road_edge,
+			"rut": road_rut,
+			"stone": road_stone,
 		}
 	)
 	city_defense_layer.configure(

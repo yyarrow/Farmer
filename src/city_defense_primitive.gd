@@ -16,6 +16,7 @@ func configure_segment(segment: Dictionary, style: Dictionary, colors: Dictionar
 		"from": from - position,
 		"to": to - position,
 		"tier": int(style.wall_tier),
+		"id": str(segment.id),
 	}
 	queue_redraw()
 
@@ -57,12 +58,23 @@ func _draw() -> void:
 
 func _draw_segment() -> void:
 	var tier := int(data.tier)
-	var width := 2.0 + float(tier) * 0.72
 	var from: Vector2 = data.from
 	var to: Vector2 = data.to
-	draw_line(from + Vector2(0, 2), to + Vector2(0, 2), Color(palette.shadow), width + 2.0, true)
-	draw_line(from, to, Color(palette.body), width, true)
-	draw_line(from + Vector2(0, -1.2), to + Vector2(0, -1.2), Color(palette.top), maxf(1.0, width * 0.25), true)
+	var height := 2.2 + float(tier) * 1.65
+	var top_from := from - Vector2(0, height)
+	var top_to := to - Vector2(0, height)
+	var shadow: Color = palette.shadow
+	var body: Color = palette.body
+	var top: Color = palette.top
+	draw_line(from + Vector2(0, 2.2), to + Vector2(0, 2.2), Color(shadow, 0.34), 2.8 + tier * 0.35, true)
+	draw_colored_polygon(PackedVector2Array([from, to, top_to, top_from]), body.darkened(0.10))
+	draw_line(from, to, shadow, 1.0, true)
+	draw_line(top_from, top_to, top, 1.4 + tier * 0.22, true)
+	draw_line(from, top_from, shadow, 0.8, true)
+	draw_line(to, top_to, shadow, 0.8, true)
+	if tier >= 3 and absi(str(data.id).hash()) % 2 == 0:
+		var midpoint := (top_from + top_to) * 0.5
+		draw_line(midpoint, midpoint - Vector2(0, 2.0 + tier * 0.25), top.lightened(0.08), 2.1, true)
 
 func _draw_tower() -> void:
 	var tier := int(data.tier)

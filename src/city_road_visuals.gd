@@ -23,6 +23,8 @@ func configure(next_network: Dictionary, colors := {}) -> void:
 func _draw() -> void:
 	if network.is_empty() or not bool(network.get("success", false)):
 		return
+	if Dictionary(network.get("entrances", {})).is_empty():
+		return
 	var masks: Dictionary = network.get("connectivity_masks", {})
 	for cell in network.get("road_cells", []):
 		var micro_cell := Vector2i(cell)
