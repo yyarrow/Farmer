@@ -50,8 +50,7 @@ func _run() -> void:
 			var metrics := PlacementEngine.layout_visual_metrics(arranged)
 			_check(int(metrics.conflicts) == 0, "%d-building solver layout has no base-envelope conflict" % capacity)
 			_check(float(metrics.outside) < 0.08, "%d-building solver layout stays clear of HUD and city edges" % capacity)
-			for instance in arranged:
-				_check(PlacementEngine.has_road_clearance(PlacementEngine.instance_origin(instance), str(instance.type)), "%d-building solver keeps the avenue visually clear" % capacity)
+			_check(PlacementEngine.road_cells().is_empty(), "%d-building geometry reserves no fixed avenue" % capacity)
 
 	if failures.is_empty():
 		print("CITY_PLACEMENT_ENGINE_OK profiles=%d crowded_conflicts=%d" % [BuildingProfiles.PROFILES.size(), int(crowded_metrics.conflicts)])

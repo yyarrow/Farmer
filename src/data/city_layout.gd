@@ -2,6 +2,8 @@ extends RefCounted
 
 const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
+const RoadNetwork = preload("res://src/city_placement/road_network.gd")
+const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 
 # One placement model drives rendering, hit testing, persistence and validation.
 # The painted era background contains terrain and distant walls only.
@@ -118,7 +120,9 @@ static func can_place(
 	unlocked_count: int,
 	ignore_instance_id := ""
 ) -> bool:
-	return PlacementEngine.can_place(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	if not PlacementEngine.can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
+		return false
+	return _infrastructure_allows(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
 static func can_place_visually(
 	building_type: String,
@@ -127,7 +131,9 @@ static func can_place_visually(
 	unlocked_count: int,
 	ignore_instance_id := ""
 ) -> bool:
-	return PlacementEngine.can_place_visually(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	if not PlacementEngine.can_place_visually(building_type, origin, instances, unlocked_count, ignore_instance_id):
+		return false
+	return _infrastructure_allows(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
 static func placement_reason(
 	building_type: String,
@@ -136,7 +142,10 @@ static func placement_reason(
 	unlocked_count: int,
 	ignore_instance_id := ""
 ) -> String:
-	return PlacementEngine.placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	var reason := PlacementEngine.placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	if not reason.is_empty():
+		return reason
+	return _infrastructure_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
 static func visual_placement_reason(
 	building_type: String,
@@ -145,7 +154,10 @@ static func visual_placement_reason(
 	unlocked_count: int,
 	ignore_instance_id := ""
 ) -> String:
-	return PlacementEngine.visual_placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	var reason := PlacementEngine.visual_placement_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
+	if not reason.is_empty():
+		return reason
+	return _infrastructure_reason(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
 static func best_visual_origin(
 	instances: Array,
@@ -154,10 +166,15 @@ static func best_visual_origin(
 	preferred: Variant = INVALID_ORIGIN,
 	ignore_instance_id := ""
 ) -> Vector2i:
-	return PlacementSolver.best_origin(building_type, instances, unlocked_count, preferred, ignore_instance_id)
+	for origin in PlacementSolver.ranked_origins(
+		building_type, instances, unlocked_count, preferred, ignore_instance_id, 96
+	):
+		if _infrastructure_allows(building_type, origin, instances, unlocked_count, ignore_instance_id):
+			return origin
+	return INVALID_ORIGIN
 
 static func arrange_visual_layout(instances: Array, unlocked_count: int) -> Array:
-	return PlacementSolver.arrange(instances, unlocked_count)
+	return DefenseLayout.arrange_ordinary(instances, unlocked_count)
 
 static func visual_rect(origin: Vector2i, building_type: String, level := 5) -> Rect2:
 	return PlacementEngine.visual_rect(origin, building_type, level)
@@ -175,10 +192,51 @@ static func first_open_origin(
 	preferred: Variant = INVALID_ORIGIN,
 	ignore_instance_id := ""
 ) -> Vector2i:
-	return PlacementEngine.first_open_origin(instances, unlocked_count, building_type, preferred, ignore_instance_id)
+	var preferred_origin := origin_from_value(preferred)
+	if can_place(building_type, preferred_origin, instances, unlocked_count, ignore_instance_id):
+		return preferred_origin
+	var region := unlocked_region(unlocked_count)
+	for y in range(region.position.y, region.end.y):
+		for x in range(region.position.x, region.end.x):
+			var candidate := Vector2i(x, y)
+			if can_place(building_type, candidate, instances, unlocked_count, ignore_instance_id):
+				return candidate
+	return INVALID_ORIGIN
 
 static func repair_instance_layout(raw_instances: Array, unlocked_count: int) -> Array:
-	return PlacementEngine.repair_instance_layout(raw_instances, unlocked_count)
+	return DefenseLayout.arrange_ordinary(raw_instances, unlocked_count)
+
+static func infrastructure_network(instances: Array, unlocked_count: int) -> Dictionary:
+	return RoadNetwork.build(instances, unlocked_count, DefenseLayout.primary_gate(unlocked_count).road_root)
+
+static func _infrastructure_allows(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> bool:
+	if DefenseLayout.ordinary_conflicts_with_defense(building_type, origin, unlocked_count):
+		return false
+	return bool(RoadNetwork.evaluate_access(
+		building_type, origin, instances, unlocked_count, ignore_instance_id,
+		DefenseLayout.primary_gate(unlocked_count).road_root
+	).accessible)
+
+static func _infrastructure_reason(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	ignore_instance_id := ""
+) -> String:
+	if DefenseLayout.ordinary_conflicts_with_defense(building_type, origin, unlocked_count):
+		return "这里是城门与入城道路的营建范围"
+	var access := RoadNetwork.evaluate_access(
+		building_type, origin, instances, unlocked_count, ignore_instance_id,
+		DefenseLayout.primary_gate(unlocked_count).road_root
+	)
+	return "" if bool(access.accessible) else str(access.reason)
 
 static func repair_origin_candidates(unlocked_count: int) -> Array[Vector2i]:
 	return PlacementEngine.repair_origin_candidates(unlocked_count)

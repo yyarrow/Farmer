@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CityLayout = preload("res://src/data/city_layout.gd")
+const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 const SaveValidator = preload("res://src/persistence/save_validator.gd")
 
 var failures: Array[String] = []
@@ -18,24 +19,24 @@ func _run() -> void:
 		for x in CityLayout.GRID_SIZE.x:
 			var cell := Vector2i(x, y)
 			_check(CityLayout.screen_to_grid(CityLayout.grid_to_screen(cell)) == cell, "grid transform round-trips %s" % cell)
-	_check(CityLayout.road_cells().size() == CityLayout.GRID_SIZE.y, "main avenue has one authoritative cell per row")
-	_check(not CityLayout.can_place("house", Vector2i(CityLayout.ROAD_COLUMN, 3), [], 12), "building footprints cannot cover the avenue")
+	_check(CityLayout.road_cells().is_empty(), "macro grid no longer reserves a fixed avenue")
+	_check(CityLayout.can_place("house", Vector2i(CityLayout.ROAD_COLUMN, 3), [], 12), "former avenue cells are ordinary buildable land")
 	_check(not CityLayout.can_place("farm", Vector2i(-1, 2), [], 12), "building footprints cannot leave the city grid")
 	_check(CityLayout.unlocked_region(6).get_area() < CityLayout.unlocked_region(9).get_area(), "second city tier expands the buildable boundary")
 	_check(CityLayout.unlocked_region(9).get_area() < CityLayout.unlocked_region(12).get_area(), "third city tier expands to the full buildable boundary")
 
-	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "wall", "farm", "house", "warehouse", "barracks"]
+	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "farm", "house", "warehouse", "barracks", "quarry"]
 	for capacity in [6, 9, 12]:
 		var placed := []
 		for index in capacity:
 			var building_type: String = showcase_types[index]
 			var origin := CityLayout.first_open_origin(placed, capacity, building_type)
 			_check(origin != CityLayout.INVALID_ORIGIN, "%d-building city finds a footprint for %s" % [capacity, building_type])
-			_check(CityLayout.can_place(building_type, origin, placed, capacity), "%s footprint is in-bounds, off-road and non-overlapping" % building_type)
+			_check(CityLayout.can_place(building_type, origin, placed, capacity), "%s footprint is in-bounds, connected and non-overlapping" % building_type)
 			placed.append({"id": "grid_%02d" % index, "type": building_type, "grid_origin": CityLayout.encode_origin(origin)})
-		for instance in placed:
-			for cell in CityLayout.occupied_cells(CityLayout.instance_origin(instance), str(instance.type)):
-				_check(not CityLayout.is_road(cell), "placed footprint has zero road intersections")
+		var network := CityLayout.infrastructure_network(placed, capacity)
+		_check(bool(network.success), "%d-building city derives a connected micro-road network" % capacity)
+		_check(network.entrances.size() == capacity and not network.road_cells.is_empty(), "every building receives an automatic entrance road")
 
 	var farms := []
 	for index in CityLayout.MAX_SLOTS:
@@ -50,10 +51,10 @@ func _run() -> void:
 		overlap.building_instances[1].grid_origin = overlap.building_instances[0].grid_origin.duplicate()
 		overlap.building_instances[1].slot_id = overlap.building_instances[0].slot_id
 		_check(not SaveValidator.is_valid(overlap, state._save_validation_context()), "overlapping saved footprints are rejected")
-	var on_road: Dictionary = current.duplicate(true)
-	on_road.building_instances[0].grid_origin = [CityLayout.ROAD_COLUMN, 3]
-	on_road.building_instances[0].slot_id = CityLayout.cell_id(Vector2i(CityLayout.ROAD_COLUMN, 3))
-	_check(not SaveValidator.is_valid(on_road, state._save_validation_context()), "road-crossing saved footprints are rejected")
+	var blocking_gate: Dictionary = current.duplicate(true)
+	blocking_gate.building_instances[0].grid_origin = [6, 9]
+	blocking_gate.building_instances[0].slot_id = CityLayout.cell_id(Vector2i(6, 9))
+	_check(not SaveValidator.is_valid(blocking_gate, state._save_validation_context()), "saved footprints cannot occupy the derived gate easement")
 
 	var v5: Dictionary = current.duplicate(true)
 	v5.format_version = 5
@@ -93,18 +94,17 @@ func _run() -> void:
 		var repaired_instance: Dictionary = repaired_v6.building_instances[index]
 		_check(str(repaired_instance.id) == "legacy_%02d" % index and int(repaired_instance.level) == 1, "v8 repair preserves building identity and level %d" % index)
 	var repaired_rows := {}
-	var repaired_sides := {}
 	for instance in repaired_v6.building_instances:
 		var origin := CityLayout.instance_origin(instance)
 		repaired_rows[origin.y] = true
-		repaired_sides["left" if origin.x < CityLayout.ROAD_COLUMN else "right"] = true
-	_check(repaired_rows.size() >= 3 and repaired_sides.size() == 2, "v6 repair redistributes existing buildings across rows and both sides of the avenue")
+	_check(repaired_rows.size() >= 3, "v6 repair redistributes existing buildings across the expanded city")
+	_check(bool(CityLayout.infrastructure_network(repaired_v6.building_instances, 12).success), "v6 repair reconnects every legacy building to the city gate")
 	var repaired_metrics := CityLayout.layout_visual_metrics(repaired_v6.building_instances)
 	_check(int(repaired_metrics.conflicts) == 0 and float(repaired_metrics.outside) < 0.08, "v8 migration removes severe visual crowding and HUD clipping")
 
 	state.reset_game()
 	if failures.is_empty():
-		print("CITY_GRID_OK cells=%d road=%d capacity=%d" % [CityLayout.GRID_SIZE.x * CityLayout.GRID_SIZE.y, CityLayout.road_cells().size(), CityLayout.MAX_SLOTS])
+		print("CITY_GRID_OK cells=%d micro_scale=%d capacity=%d" % [CityLayout.GRID_SIZE.x * CityLayout.GRID_SIZE.y, RoadNetwork.MICRO_SCALE, CityLayout.MAX_SLOTS])
 		quit(0)
 		return
 	for failure in failures:

@@ -9,6 +9,8 @@ const UNIQUE_BUILDINGS := ["wall"]
 const GRID_SIZE := Vector2i(15, 12)
 const CELL_SIZE := Vector2(36.0, 18.0)
 const GRID_ORIGIN := Vector2(270.0, 220.0)
+# Deprecated compatibility coordinate. Roads are now derived on RoadNetwork's
+# micro-grid and no macro column is permanently reserved.
 const ROAD_COLUMN := 7
 const INVALID_ORIGIN := Vector2i(-1, -1)
 const CITY_SAFE_RECT := Rect2(20, 188, 500, 322)
@@ -23,8 +25,6 @@ const BUILDING_FOOTPRINTS := {
 	"barracks": Vector2i(3, 3),
 	"wall": Vector2i(4, 2),
 }
-
-static var _road_overlap_cache := {}
 
 const LEGACY_ORIGINS := [
 	Vector2i(2, 1), Vector2i(4, 1), Vector2i(8, 1), Vector2i(10, 1),
@@ -148,47 +148,19 @@ static func unlocked_region(unlocked_count: int) -> Rect2i:
 	return Rect2i(Vector2i.ZERO, GRID_SIZE)
 
 static func road_cells() -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	for y in GRID_SIZE.y:
-		result.append(Vector2i(ROAD_COLUMN, y))
-	return result
+	return []
 
 static func is_road(cell: Vector2i) -> bool:
-	return cell.x == ROAD_COLUMN and cell.y >= 0 and cell.y < GRID_SIZE.y
+	return false
 
 static func is_cell_unlocked(cell: Vector2i, unlocked_count: int) -> bool:
-	return unlocked_region(unlocked_count).has_point(cell) and not is_road(cell)
+	return unlocked_region(unlocked_count).has_point(cell)
 
 static func has_road_clearance(origin: Vector2i, building_type: String) -> bool:
-	return road_overlap_ratio(origin, building_type) <= 0.18
+	return true
 
 static func road_overlap_ratio(origin: Vector2i, building_type: String) -> float:
-	var cache_key := "%s:%d:%d" % [building_type, origin.x, origin.y]
-	if _road_overlap_cache.has(cache_key):
-		return float(_road_overlap_cache[cache_key])
-	var clearance := visual_clearance_rect(origin, building_type)
-	if clearance.get_area() <= 0.0:
-		return 0.0
-	var clearance_polygon := PackedVector2Array([
-		clearance.position,
-		Vector2(clearance.end.x, clearance.position.y),
-		clearance.end,
-		Vector2(clearance.position.x, clearance.end.y),
-	])
-	var overlap_area := 0.0
-	for cell in road_cells():
-		for polygon in Geometry2D.intersect_polygons(clearance_polygon, cell_polygon(cell)):
-			overlap_area += absf(_polygon_area(polygon))
-	var ratio := overlap_area / clearance.get_area()
-	_road_overlap_cache[cache_key] = ratio
-	return ratio
-
-static func _polygon_area(polygon: PackedVector2Array) -> float:
-	var area := 0.0
-	for index in polygon.size():
-		var next := (index + 1) % polygon.size()
-		area += polygon[index].x * polygon[next].y - polygon[next].x * polygon[index].y
-	return area * 0.5
+	return 0.0
 
 static func occupied_cells(origin: Vector2i, building_type: String) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
@@ -258,7 +230,7 @@ static func can_place_visually(
 ) -> bool:
 	if not can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
 		return false
-	if visual_outside_ratio(origin, building_type) > 0.065 or road_overlap_ratio(origin, building_type) > 0.18:
+	if visual_outside_ratio(origin, building_type) > 0.065:
 		return false
 	for raw in instances:
 		if raw is not Dictionary or str(raw.get("id", "")) == ignore_instance_id:
@@ -278,8 +250,6 @@ static func placement_reason(
 	if origin == INVALID_ORIGIN:
 		return "请选择城内空地"
 	for cell in occupied_cells(origin, building_type):
-		if is_road(cell):
-			return "建筑占地不能压住城内道路"
 		if not unlocked_region(unlocked_count).has_point(cell):
 			return "这片土地尚未随城池扩建开放"
 	if not can_place(building_type, origin, instances, unlocked_count, ignore_instance_id):
@@ -298,8 +268,6 @@ static func visual_placement_reason(
 		return logical_reason
 	if visual_outside_ratio(origin, building_type) > 0.065:
 		return "建筑会被城景边缘或上方界面遮挡"
-	if road_overlap_ratio(origin, building_type) > 0.18:
-		return "建筑院落会遮住城内大道"
 	for raw in instances:
 		if raw is not Dictionary or str(raw.get("id", "")) == ignore_instance_id:
 			continue

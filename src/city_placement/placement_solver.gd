@@ -83,7 +83,6 @@ static func candidate_score(
 		+ total_overlap * 720.0
 		+ max_overlap * 420.0
 	)
-	score += PlacementEngine.road_overlap_ratio(origin, building_type) * 4200.0
 	if instances.is_empty():
 		score += anchor.distance_to(PlacementEngine.CITY_SAFE_RECT.get_center()) * 0.18
 	else:
