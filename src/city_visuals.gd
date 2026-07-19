@@ -3,6 +3,7 @@ extends Control
 const UiFont = preload("res://src/ui_font.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
 const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
+const ArtAlignment = preload("res://src/city_placement/art_alignment.gd")
 const POSITIONS := CityLayout.BUILDING_POSITIONS
 const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
@@ -133,12 +134,20 @@ func _layout_for_instance(instance: Dictionary) -> Dictionary:
 		ground_rect = ground_rect.expand(point)
 	var anchor := CityLayout.art_anchor(origin, building_type)
 	var level := int(instance.get("level", 1))
-	var art_rect := BuildingProfiles.render_rect(anchor, building_type, level)
+	var art_size := BuildingProfiles.art_size(building_type, level)
+	var stage := _stage_for_level(level)
+	var alignment := ArtAlignment.frame_layout(_source_texture_for(building_type), stage, art_size, anchor)
+	var frame_rect := Rect2(alignment.frame_rect)
+	var visible_rect := Rect2(alignment.visible_rect)
 	return {
 		"origin": origin, "polygon": polygon, "anchor": anchor,
 		"position": ground_rect.position, "size": ground_rect.size,
-		"art_size": art_rect.size,
-		"art_rect": art_rect,
+		"art_size": art_size,
+		"art_rect": frame_rect,
+		"visible_rect": visible_rect,
+		"hit_rect": visible_rect.grow(3.0),
+		"ground_socket": Vector2(alignment.ground_socket),
+		"visible_contact": Vector2(alignment.visible_contact),
 		"z": 20 + CityLayout.depth(origin, building_type),
 	}
 
@@ -182,8 +191,8 @@ func _sync_instance_views() -> void:
 			_create_building_view(instance)
 		var slot_data := _layout_for_instance(instance)
 		var button: Button = building_buttons[instance_id]
-		button.position = slot_data.art_rect.position
-		button.size = slot_data.art_rect.size
+		button.position = slot_data.hit_rect.position
+		button.size = slot_data.hit_rect.size
 		button.pivot_offset = button.size * 0.5
 		button.z_index = int(slot_data.z)
 		var is_selected := selected_instance_id == instance_id
@@ -200,16 +209,16 @@ func _sync_instance_views() -> void:
 		var art_size: Vector2 = slot_data.art_size
 		var view: TextureRect = building_views[instance_id]
 		view.size = art_size
-		view.position = Vector2.ZERO
-		view.pivot_offset = art_size * 0.5
+		view.position = Vector2(slot_data.art_rect.position) - button.position
+		view.pivot_offset = Vector2(slot_data.ground_socket)
 		if displayed_levels.get(instance_id, -1) != level:
 			displayed_levels[instance_id] = level
 			view.scale = Vector2.ONE
 		view.modulate = Color(1.0, 1.0, 1.0, 0.96)
 		var rank_mark := " 冠" if level >= 5 else (" 精" if level >= 3 else "")
 		var label: Label = building_labels[instance_id]
-		label.position = Vector2(-5, art_size.y - 22)
-		label.size = Vector2(art_size.x + 10, 22)
+		label.position = Vector2(-5, button.size.y - 22)
+		label.size = Vector2(button.size.x + 10, 22)
 		label.text = "%s · %s%s" % [State.BUILDINGS[building_type].name, _cn_number(level), rank_mark]
 		building_labels[instance_id].visible = is_selected
 	for instance_id in building_views.keys():
@@ -284,9 +293,12 @@ func _stage_for_level(level: int) -> int:
 		return 2
 	return 3
 
-func _atlas_for(id: String, stage: int) -> AtlasTexture:
+func _source_texture_for(id: String) -> Texture2D:
 	var era_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [State.era_id, id]
-	var texture = load(era_path) if ResourceLoader.exists(era_path) else load("res://assets/art/buildings/%s_stages.png" % id)
+	return load(era_path) if ResourceLoader.exists(era_path) else load("res://assets/art/buildings/%s_stages.png" % id)
+
+func _atlas_for(id: String, stage: int) -> AtlasTexture:
+	var texture := _source_texture_for(id)
 	var half_w := float(texture.get_width()) / 2.0
 	var half_h := float(texture.get_height()) / 2.0
 	var atlas := AtlasTexture.new()
@@ -531,7 +543,10 @@ func _draw_debug_geometry() -> void:
 		draw_rect(clearance, Color(1.0, 0.62, 0.18, 0.88), false, 1.2)
 		var visual := CityLayout.visual_rect(origin, building_type)
 		draw_rect(visual, Color(0.25, 0.72, 1.0, 0.72), false, 0.9)
-		draw_circle(CityLayout.art_anchor(origin, building_type), 2.8, Color(0.95, 0.22, 0.28, 0.96))
+		var slot_data := _layout_for_instance(instance)
+		draw_rect(Rect2(slot_data.visible_rect), Color(0.76, 0.34, 0.92, 0.86), false, 1.1)
+		draw_circle(Vector2(slot_data.visible_contact), 3.2, Color(1.0, 0.88, 0.24, 0.98))
+		draw_circle(CityLayout.art_anchor(origin, building_type), 1.8, Color(0.95, 0.22, 0.28, 0.96))
 
 func _draw() -> void:
 	_draw_plot_sockets()
