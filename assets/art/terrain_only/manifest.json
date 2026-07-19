@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "definition": "Terrain-only means no near-field wall, gate, palisade, road, building, flag or construction footprint. Distant natural scenery and era palette are preserved.",
+  "eras": [
+    {"id": "spring_autumn", "source": "res://assets/art/city_spring_terrain.png", "target": "res://assets/art/terrain_only/city_spring_terrain_only.png", "status": "ready", "review": "wooden palisade removed; meadow reconstructed"},
+    {"id": "warring_states", "source": "res://assets/art/city_warring_states_terrain.png", "target": "res://assets/art/terrain_only/city_warring_states_terrain_only.png", "status": "ready", "review": "battlement removed; dry earth reconstructed"},
+    {"id": "qin", "source": "res://assets/art/city_qin_terrain.png", "target": "res://assets/art/terrain_only/city_qin_terrain_only.png", "status": "pending"},
+    {"id": "han", "source": "res://assets/art/city_han_terrain.png", "target": "res://assets/art/terrain_only/city_han_terrain_only.png", "status": "pending"},
+    {"id": "three_kingdoms", "source": "res://assets/art/city_three_kingdoms_terrain.png", "target": "res://assets/art/terrain_only/city_three_kingdoms_terrain_only.png", "status": "pending"},
+    {"id": "jin", "source": "res://assets/art/city_jin_terrain.png", "target": "res://assets/art/terrain_only/city_jin_terrain_only.png", "status": "pending"},
+    {"id": "northern_southern", "source": "res://assets/art/city_northern_southern_terrain.png", "target": "res://assets/art/terrain_only/city_northern_southern_terrain_only.png", "status": "pending"},
+    {"id": "sui", "source": "res://assets/art/city_sui_terrain.png", "target": "res://assets/art/terrain_only/city_sui_terrain_only.png", "status": "pending"},
+    {"id": "tang", "source": "res://assets/art/city_tang_terrain.png", "target": "res://assets/art/terrain_only/city_tang_terrain_only.png", "status": "ready", "review": "stone wall and watchtowers removed; muted meadow reconstructed"},
+    {"id": "five_dynasties", "source": "res://assets/art/city_five_dynasties_terrain.png", "target": "res://assets/art/terrain_only/city_five_dynasties_terrain_only.png", "status": "pending"},
+    {"id": "song", "source": "res://assets/art/city_song_terrain.png", "target": "res://assets/art/terrain_only/city_song_terrain_only.png", "status": "pending"},
+    {"id": "yuan", "source": "res://assets/art/city_yuan_terrain.png", "target": "res://assets/art/terrain_only/city_yuan_terrain_only.png", "status": "pending"},
+    {"id": "ming", "source": "res://assets/art/city_ming_terrain.png", "target": "res://assets/art/terrain_only/city_ming_terrain_only.png", "status": "pending"},
+    {"id": "qing", "source": "res://assets/art/city_qing_terrain.png", "target": "res://assets/art/terrain_only/city_qing_terrain_only.png", "status": "pending"}
+  ]
+}
