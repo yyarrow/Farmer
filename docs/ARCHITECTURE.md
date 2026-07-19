@@ -10,7 +10,9 @@ flowchart TD
     State --> Era["data/era_schema.gd + data/eras/\n时代规范与配置"]
     State --> Systems["systems/\n经济、战斗、发展纯规则"]
     State --> Persistence["persistence/\n原子写入、校验、迁移"]
-    Visuals --> Layout["city_placement/\n网格、视觉档案、评分求解与视口"]
+    Visuals --> Layout["city_placement/\n网格、自动道路、独立城防、评分求解与视口"]
+    Layout --> Roads["road_network.gd\n2× 微网格与自动接路"]
+    Layout --> Defense["defense_layout.gd\n城域边界、城门与墙段"]
     Layout --> Facade["data/city_layout.gd\n兼容门面"]
 ```
 
@@ -23,8 +25,8 @@ flowchart TD
 - `src/systems/`：不读取全局单例的纯规则。经济账本、容量、交易、战斗和繁荣度均可无界面调用。
 - `src/persistence/`：存档文件原子替换和备份恢复、结构/跨字段校验、旧版本迁移；`State` 只保留兼容门面和错误埋点。
 - `src/ui/`：统一颜色与组件、数值文案格式化、首战状态引导；`main.gd` 负责页面生命周期和交互连接。
-- `src/city_placement/`：独立纯放置引擎。`placement_engine.gd` 定义 15×12 等距网格、道路、逻辑占地、最高等级视觉包围盒、院落安全带和 HUD 安全区；`building_profiles.gd` 管理八类建筑的成长尺寸；`art_alignment.gd` 从每个时代和阶段的透明素材提取可见地面接点；`placement_solver.gd` 以硬碰撞和软拥挤评分安排 6/9/12 座城池；`city_view_transform.gd` 统一镜头缩放与横向巡视边界。
-- `src/data/city_layout.gd`：放置引擎的兼容门面，保留旧 API、v5 十二槽位 ID 和旧档入口；渲染、触控、放置、迁建、存档与校验均通过门面消费同一份位置真相。
+- `src/city_placement/`：独立纯放置引擎。`placement_engine.gd` 定义 15×12 等距宏网格、逻辑占地、最高等级视觉包围盒、院落安全带和 HUD 安全区；`road_network.gd` 在 2× 微网格上从每栋建筑的显式入口确定性接到城门，不持久化道路；`defense_layout.gd` 按 6/9/12 容量生成城域边界、城门、墙段与角楼；`building_profiles.gd` 和 `footprint_templates.gd` 管理成长尺寸与标准菱形基座；`art_alignment.gd` 提取透明素材的可见地面接点；`placement_solver.gd` 以硬碰撞和软拥挤评分安排城池；`city_view_transform.gd` 统一镜头缩放与横向巡视边界。
+- `src/data/city_layout.gd`：基础设施感知的兼容门面，保留旧 API、v5 十二槽位 ID 和旧档入口；渲染、触控、放置、迁建、存档与校验均从这里消费同一份位置、城门避让和道路可达性真相。
 
 ## 扩展约束
 
@@ -32,6 +34,6 @@ flowchart TD
 
 经济、辎重与战役节奏都由正式系统消费配置，而不只是换文案：`EconomySystem` 应用各时代生产倍率、仓容、人口与军籍容量；`BattleSystem` 读取当前兵种的近战/远射参数；`State.get_logistics_status()` 根据仓廪、市易、采运设施与各兵种负载计算承载率，超载会实际降低训练效能；`battle_pacing` 控制时代化的围城间隔与败后整顿。UI、存档校验和无界面玩家共享这些入口。
 
-存档 v5 在 v4 的 `era_id`、`era_progress` 与 `city_level` 之上新增 `building_instances`；v6 将固定槽位改为 `grid_origin` 网格坐标；v7 修复早期迁移的前排拥挤；v8 再由视觉求解器按最高等级外观、院落间距、大道和界面安全区一次性重排。迁移只更新 `grid_origin` 与兼容 `slot_id`，不修改实例 ID、类型、等级或任何经营数值；求解失败时拒绝覆盖原档。每座建筑拥有稳定实例 ID、类型、独立等级和完整占地；同类生产建筑可重复营造，城垣保持唯一，`buildings` 聚合值只供经济和旧 API 兼容。当前格式校验同时拒绝逻辑重叠和严重视觉冲突，旧格式则先按对应历史规则读取再迁移。
+存档 v5 在 v4 的 `era_id`、`era_progress` 与 `city_level` 之上新增 `building_instances`；v6 将固定槽位改为 `grid_origin` 网格坐标；v7 修复早期迁移的前排拥挤；v8 由视觉求解器按最高等级外观、院落间距和界面安全区重排；v9 将城垣迁移为独立 `defense_level`，移除普通建筑中的 wall 实例，并把其他建筑重排到不占城门且可自动接路的位置。迁移不修改普通建筑实例 ID、类型、等级或经营数值；求解失败时拒绝覆盖原档。道路完全由当前建筑入口与城门派生，不写入存档；同类生产建筑可重复营造，独立城防不占 6/9/12 普通建设容量，`buildings` 聚合值只供经济和旧 API 兼容。当前格式校验同时拒绝逻辑重叠、城门冲突、道路不可达和严重视觉冲突。
 
 新增规则应先进入 `systems/` 并通过无界面测试，再由 `State` 编排，最后接入 UI 和城景反馈。存档字段变化必须提升格式版本并在 `save_migrator.gd` 中提供迁移。

@@ -92,10 +92,10 @@ func _run() -> void:
 		})
 	var repaired_v6: Dictionary = state._upgrade_snapshot(v6)
 	_check(SaveValidator.is_valid(repaired_v6, state._save_validation_context()), "already-damaged v6 autosave repairs into a valid v9 snapshot")
-	_check(repaired_v6.resources == preserved_resources and repaired_v6.units == preserved_units and int(repaired_v6.current_day) == preserved_day, "v8 repair preserves resources, army and progression")
+	_check(repaired_v6.resources == preserved_resources and repaired_v6.units == preserved_units and int(repaired_v6.current_day) == preserved_day, "v9 infrastructure migration preserves resources, army and progression")
 	for index in repaired_v6.building_instances.size():
 		var repaired_instance: Dictionary = repaired_v6.building_instances[index]
-		_check(str(repaired_instance.id) == "legacy_%02d" % index and int(repaired_instance.level) == 1, "v8 repair preserves building identity and level %d" % index)
+		_check(str(repaired_instance.id) == "legacy_%02d" % index and int(repaired_instance.level) == 1, "v9 migration preserves building identity and level %d" % index)
 	var repaired_rows := {}
 	for instance in repaired_v6.building_instances:
 		var origin := CityLayout.instance_origin(instance)
@@ -103,7 +103,7 @@ func _run() -> void:
 	_check(repaired_rows.size() >= 3, "v6 repair redistributes existing buildings across the expanded city")
 	_check(bool(CityLayout.infrastructure_network(repaired_v6.building_instances, 12).success), "v6 repair reconnects every legacy building to the city gate")
 	var repaired_metrics := CityLayout.layout_visual_metrics(repaired_v6.building_instances)
-	_check(int(repaired_metrics.conflicts) == 0 and float(repaired_metrics.outside) < 0.08, "v8 migration removes severe visual crowding and HUD clipping")
+	_check(int(repaired_metrics.conflicts) == 0 and float(repaired_metrics.outside) < 0.08, "v9 migration removes severe visual crowding and HUD clipping")
 
 	state.reset_game()
 	if failures.is_empty():

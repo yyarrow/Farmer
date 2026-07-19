@@ -6,7 +6,8 @@ const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 
 # One placement model drives rendering, hit testing, persistence and validation.
-# The painted era background contains terrain and distant walls only.
+# The painted era background contains terrain only. Roads, defenses and every
+# interactive building are derived from the saved ordinary-building layout.
 const MAX_SLOTS := PlacementEngine.MAX_SLOTS
 const UNIQUE_BUILDINGS := PlacementEngine.UNIQUE_BUILDINGS
 const GRID_SIZE := PlacementEngine.GRID_SIZE
