@@ -32,7 +32,7 @@ var _production_accum := 0.0
 var _world_time := 0.0
 var _rng := RandomNumberGenerator.new()
 var debug_geometry_enabled := false
-var standardized_art_pilot_enabled := false
+var standardized_art_pilot_enabled := true
 
 func _ready() -> void:
 	_effect_font = UiFont.medium()
@@ -311,12 +311,16 @@ func _stage_for_level(level: int) -> int:
 
 func _source_texture_for(id: String) -> Texture2D:
 	if _uses_standardized_art(id):
-		return load("res://assets/art/buildings/eras/warring_states/farm_stages_standardized.png")
+		return load("res://assets/art/buildings/eras/warring_states/%s_stages_standardized.png" % id)
 	var era_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [State.era_id, id]
 	return load(era_path) if ResourceLoader.exists(era_path) else load("res://assets/art/buildings/%s_stages.png" % id)
 
 func _uses_standardized_art(id: String) -> bool:
-	return standardized_art_pilot_enabled and State.era_id == "warring_states" and id == "farm"
+	return (
+		standardized_art_pilot_enabled
+		and State.era_id == "warring_states"
+		and ResourceLoader.exists("res://assets/art/buildings/eras/warring_states/%s_stages_standardized.png" % id)
+	)
 
 func _atlas_for(id: String, stage: int) -> AtlasTexture:
 	var texture := _source_texture_for(id)
