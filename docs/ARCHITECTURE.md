@@ -23,7 +23,7 @@ flowchart TD
 - `src/systems/`：不读取全局单例的纯规则。经济账本、容量、交易、战斗和繁荣度均可无界面调用。
 - `src/persistence/`：存档文件原子替换和备份恢复、结构/跨字段校验、旧版本迁移；`State` 只保留兼容门面和错误埋点。
 - `src/ui/`：统一颜色与组件、数值文案格式化、首战状态引导；`main.gd` 负责页面生命周期和交互连接。
-- `src/city_placement/`：独立纯放置引擎。`placement_engine.gd` 定义 15×12 等距网格、道路、逻辑占地、最高等级视觉包围盒、院落安全带和 HUD 安全区；`building_profiles.gd` 管理八类建筑的成长尺寸；`placement_solver.gd` 以硬碰撞和软拥挤评分安排 6/9/12 座城池；`city_view_transform.gd` 统一镜头缩放与横向巡视边界。
+- `src/city_placement/`：独立纯放置引擎。`placement_engine.gd` 定义 15×12 等距网格、道路、逻辑占地、最高等级视觉包围盒、院落安全带和 HUD 安全区；`building_profiles.gd` 管理八类建筑的成长尺寸；`art_alignment.gd` 从每个时代和阶段的透明素材提取可见地面接点；`placement_solver.gd` 以硬碰撞和软拥挤评分安排 6/9/12 座城池；`city_view_transform.gd` 统一镜头缩放与横向巡视边界。
 - `src/data/city_layout.gd`：放置引擎的兼容门面，保留旧 API、v5 十二槽位 ID 和旧档入口；渲染、触控、放置、迁建、存档与校验均通过门面消费同一份位置真相。
 
 ## 扩展约束

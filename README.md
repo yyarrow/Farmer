@@ -50,6 +50,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance_sim.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/order_balance.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_placement_engine.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/art_alignment.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_grid.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd
@@ -66,7 +67,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，当前版本 `0.15.0`，最低 Android 7.0。启动后先进入本地存档首页，玩家明确选择自动存档、手动档位或新城邑前，时间与自动保存均保持停止。旧版存档读取时会依次迁移为按人计数的军籍/资源制、v4 时代/城池双成长、v5 独立建筑实例、v6 网格坐标、v7 分散布局和 v8 视觉安全布局；v5 至 v7 存量建筑只会一次性重排坐标，实例 ID、类型、等级、资源、军队与进度保持不变。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.15.1`，最低 Android 7.0。启动后先进入本地存档首页，玩家明确选择自动存档、手动档位或新城邑前，时间与自动保存均保持停止。旧版存档读取时会依次迁移为按人计数的军籍/资源制、v4 时代/城池双成长、v5 独立建筑实例、v6 网格坐标、v7 分散布局和 v8 视觉安全布局；v5 至 v7 存量建筑只会一次性重排坐标，实例 ID、类型、等级、资源、军队与进度保持不变。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 首次生成本机发布签名并构建不可调试的 ARM64 正式 APK：
 
