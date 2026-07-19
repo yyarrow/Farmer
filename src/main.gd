@@ -694,14 +694,17 @@ func _on_state_visual_event(kind: String, _payload: Dictionary) -> void:
 	# Rebuild only at settlement boundaries; the ScrollContainer keeps its position.
 	if kind == "day" and content_box:
 		_render_tab()
+	elif kind == "defense_upgrade" and city_defense_layer:
+		city_defense_layer.play_upgrade()
 
 func _render_buildings() -> void:
 	_add_section_heading("营造城邑", "直接点选城中建筑或任意可建格；城池扩建会扩大区域并提升容量")
 	content_box.add_child(_info_banner(
 		"%s · 建设容量 %d / %d" % [State.get_city_level_name(), State.get_built_building_count(), State.get_building_slot_count()],
-		"尚可营造%d座 · 同类建筑可重复营造，城垣仅限一处" % State.get_open_building_slots(),
+		"尚可营造%d座 · 城防沿城域边界独立营建，不占建筑用地" % State.get_open_building_slots(),
 		JADE if State.get_open_building_slots() > 0 else GOLD
 	))
+	_add_defense_card()
 	if not _moving_building_instance.is_empty():
 		content_box.add_child(_info_banner("迁建中", "请在城景中点选一处绿色空地；原建筑等级与产能不会损失", GOLD))
 		var cancel_move := _action_button("取消迁建")
@@ -723,6 +726,45 @@ func _render_buildings() -> void:
 		return
 	_selected_building_origin = CityLayout.INVALID_ORIGIN
 	content_box.add_child(_info_banner("城景即是建造界面", "点建筑查看独立等级、升级与迁建；点城内空地选择要营造的建筑", JADE))
+
+func _add_defense_card() -> void:
+	var data: Dictionary = State.BUILDINGS.wall
+	var level := State.get_defense_level()
+	var cost := State.building_cost("wall")
+	var stages := ["未建", "木栅", "土垒", "连城", "重门", "完备"]
+	var card := _card(128)
+	card.add_theme_stylebox_override("panel", _style(Color(0.97, 0.91, 0.74, 0.95), 14, 1, Color(GOLD, 0.46), 8))
+	content_box.add_child(card)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+	row.add_child(_glyph_badge(str(data.glyph), GOLD))
+	var stack := VBoxContainer.new()
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 4)
+	row.add_child(stack)
+	var title := Label.new()
+	title.text = "%s · %s" % [data.name, stages[level]]
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", INK)
+	stack.add_child(title)
+	var detail := Label.new()
+	detail.text = "%s\n沿城域边界自动延展 · %s" % [data.desc, _format_building_effect(State.get_building_effect_preview("wall"))]
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.add_theme_font_size_override("font_size", 9)
+	detail.add_theme_color_override("font_color", INK_SOFT)
+	stack.add_child(detail)
+	if level < int(data.max):
+		stack.add_child(_building_cost_row(cost))
+	var action := _action_button("已完备" if level >= int(data.max) else ("营建" if level == 0 else "加固"))
+	action.custom_minimum_size = Vector2(76, 62)
+	action.disabled = level >= int(data.max)
+	action.pressed.connect(func():
+		_play_chime(640.0)
+		if State.upgrade_defense():
+			_render_tab()
+	)
+	row.add_child(action)
 
 func _add_building_inspector(instance: Dictionary) -> void:
 	var id := str(instance.type)
@@ -782,8 +824,10 @@ func _add_building_inspector(instance: Dictionary) -> void:
 	actions.add_child(move_button)
 
 func _add_building_catalog(origin: Vector2i) -> void:
-	_add_section_heading("选择营造", "建筑会占据完整地块；道路、边界和其他建筑不可重叠")
+	_add_section_heading("选择营造", "建筑会占据完整地块；落成后自动从入口接通道路")
 	for id in State.BUILDINGS:
+		if id == "wall":
+			continue
 		var data: Dictionary = State.BUILDINGS[id]
 		var cost := State.new_building_cost(id)
 		var type_allowed := State.can_place_building_type(id)

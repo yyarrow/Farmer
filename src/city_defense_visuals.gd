@@ -19,6 +19,7 @@ var era_id := "warring_states"
 var unlocked_count := 12
 var palette := DEFAULT_PALETTE.duplicate()
 var _gate_texture: Texture2D
+var _upgrade_tween: Tween
 
 func configure(level: int, next_era_id := "warring_states", colors := {}, next_unlocked_count := 12) -> void:
 	defense_level = clampi(level, 0, DefenseLayout.MAX_LEVEL)
@@ -51,6 +52,15 @@ func _rebuild_primitives() -> void:
 		defense_level, palette, int(layout.sort_depth)
 	)
 	add_child(gate)
+
+func play_upgrade() -> void:
+	if _upgrade_tween and _upgrade_tween.is_valid():
+		_upgrade_tween.kill()
+	modulate = Color("#ffe29a")
+	_upgrade_tween = create_tween()
+	_upgrade_tween.tween_property(self, "modulate", Color.WHITE, 0.22).set_trans(Tween.TRANS_QUAD)
+	_upgrade_tween.tween_property(self, "modulate", Color("#fff0bd"), 0.12)
+	_upgrade_tween.tween_property(self, "modulate", Color.WHITE, 0.30).set_trans(Tween.TRANS_SINE)
 
 func gate_render_layout() -> Dictionary:
 	var gate: Dictionary = DefenseLayout.primary_gate(unlocked_count)
