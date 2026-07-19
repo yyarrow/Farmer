@@ -4,6 +4,7 @@ const UiFont = preload("res://src/ui_font.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
 const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
 const ArtAlignment = preload("res://src/city_placement/art_alignment.gd")
+const FootprintTemplates = preload("res://src/city_placement/footprint_templates.gd")
 const POSITIONS := CityLayout.BUILDING_POSITIONS
 const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
@@ -31,6 +32,7 @@ var _production_accum := 0.0
 var _world_time := 0.0
 var _rng := RandomNumberGenerator.new()
 var debug_geometry_enabled := false
+var standardized_art_pilot_enabled := false
 
 func _ready() -> void:
 	_effect_font = UiFont.medium()
@@ -123,6 +125,14 @@ func set_debug_geometry_enabled(enabled: bool) -> void:
 	debug_geometry_enabled = enabled
 	queue_redraw()
 
+func set_standardized_art_pilot_enabled(enabled: bool) -> void:
+	if standardized_art_pilot_enabled == enabled:
+		return
+	standardized_art_pilot_enabled = enabled
+	displayed_stages.clear()
+	displayed_eras.clear()
+	_refresh_buildings()
+
 func _layout_for_instance(instance: Dictionary) -> Dictionary:
 	var building_type := str(instance.get("type", ""))
 	var origin := CityLayout.instance_origin(instance)
@@ -134,7 +144,8 @@ func _layout_for_instance(instance: Dictionary) -> Dictionary:
 		ground_rect = ground_rect.expand(point)
 	var anchor := CityLayout.art_anchor(origin, building_type)
 	var level := int(instance.get("level", 1))
-	var art_size := BuildingProfiles.art_size(building_type, level)
+	var art_size := FootprintTemplates.frame_display_size(CityLayout.footprint(building_type)) \
+		if _uses_standardized_art(building_type) else BuildingProfiles.art_size(building_type, level)
 	var stage := _stage_for_level(level)
 	var alignment := ArtAlignment.frame_layout(_source_texture_for(building_type), stage, art_size, anchor)
 	var frame_rect := Rect2(alignment.frame_rect)
@@ -294,8 +305,13 @@ func _stage_for_level(level: int) -> int:
 	return 3
 
 func _source_texture_for(id: String) -> Texture2D:
+	if _uses_standardized_art(id):
+		return load("res://assets/art/buildings/eras/warring_states/farm_stages_standardized.png")
 	var era_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [State.era_id, id]
 	return load(era_path) if ResourceLoader.exists(era_path) else load("res://assets/art/buildings/%s_stages.png" % id)
+
+func _uses_standardized_art(id: String) -> bool:
+	return standardized_art_pilot_enabled and State.era_id == "warring_states" and id == "farm"
 
 func _atlas_for(id: String, stage: int) -> AtlasTexture:
 	var texture := _source_texture_for(id)
