@@ -13,6 +13,7 @@ const ArtAlignment = preload("res://src/city_placement/art_alignment.gd")
 const FootprintTemplates = preload("res://src/city_placement/footprint_templates.gd")
 const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
 const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
+const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 
 var failures: Array[String] = []
 
@@ -55,13 +56,13 @@ func _run() -> void:
 	var sample_cell := Vector2i(4, 6)
 	_check(CityLayout.grid_to_screen(sample_cell) == PlacementEngine.grid_to_screen(sample_cell), "city layout compatibility facade matches pure placement engine")
 	_check(CityLayout.can_place("house", sample_cell, [], 12) == PlacementEngine.can_place("house", sample_cell, [], 12), "placement validation is owned by the pure engine")
-	for module in [PlacementEngine, BuildingProfiles, ArtAlignment, FootprintTemplates, PlacementSolver, CityViewTransform]:
+	for module in [PlacementEngine, BuildingProfiles, ArtAlignment, FootprintTemplates, PlacementSolver, CityViewTransform, RoadNetwork]:
 		var source := str(module.source_code)
 		_check("game_state.gd" not in source and "main.gd" not in source and "city_visuals.gd" not in source, "city placement module remains independent from runtime state and UI")
 
 	state.reset_game()
 	if failures.is_empty():
-		print("ARCHITECTURE_CONTRACT_OK boundaries=10")
+		print("ARCHITECTURE_CONTRACT_OK boundaries=11")
 		quit(0)
 	else:
 		for failure in failures:
