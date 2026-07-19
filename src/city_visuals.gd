@@ -144,10 +144,15 @@ func _layout_for_instance(instance: Dictionary) -> Dictionary:
 		ground_rect = ground_rect.expand(point)
 	var anchor := CityLayout.art_anchor(origin, building_type)
 	var level := int(instance.get("level", 1))
-	var art_size := FootprintTemplates.frame_display_size(CityLayout.footprint(building_type)) \
-		if _uses_standardized_art(building_type) else BuildingProfiles.art_size(building_type, level)
+	var footprint := CityLayout.footprint(building_type)
+	var standardized := _uses_standardized_art(building_type)
+	var art_size := FootprintTemplates.frame_display_size(footprint) \
+		if standardized else BuildingProfiles.art_size(building_type, level)
 	var stage := _stage_for_level(level)
-	var alignment := ArtAlignment.frame_layout(_source_texture_for(building_type), stage, art_size, anchor)
+	var source_socket := FootprintTemplates.source_socket(footprint) if standardized else Vector2(-1, -1)
+	var alignment := ArtAlignment.frame_layout(
+		_source_texture_for(building_type), stage, art_size, anchor, source_socket
+	)
 	var frame_rect := Rect2(alignment.frame_rect)
 	var visible_rect := Rect2(alignment.visible_rect)
 	return {

@@ -41,7 +41,8 @@ static func frame_layout(
 	texture: Texture2D,
 	stage: int,
 	display_size: Vector2,
-	ground_anchor: Vector2
+	ground_anchor: Vector2,
+	explicit_source_socket := Vector2(-1, -1)
 ) -> Dictionary:
 	var metrics := frame_metrics(texture, stage)
 	if metrics.is_empty():
@@ -54,7 +55,11 @@ static func frame_layout(
 		}
 	var source_size := Vector2(metrics.source_size)
 	var scale := Vector2(display_size.x / source_size.x, display_size.y / source_size.y)
-	var source_socket := Vector2(metrics.ground_socket)
+	var source_socket := (
+		Vector2(explicit_source_socket)
+		if Vector2(explicit_source_socket).x >= 0.0 and Vector2(explicit_source_socket).y >= 0.0
+		else Vector2(metrics.ground_socket)
+	)
 	var screen_socket := source_socket * scale
 	var frame_rect := Rect2(ground_anchor - screen_socket, display_size)
 	var source_visible := Rect2(metrics.opaque_rect)

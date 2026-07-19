@@ -2,6 +2,7 @@ extends SceneTree
 
 const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 const FootprintTemplates = preload("res://src/city_placement/footprint_templates.gd")
+const ArtAlignment = preload("res://src/city_placement/art_alignment.gd")
 
 var failures: Array[String] = []
 
@@ -10,6 +11,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var templates := [Vector2i(2, 2), Vector2i(3, 3), Vector2i(3, 2), Vector2i(4, 2)]
+	var standardized_texture: Texture2D = load("res://assets/art/buildings/eras/warring_states/farm_stages_standardized.png")
 	for footprint in templates:
 		var source := FootprintTemplates.source_quad(footprint)
 		var source_bounds := _bounds(source)
@@ -22,9 +24,15 @@ func _run() -> void:
 		var anchor := expected[2]
 		var socket := FootprintTemplates.source_socket(footprint)
 		var scale := FootprintTemplates.screen_scale(footprint)
+		var layout := ArtAlignment.frame_layout(
+			standardized_texture, 0, FootprintTemplates.frame_display_size(footprint),
+			anchor, socket
+		)
 		for index in 4:
 			var mapped := anchor + (source[index] - socket) * scale
 			_check(mapped.distance_to(expected[index]) < 0.01, "%s corner %d maps exactly to game grid" % [footprint, index])
+			var rendered := Vector2(layout.frame_rect.position) + source[index] * scale
+			_check(rendered.distance_to(expected[index]) < 0.01, "%s rendered corner %d honors its asymmetric socket" % [footprint, index])
 	if failures.is_empty():
 		print("FOOTPRINT_TEMPLATES_OK templates=%d corners=%d" % [templates.size(), templates.size() * 4])
 		quit(0)
