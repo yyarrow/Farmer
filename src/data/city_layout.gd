@@ -192,14 +192,20 @@ static func first_open_origin(
 	preferred: Variant = INVALID_ORIGIN,
 	ignore_instance_id := ""
 ) -> Vector2i:
+	var ignored_origin := INVALID_ORIGIN
+	if not ignore_instance_id.is_empty():
+		for instance in instances:
+			if instance is Dictionary and str(instance.get("id", "")) == ignore_instance_id:
+				ignored_origin = instance_origin(instance)
+				break
 	var preferred_origin := origin_from_value(preferred)
-	if can_place(building_type, preferred_origin, instances, unlocked_count, ignore_instance_id):
+	if preferred_origin != ignored_origin and can_place(building_type, preferred_origin, instances, unlocked_count, ignore_instance_id):
 		return preferred_origin
 	var region := unlocked_region(unlocked_count)
 	for y in range(region.position.y, region.end.y):
 		for x in range(region.position.x, region.end.x):
 			var candidate := Vector2i(x, y)
-			if can_place(building_type, candidate, instances, unlocked_count, ignore_instance_id):
+			if candidate != ignored_origin and can_place(building_type, candidate, instances, unlocked_count, ignore_instance_id):
 				return candidate
 	return INVALID_ORIGIN
 

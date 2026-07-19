@@ -24,6 +24,9 @@ func _run() -> void:
 	_check(not CityLayout.can_place("farm", Vector2i(-1, 2), [], 12), "building footprints cannot leave the city grid")
 	_check(CityLayout.unlocked_region(6).get_area() < CityLayout.unlocked_region(9).get_area(), "second city tier expands the buildable boundary")
 	_check(CityLayout.unlocked_region(9).get_area() < CityLayout.unlocked_region(12).get_area(), "third city tier expands to the full buildable boundary")
+	var moving_fixture := [{"id": "moving", "type": "house", "grid_origin": [4, 3]}]
+	var relocated := CityLayout.first_open_origin(moving_fixture, 12, "house", CityLayout.INVALID_ORIGIN, "moving")
+	_check(relocated != CityLayout.INVALID_ORIGIN and relocated != Vector2i(4, 3), "migration preview proposes a genuinely different connected plot")
 
 	var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "farm", "house", "warehouse", "barracks", "quarry"]
 	for capacity in [6, 9, 12]:
