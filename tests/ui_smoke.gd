@@ -1,5 +1,7 @@
 extends SceneTree
 
+const CityLayout = preload("res://src/data/city_layout.gd")
+
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -113,7 +115,14 @@ func _run() -> void:
 	ui.current_tab = 0
 	ui._render_tab()
 	await process_frame
-	_check(_has_label_containing(ui.content_box, "武备营"), "building page uses Warring States catalog")
+	_check(_has_label_containing(ui.content_box, "夯土城"), "building page exposes independent Warring States defense")
+	ui._selected_building_origin = CityLayout.first_open_origin(
+		state.get_building_instances(), state.get_building_slot_count(), "barracks"
+	)
+	ui._render_tab()
+	await process_frame
+	_check(_has_label_containing(ui.content_box, "武备营"), "empty plot catalog uses Warring States buildings")
+	ui._selected_building_origin = CityLayout.INVALID_ORIGIN
 	ui.current_tab = 2
 	ui._render_tab()
 	await process_frame
