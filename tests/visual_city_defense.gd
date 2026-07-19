@@ -33,7 +33,7 @@ func _run() -> void:
 		panel.scale = Vector2(0.61, 0.61)
 		viewport.add_child(panel)
 		var defense := DefenseVisuals.new()
-		defense.configure(level, "warring_states")
+		defense.configure(level, "warring_states", {}, 12)
 		panel.add_child(defense)
 		var label := Label.new()
 		label.text = "%d级 · %s" % [level, ["未建", "木栅", "土垒", "城垣", "重门", "完备"][level]]
