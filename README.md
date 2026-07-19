@@ -13,7 +13,8 @@
 - 按兵种结算并在战报中逐项对账的阵亡、伤员、余部与敌损；伤员 2～4 日康复并消耗伤营粮药
 - 旱灾、水患、寒赈、流民、商队、百工、流言、征粮、斥候与丰收十类随机事件，且不会连续重复
 - 城池等级与时代积累两条独立成长线；城池前三阶段依次扩展可建区域并开放 6、9、12 座建设容量，时代更迭不会回收已开放用地
-- 十四个时代均使用独立的无建筑地形骨架；统一 15×12 等距网格驱动大道禁建、建筑占地、命中测试、前后遮挡与存档校验，建筑可在任意合法空地点选、移动、重复营造，主城扩大后可左右拖动巡视
+- 十四个时代均使用无建筑、无固定道路、无固定城防的纯地形骨架；15×12 建筑网格与 2× 微道路网格共同驱动占地、自动接路、命中测试、前后遮挡和存档校验，建筑可在任意合法空地点选、迁建、重复营造，主城扩大后可左右拖动巡视
+- 城防沿当前 6/9/12 容量的城域边界独立营建，不占普通建筑用地；城门是自动道路根节点，城墙、角楼和城门按各自景深与城内建筑交错渲染
 - 发展、主动推进日期、巡剿与守城共同积累时代进度；时代更迭保留城池、人口、物资与军队规模
 - 稳定内部兵种/资源 ID 与可配置呈现分离；宋以纲运转般、元以站赤漕运、明以漕运军需、清以驿站粮台，兵种、货币单位、辎重和建筑均随时代换制
 - 离线收益和自动本地存档
@@ -27,7 +28,7 @@
 - 总音量、背景音乐、操作音效、静音和触觉反馈设置，设置写入带损坏恢复且拖动时不反复刷盘
 - 八类建筑六级可辨外观，卡片逐项显示本季产出、仓容、军籍、训练或减伤的当前值与下一阶真实值；建造、升级、买卖、征兵、政令、巡剿、日结、事件和战斗都有对应城景反馈，水利、军民、伤营与近敌状态会持续留在地图上
 - 阵令切换有独立军令鼓点，兵营旗色与士卒队形会持续映射当前守城部署
-- 十四时代各有八类建筑的四阶段透明素材，共 112 张时代化成长图；屋制、色彩、地面透视与对应空城骨架一致，并按手机实际显示尺寸保留约三倍采样精度
+- 十四时代各有八类建筑的四阶段透明素材，共 112 张时代化成长图；战国农田及七类建筑另使用统一 384×384 阶段框、2×2/3×2/3×3/4×2 标准菱形基座与显式入口锚点，屋制、地面透视和自动道路方向保持一致
 - 自动存档、三个手动存档槽及载入、覆盖、删除、重新开始确认；写入采用临时文件与上一版备份，截断、结构损坏或跨字段状态矛盾时自动恢复
 - 完全本地的操作埋点、异常退出检测、引擎日志与诊断报告复制导出
 
@@ -52,6 +53,11 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_placement_engine.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/art_alignment.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_grid.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/road_network.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_road_visuals.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_defense_layout.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/standardized_building_assets.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/terrain_only_catalog.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd
@@ -67,7 +73,7 @@ python3 tests/store_assets.py
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug Android build/Qinghe.apk
 ```
 
-安卓包名为 `com.qinghe.farmer`，当前版本 `0.15.1`，最低 Android 7.0。启动后先进入本地存档首页，玩家明确选择自动存档、手动档位或新城邑前，时间与自动保存均保持停止。旧版存档读取时会依次迁移为按人计数的军籍/资源制、v4 时代/城池双成长、v5 独立建筑实例、v6 网格坐标、v7 分散布局和 v8 视觉安全布局；v5 至 v7 存量建筑只会一次性重排坐标，实例 ID、类型、等级、资源、军队与进度保持不变。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
+安卓包名为 `com.qinghe.farmer`，当前版本 `0.16.0`，最低 Android 7.0。启动后先进入本地存档首页，玩家明确选择自动存档、手动档位或新城邑前，时间与自动保存均保持停止。旧版存档会依次迁移到 v8 视觉安全布局，再升级为 v9 基础设施格式：原城垣等级保留为独立城防，普通建筑自动重排到不占城门并可接入道路的位置；实例 ID、类型、等级、资源、军队与进度保持不变，道路完全由布局派生而不写入存档。没有阵令字段的旧档默认使用「持重」。存档和诊断只写入应用私有目录，不请求网络权限。诊断报告由玩家主动复制后发送，不会自动上传。
 
 首次生成本机发布签名并构建不可调试的 ARM64 正式 APK：
 

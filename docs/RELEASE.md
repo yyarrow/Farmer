@@ -1,6 +1,6 @@
 # 《青禾邑》Android 发布清单
 
-当前候选版本：`0.15.1`（versionCode `18`）
+当前候选版本：`0.16.0`（versionCode `19`）
 包名：`com.qinghe.farmer`  
 最低系统：Android 7.0（API 24）  
 目标系统：Android API 36
@@ -18,6 +18,11 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_placement_engine.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/art_alignment.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_grid.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/road_network.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_road_visuals.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_defense_layout.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/standardized_building_assets.gd --audio-driver Dummy
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/terrain_only_catalog.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd --audio-driver Dummy
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/imperial_battle_balance.gd --audio-driver Dummy
@@ -32,7 +37,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --path . --script tests/visual_city_slots.gd --audio-driver Dummy --display-driver macos --rendering-driver opengl3 --position 0,0
 ```
 
-所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对存档启动首页，以及春秋至清十四时代主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致；城景专项应输出 14 时代×空/半/满三种密度的 42 张画面，另有道路禁建、有效迁建和 v6 八建筑修复布局图。
+所有命令必须以 0 退出，并分别出现相应的 `*_OK` 标记。Android lint 闸门固定核对 Godot 4.7 模板的20条已审阅警告；模板在通用资源中保留的 Android 12 系统启动页属性会触发一条 `NewApi`，只有同时存在 API 24–30 使用的无前缀兼容背景项时才允许这一条，任何新增 lint 类型、错误或数量变化都会失败。渲染截图位于 `.qa/`，除既有弹窗、季节和建筑检查外，还需人工核对存档启动首页，以及春秋至清十四时代主城与军务页的称谓、资源单位、兵种、辎重状态和背景一致；城景专项应输出 14 时代×空/半/满三种密度的 42 张画面，另有城门禁建、自动接路、有效迁建、独立城防和旧档修复布局图。
 
 长期平衡复核：
 
@@ -103,6 +108,8 @@ python3 tools/build_release_aab.py --universal-apk
 2026年7月18日的`0.15.0`独立城建放置引擎候选验证结果：AAB 137.5 MiB，SHA-256 `aab4c22b335316778331e210ccadb52e8afc263b36e03f93af90a72eb758e3ac`；独立 APK 137.6 MiB，SHA-256 `3cdac108a97f2b661be631cd311e51efeaea55f9e65eea25454d4eefad1d363c`；上传证书延续为 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。两个包均通过版本17/0.15.0、签名、权限、arm64单架构、16 KiB页面/ZIP对齐、RELRO、竖屏、主题图标、字体许可和开发文件排除检查，AAB另通过bundletool，Android lint仍为固定20条模板警告。纯放置引擎、建筑视觉档案、评分求解器和城景视口变换分层落地；6/9/12座布局均保持实例完整、严重院落冲突0，并限制大道遮挡、HUD越界和边缘裁切。真实渲染覆盖十四时代空/半/满城42张，另含战国九座最高阶段普通图与几何调试图。v5至v7旧档升级到v8只重排坐标，逐项保留建筑身份、等级、资源、军队和日期。本轮未连接或启动Android设备，因此不把包结构与本地渲染验收写成实机证据。
 
 2026年7月19日的`0.15.1`建筑贴地修复候选验证结果：AAB 137.5 MiB，SHA-256 `d33636020e7727a9fd993fcf47dbca6a4c1f9e1cb9105ab6fb1d7169a5395f10`；独立 APK 137.6 MiB，SHA-256 `f94da83926509de007cfd2ecbb3d71960c5ce9fef02463167cca6847bd50f3cf`；上传证书延续为 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。两个包均通过版本18/0.15.1、签名、权限、arm64单架构、16 KiB页面/ZIP对齐、RELRO、竖屏、主题图标、字体许可和开发文件排除检查，AAB另通过bundletool，Android lint仍为固定20条模板警告。新增逐帧素材接地点测量，贴图、点击区域和升级缩放统一绑定可见地面接点；十四时代×八建筑×四阶段共448帧通过自动贴地检查，最大原始透明底边为128像素。真实540×960渲染重新覆盖十四时代空/半/满城42张，战国最高阶段农田的素材接点与格子锚点重合，未重制现有建筑素材。本轮未连接或启动Android设备，因此不把包结构与本地渲染验收写成实机证据。
+
+2026年7月19日的`0.16.0`自由营城基础设施重制候选验证结果：AAB 162.1 MiB，SHA-256 `929cd8672db75a86b3653e1643f786ad758867def4552e785f2b14e6631e4ddf`；独立 APK 162.2 MiB，SHA-256 `d832ab75ef9bcea119783711a8c8c9657465c8e065ac1413b864971ef6865e7d`；上传证书延续为 SHA-256 `62837ae6fb7a7281d5ef5f39dcd9189db0ef8e1075b237a9e7f93a86e8eaae1f`。两个包均通过版本19/0.16.0、签名、权限、arm64单架构、16 KiB页面/ZIP对齐、RELRO、竖屏、主题图标、字体许可和开发文件排除检查，AAB另通过bundletool。十四时代全部启用无建筑、无固定道路、无固定城防的纯地形骨架；建筑入口经2×微网格自动接到城门，独立城防沿6/9/12容量边界扩建且不占普通建设槽位。战国七类非农田建筑完成四种标准菱形基座与28阶段素材校验，连同既有农田在真实540×960渲染中覆盖空/半/满城42张；存档v9专项确认旧城垣等级迁移、普通建筑身份与经营状态保留、城门避让和全建筑可达。状态、架构、2万tick流程、UI、道路、城防、十四时代目录、448帧贴地点、音频与商店资源闸门全部通过。本轮未连接或启动Android设备，因此不把本地包结构和桌面渲染验收写成实机证据。
 
 功能回归仍覆盖 720×1280 小屏、教程到第 3 日的新事件结算、系统返回键的教程与事件拦截、设置关闭、危险操作取消、退出确认取消和保存退出；教程状态可跨重启保留。音频自动测试额外覆盖四首曲目均为独立内容、循环点、换季双轨重叠、等功率淡化、战斗压低并发与旧曲释放。
 
