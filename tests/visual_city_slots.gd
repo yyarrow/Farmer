@@ -4,7 +4,7 @@ const EraRegistry = preload("res://src/data/era_registry.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
 
 var failures: Array[String] = []
-var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "wall", "farm", "house", "warehouse", "barracks"]
+var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "farm", "house", "warehouse", "barracks", "market"]
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -32,6 +32,8 @@ func _run() -> void:
 		state._configure_era(era_id)
 		state.chapter = 5
 		for density in [0, 6, 12]:
+			state.defense_level = {0: 0, 6: 2, 12: 5}[density]
+			state.buildings.wall = state.defense_level
 			var instances := []
 			for index in density:
 				instances.append({
@@ -79,8 +81,8 @@ func _run() -> void:
 	_save_frame("res://.qa/grid_solver_warring_nine_debug.png")
 	ui.city_visual_layer.set_debug_geometry_enabled(false)
 
-	# Placement-mode acceptance frames: the drawn footprint uses the same road
-	# and collision rules as the save validator.
+	# Placement-mode acceptance frames: the drawn footprint uses the same gate,
+	# automatic-road and collision rules as the save validator.
 	state._configure_era("tang")
 	state.chapter = 5
 	var placement_instances := []
@@ -97,10 +99,10 @@ func _run() -> void:
 	await process_frame
 	var moving_id := "placement_01"
 	ui.city_visual_layer.set_move_mode(moving_id)
-	ui.city_visual_layer.hovered_cell = Vector2i(CityLayout.ROAD_COLUMN, 4)
+	ui.city_visual_layer.hovered_cell = Vector2i(6, 10)
 	ui.city_visual_layer.queue_redraw()
 	await process_frame
-	_save_frame("res://.qa/grid_tang_road_blocked.png")
+	_save_frame("res://.qa/grid_tang_gate_blocked.png")
 	var valid_origin := CityLayout.first_open_origin(state.get_building_instances(), 12, "farm", CityLayout.INVALID_ORIGIN, moving_id)
 	ui.city_visual_layer.hovered_cell = valid_origin
 	ui.city_visual_layer.queue_redraw()
