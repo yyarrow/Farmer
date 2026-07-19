@@ -43,12 +43,16 @@ func _assemble(building_type: String, footprint: Vector2i) -> bool:
 	for stage in 4:
 		var column := stage % 2
 		var row := int(stage / 2)
-		var region_position := Vector2i(column * split_x, row * split_y)
-		var region_size := Vector2i(
-			split_x if column == 0 else source_atlas.get_width() - split_x,
-			split_y if row == 0 else source_atlas.get_height() - split_y
-		)
-		var source := source_atlas.get_region(Rect2i(region_position, region_size))
+		var individual_path := "%s/%s_stage_%d_alpha.png" % [SOURCE_DIR, building_type, stage + 1]
+		var source := Image.load_from_file(ProjectSettings.globalize_path(individual_path)) \
+			if FileAccess.file_exists(individual_path) else Image.new()
+		if source.is_empty():
+			var region_position := Vector2i(column * split_x, row * split_y)
+			var region_size := Vector2i(
+				split_x if column == 0 else source_atlas.get_width() - split_x,
+				split_y if row == 0 else source_atlas.get_height() - split_y
+			)
+			source = source_atlas.get_region(Rect2i(region_position, region_size))
 		source = _keep_largest_component(source)
 		var bounds := _alpha_bounds(source)
 		if bounds.size == Vector2i.ZERO:
@@ -60,6 +64,8 @@ func _assemble(building_type: String, footprint: Vector2i) -> bool:
 		var frame := _affine_map(source, PackedVector2Array([top, right, bottom, left]), target_quad)
 		if frame.is_empty():
 			return _fail("%s stage %d cannot be mapped" % [building_type, stage + 1])
+		if footprint != Vector2i(2, 2):
+			_clip_ground_overflow(frame, target_quad)
 		var output_origin := Vector2i(column, row) * FRAME_SIZE
 		output.blit_rect(frame, Rect2i(Vector2i.ZERO, FRAME_SIZE), output_origin)
 		var debug_frame := frame.duplicate()
@@ -126,6 +132,19 @@ func _keep_largest_component(source: Image) -> Image:
 			if labels[y * width + x] == largest_label:
 				result.set_pixel(x, y, source.get_pixel(x, y))
 	return result
+
+func _clip_ground_overflow(image: Image, quad: PackedVector2Array) -> void:
+	# Roofs and tree crowns may overhang the visual plot. Ground-contact overflow
+	# may not: clipping only the lower ground band removes generated threshold,
+	# rubble and stair pixels that crossed a canonical edge without flattening the
+	# upper architecture.
+	var ground_band_y := floori(minf(quad[1].y, quad[3].y))
+	for y in range(ground_band_y, image.get_height()):
+		for x in image.get_width():
+			if image.get_pixel(x, y).a < ALPHA_THRESHOLD:
+				continue
+			if not Geometry2D.is_point_in_polygon(Vector2(x, y), quad):
+				image.set_pixel(x, y, Color.TRANSPARENT)
 
 func _alpha_bounds(image: Image) -> Rect2i:
 	var min_x := image.get_width()

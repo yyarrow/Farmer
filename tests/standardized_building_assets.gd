@@ -7,6 +7,8 @@ const BUILDINGS := {
 	"woodcut": Vector2i(2, 2),
 	"quarry": Vector2i(2, 2),
 	"house": Vector2i(2, 2),
+	"market": Vector2i(3, 2),
+	"warehouse": Vector2i(3, 2),
 }
 
 var failures: Array[String] = []
