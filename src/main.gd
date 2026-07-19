@@ -621,9 +621,9 @@ func _refresh_infrastructure_visuals() -> void:
 	city_defense_layer.configure(
 		State.get_defense_level(), State.era_id,
 		{
-			"shadow": earth.darkened(0.32),
-			"body": earth.darkened(0.02),
-			"top": earth.lightened(0.34),
+			"shadow": earth.darkened(0.24),
+			"body": earth.lightened(0.26),
+			"top": earth.lightened(0.48),
 			"accent": standard,
 		},
 		State.get_building_slot_count()
