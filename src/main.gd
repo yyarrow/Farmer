@@ -42,10 +42,12 @@ var city_world: Control
 var city_background: TextureRect
 var city_road_layer: Node2D
 var city_visual_layer: Control
+var city_defense_layer: Node2D
 var city_pan_hint: Label
 var _displayed_season := ""
 var _displayed_era := ""
 var _displayed_city_scale := 0.0
+var _displayed_infrastructure_signature := ""
 var _city_pan_x := 0.0
 var _selected_building_instance := ""
 var _selected_building_origin := CityLayout.INVALID_ORIGIN
@@ -159,6 +161,12 @@ func _build_scene() -> void:
 	city_world.add_child(city_visual_layer)
 	city_visual_layer.building_selected.connect(_on_city_building_selected)
 	city_visual_layer.cell_selected.connect(_on_city_cell_selected)
+
+	city_defense_layer = Node2D.new()
+	city_defense_layer.name = "CityDefense"
+	city_defense_layer.set_script(load("res://src/city_defense_visuals.gd"))
+	city_defense_layer.z_index = 2
+	city_world.add_child(city_defense_layer)
 
 	_build_top_panel()
 	_build_city_pan_hint()
@@ -574,10 +582,25 @@ func _apply_season_tone(season: String) -> void:
 	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE) * State.get_era_tint(), 0.8)
 
 func _refresh_infrastructure_visuals() -> void:
-	if not city_road_layer:
+	if not city_road_layer or not city_defense_layer:
 		return
+	var placements := []
+	for instance in State.get_building_instances():
+		placements.append([
+			str(instance.get("id", "")), str(instance.get("type", "")),
+			CityLayout.encode_origin(CityLayout.instance_origin(instance)),
+		])
+	var signature := str([
+		State.era_id, State.get_building_slot_count(), State.get_defense_level(), placements,
+	])
+	if signature == _displayed_infrastructure_signature:
+		return
+	_displayed_infrastructure_signature = signature
 	var identity: Dictionary = State.era_definition.visual.get("identity", {})
 	var earth: Color = identity.get("earth", Color("#8a704d"))
+	var standard: Color = identity.get("standard", Color("#9b4438"))
+	earth.a = 1.0
+	standard.a = 1.0
 	city_road_layer.configure(
 		CityLayout.infrastructure_network(State.get_building_instances(), State.get_building_slot_count()),
 		{
@@ -586,6 +609,16 @@ func _refresh_infrastructure_visuals() -> void:
 			"rut": earth.darkened(0.10),
 			"stone": earth.lightened(0.48),
 		}
+	)
+	city_defense_layer.configure(
+		State.get_defense_level(), State.era_id,
+		{
+			"shadow": earth.darkened(0.32),
+			"body": earth.darkened(0.02),
+			"top": earth.lightened(0.34),
+			"accent": standard,
+		},
+		State.get_building_slot_count()
 	)
 
 func _update_tab_buttons() -> void:

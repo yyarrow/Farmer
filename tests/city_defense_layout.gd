@@ -55,6 +55,12 @@ func _run() -> void:
 	var standardized_gate := DefenseVisuals.standardized_gate_layout(3, gate_anchor)
 	_check(standardized_gate.source_rect.position == Vector2(384, 384), "fourth atlas stage uses integer row one")
 	_check(standardized_gate.frame_rect.position + standardized_gate.ground_socket == gate_anchor, "standardized 4x2 gate socket pins exactly to the perimeter")
+	var defense_visual := DefenseVisuals.new()
+	defense_visual.configure(5, "warring_states", {}, 12)
+	var primitive_depths := defense_visual.get_children().map(func(child): return int(child.z_index))
+	_check(defense_visual.get_child_count() == expected_segments[12] + 7 + 1, "production defense creates one depth-sorted primitive per segment, tower and gate")
+	_check(primitive_depths.max() > primitive_depths.min(), "production defense interleaves rear and front primitives by city depth")
+	defense_visual.free()
 
 	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(2, 4), 6), "edge lots may touch the exterior defense shell")
 	_check(DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(7, 9), 12), "ordinary building cannot block the full-city gate approach")
