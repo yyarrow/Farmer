@@ -36,6 +36,8 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 		var totals: Dictionary = era.initial_buildings.duplicate(true)
 		for id in totals:
 			totals[id] = 0
+		if int(data.get("format_version", 1)) >= 9:
+			totals.wall = int(data.get("defense_level", 0))
 		var occupied := {}
 		var placed: Array = []
 		var instance_ids := {}
@@ -46,6 +48,8 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 			var instance_id := str(instance.get("id", ""))
 			var building_type := str(instance.get("type", ""))
 			if not totals.has(building_type):
+				return false
+			if int(data.get("format_version", 1)) >= 9 and building_type == "wall":
 				return false
 			if instance_id.is_empty() or instance_ids.has(instance_id):
 				return false
@@ -159,6 +163,11 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 		for id in data.buildings:
 			if not era.buildings.has(id) or not valid_number(data.buildings[id], 0.0, float(era.buildings[id].max) * CityLayout.MAX_SLOTS):
 				return false
+	if format_version >= 9:
+		if not data.has("defense_level") or not valid_number(data.defense_level, 0.0, float(era.buildings.wall.max)):
+			return false
+		if data.has("buildings") and int(data.buildings.get("wall", -1)) != int(data.defense_level):
+			return false
 	if format_version >= 5:
 		if data.get("building_instances") is not Array or data.building_instances.size() > CityLayout.MAX_SLOTS:
 			return false
@@ -167,6 +176,8 @@ static func is_valid(data: Dictionary, context: Dictionary) -> bool:
 				return false
 			var building_type := str(instance.get("type", ""))
 			if not era.buildings.has(building_type) or instance.get("id") is not String or instance.get("slot_id") is not String:
+				return false
+			if format_version >= 9 and building_type == "wall":
 				return false
 			if format_version >= 6:
 				var origin = instance.get("grid_origin")

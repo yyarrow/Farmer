@@ -2,6 +2,7 @@ extends RefCounted
 
 const CityLayout = preload("res://src/data/city_layout.gd")
 const PlacementSolver = preload("res://src/city_placement/placement_solver.gd")
+const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 
 static func upgrade(
 	data: Dictionary,
@@ -81,6 +82,20 @@ static func upgrade(
 		if arranged.size() != previous_instances.size():
 			return {"data": {}, "migrated": false, "from": from_version}
 		upgraded.building_instances = arranged
+	if from_version < 9:
+		var aggregate: Dictionary = upgraded.get("buildings", {}).duplicate(true)
+		var split := DefenseLayout.split_legacy_wall_instances(
+			upgraded.get("building_instances", []), int(aggregate.get("wall", 0))
+		)
+		var city_level := clampi(int(upgraded.get("city_level", upgraded.get("chapter", 1))), 1, 5)
+		var unlocked_count := 6 if city_level == 1 else (9 if city_level == 2 else 12)
+		var ordinary := DefenseLayout.arrange_ordinary(split.ordinary_instances, unlocked_count)
+		if ordinary.size() != split.ordinary_instances.size():
+			return {"data": {}, "migrated": false, "from": from_version}
+		upgraded.building_instances = ordinary
+		upgraded.defense_level = int(split.defense_level)
+		aggregate.wall = int(split.defense_level)
+		upgraded.buildings = aggregate
 	upgraded.format_version = format_version
 	return {"data": upgraded, "migrated": true, "from": from_version}
 

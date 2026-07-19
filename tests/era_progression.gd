@@ -20,9 +20,11 @@ func _run() -> void:
 
 	_fill_resources(state)
 	_check(state.upgrade_building("quarry"), "fifth lot can be constructed")
-	_check(state.upgrade_building("wall"), "sixth lot can be constructed")
+	_check(state.upgrade_building("wall"), "city defense can be constructed independently")
+	_check(state.get_defense_level() == 1 and state.get_built_building_count() == 5, "city defense does not consume an ordinary lot")
+	_check(state.upgrade_building("market"), "sixth ordinary lot can still be constructed")
 	var blocked_resources: Dictionary = state.resources.duplicate(true)
-	_check(not state.upgrade_building("market"), "seventh building waits for a larger city")
+	_check(not state.upgrade_building("barracks"), "seventh ordinary building waits for a larger city")
 	_check(state.resources == blocked_resources, "blocked construction charges no resources")
 
 	for id in ["farm", "woodcut", "house", "warehouse"]:
@@ -30,7 +32,7 @@ func _run() -> void:
 	_fill_resources(state)
 	_check(state.advance_chapter(), "prosperous village advances to a city")
 	_check(state.chapter == 2 and state.get_building_slot_count() == 9 and state.get_open_building_slots() == 3, "Spring and Autumn mid-tier city opens three new lots")
-	_check(state.upgrade_building("market"), "newly opened lot accepts construction")
+	_check(state.upgrade_building("barracks"), "newly opened lot accepts construction")
 	var duplicate_origin := CityLayout.best_visual_origin(state.building_instances, state.get_building_slot_count(), "farm")
 	if duplicate_origin == CityLayout.INVALID_ORIGIN:
 		var pending: Array = state.get_building_instances()
@@ -163,11 +165,24 @@ func _run() -> void:
 	v3_snapshot.erase("era_progress")
 	v3_snapshot.erase("city_level")
 	var migrated: Dictionary = state._upgrade_snapshot(v3_snapshot)
-	_check(int(migrated.format_version) == 8 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era and visual layout")
+	_check(int(migrated.format_version) == 9 and migrated.era_id == "spring_autumn", "v3 save migrates into the default era and visual layout")
 	_check(migrated.building_instances is Array and migrated.building_instances.size() == 4, "legacy buildings migrate into placed instances")
 	_check(migrated.building_instances.all(func(instance): return instance.has("grid_origin")), "legacy sockets migrate to grid origins")
 	_check(int(migrated.city_level) == int(migrated.chapter) and int(migrated.era_progress) > 0, "migration derives city and era progress")
 	_check(state._is_valid_save_data(migrated), "migrated save passes current validation")
+
+	var v8_with_wall: Dictionary = state.get_snapshot()
+	v8_with_wall.format_version = 8
+	v8_with_wall.erase("defense_level")
+	v8_with_wall.buildings.wall = 4
+	v8_with_wall.building_instances.append({
+		"id": "legacy_wall", "type": "wall", "level": 4,
+		"grid_origin": [0, 5], "slot_id": "cell_00_05",
+	})
+	var migrated_wall: Dictionary = state._upgrade_snapshot(v8_with_wall)
+	_check(int(migrated_wall.defense_level) == 4, "v8 wall level migrates into independent city defense")
+	_check(migrated_wall.building_instances.all(func(instance): return str(instance.type) != "wall"), "v8 wall instance leaves ordinary placement")
+	_check(int(migrated_wall.buildings.wall) == 4 and state._is_valid_save_data(migrated_wall), "migrated defense remains battle-compatible and valid")
 
 	var era_before_invalid: String = str(state.era_id)
 	var invalid: Dictionary = state.get_snapshot()

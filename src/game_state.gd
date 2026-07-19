@@ -2,6 +2,7 @@ extends Node
 
 const EraRegistry = preload("res://src/data/era_registry.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
+const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 const BattleSystem = preload("res://src/systems/battle_system.gd")
 const EconomySystem = preload("res://src/systems/economy_system.gd")
 const ProgressionSystem = preload("res://src/systems/progression_system.gd")
@@ -21,7 +22,7 @@ const LEGACY_SAVE_PATH := "user://qinghe_save.json"
 const SAVE_DIR := "user://saves"
 const AUTO_SAVE_PATH := "user://saves/autosave.json"
 const SLOT_COUNT := 3
-const FORMAT_VERSION := 8
+const FORMAT_VERSION := 9
 const DAY_SECONDS := 24.0
 const MAX_OFFLINE_SECONDS := 7200.0
 const OFFLINE_DAY_SECONDS := 300.0
@@ -45,6 +46,7 @@ var POLICIES: Dictionary = era_definition.policies
 
 var resources: Dictionary = era_definition.initial_resources.duplicate(true)
 var buildings: Dictionary = era_definition.initial_buildings.duplicate(true)
+var defense_level := int(buildings.get("wall", 0))
 var building_instances: Array = []
 var _next_building_instance_seq := 1
 var units: Dictionary = era_definition.initial_units.duplicate(true)
@@ -185,6 +187,9 @@ func get_max_city_level() -> int:
 func get_building_slot_count() -> int:
 	return mini(CityLayout.MAX_SLOTS, int(get_city_level_data().slots))
 
+func get_defense_level() -> int:
+	return clampi(maxi(defense_level, int(buildings.get("wall", 0))), 0, int(BUILDINGS.wall.max))
+
 func get_built_building_count() -> int:
 	return building_instances.size()
 
@@ -231,6 +236,8 @@ func get_building_instances_of_type(building_type: String) -> Array:
 func can_place_building_type(building_type: String) -> bool:
 	if not BUILDINGS.has(building_type):
 		return false
+	if building_type == "wall":
+		return get_defense_level() <= 0
 	if building_type in CityLayout.UNIQUE_BUILDINGS:
 		return get_building_instances_of_type(building_type).is_empty()
 	return true
@@ -243,9 +250,10 @@ func _new_building_instance_id() -> String:
 func _seed_instances_from_buildings() -> void:
 	var raw_instances := []
 	_next_building_instance_seq = 1
+	defense_level = clampi(int(buildings.get("wall", defense_level)), 0, int(BUILDINGS.wall.max))
 	for id in BUILDINGS:
 		var level := int(buildings.get(id, 0))
-		if level <= 0:
+		if level <= 0 or id == "wall":
 			continue
 		raw_instances.append({
 			"id": _new_building_instance_id(), "type": id, "level": level,
@@ -264,6 +272,9 @@ func _seed_instances_from_buildings() -> void:
 			building_instances.append(raw)
 
 func _normalize_building_instances(raw_instances: Array) -> void:
+	var split := DefenseLayout.split_legacy_wall_instances(raw_instances, get_defense_level())
+	defense_level = int(split.defense_level)
+	raw_instances = split.ordinary_instances
 	building_instances = []
 	_next_building_instance_seq = 1
 	var unique_types := {}
@@ -302,6 +313,7 @@ func _rebuild_building_totals() -> void:
 	var totals: Dictionary = era_definition.initial_buildings.duplicate(true)
 	for id in totals:
 		totals[id] = 0
+	totals.wall = get_defense_level()
 	for instance in building_instances:
 		var building_type := str(instance.get("type", ""))
 		if totals.has(building_type):
@@ -513,6 +525,8 @@ func get_chapter_target() -> int:
 	return int(get_city_level_data().advance_target)
 
 func building_cost(id: String) -> Dictionary:
+	if id == "wall":
+		return EconomySystem.building_cost(BUILDINGS.wall, get_defense_level())
 	var instances := get_building_instances_of_type(id)
 	var level := int(instances[0].level) if not instances.is_empty() else int(buildings.get(id, 0))
 	return EconomySystem.building_cost(BUILDINGS[id], level)
@@ -581,6 +595,8 @@ func spend(cost: Dictionary) -> bool:
 func upgrade_building(id: String) -> bool:
 	if not BUILDINGS.has(id):
 		return false
+	if id == "wall":
+		return upgrade_defense()
 	var instances := get_building_instances_of_type(id)
 	if instances.is_empty():
 		var origin := CityLayout.best_visual_origin(
@@ -612,6 +628,9 @@ func _reflow_for_automatic_build(id: String) -> Vector2i:
 
 func place_building(id: String, placement: Variant) -> bool:
 	if not BUILDINGS.has(id):
+		return false
+	if id == "wall":
+		notice.emit("城防沿城域边界营建，不占用城内地块")
 		return false
 	if not can_place_building_type(id):
 		notice.emit("%s只能营造一处" % BUILDINGS[id].name)
@@ -665,6 +684,25 @@ func upgrade_building_instance(instance_id: String) -> bool:
 	visual_event.emit("upgrade", {"building": id, "instance_id": instance_id, "grid_origin": instance.grid_origin, "level": instance.level})
 	Audio.play_sfx("upgrade")
 	Telemetry.track("building_upgrade", {"building": id, "instance_id": instance_id, "from": level, "to": instance.level, "cost": cost})
+	save_game()
+	return true
+
+func upgrade_defense() -> bool:
+	var level := get_defense_level()
+	if level >= int(BUILDINGS.wall.max):
+		notice.emit("城防已臻完善")
+		return false
+	var cost := EconomySystem.building_cost(BUILDINGS.wall, level)
+	if not spend(cost):
+		return false
+	defense_level = level + 1
+	buildings.wall = defense_level
+	_add_era_progress(int(era_definition.era_growth.building_base) + defense_level * 4, "defense")
+	changed.emit()
+	notice.emit(("营建" if level == 0 else "加固") + " %s" % BUILDINGS.wall.name)
+	visual_event.emit("defense_upgrade", {"building": "wall", "from": level, "level": defense_level})
+	Audio.play_sfx("upgrade" if level > 0 else "build")
+	Telemetry.track("defense_upgrade", {"from": level, "to": defense_level, "cost": cost})
 	save_game()
 	return true
 
@@ -1363,8 +1401,7 @@ func get_autosave_info() -> Dictionary:
 func get_snapshot() -> Dictionary:
 	# Instance placement is authoritative. Reconcile the compatibility aggregate
 	# before persistence so diagnostics or tests cannot serialize a split state.
-	if not building_instances.is_empty():
-		_rebuild_building_totals()
+	_rebuild_building_totals()
 	return {
 		"format_version": FORMAT_VERSION,
 		"era_id": era_id,
@@ -1372,6 +1409,7 @@ func get_snapshot() -> Dictionary:
 		"city_level": chapter,
 		"resources": resources.duplicate(true),
 		"buildings": buildings.duplicate(true),
+		"defense_level": get_defense_level(),
 		"building_instances": building_instances.duplicate(true),
 		"units": units.duplicate(true),
 		"wounded": wounded.duplicate(true),
@@ -1415,6 +1453,8 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> bool:
 	resources.merge(snapshot.get("resources", {}), true)
 	buildings = era_definition.initial_buildings.duplicate(true)
 	buildings.merge(snapshot.get("buildings", {}), true)
+	defense_level = clampi(int(snapshot.get("defense_level", buildings.get("wall", 0))), 0, int(BUILDINGS.wall.max))
+	buildings.wall = defense_level
 	chapter = int(snapshot.get("city_level", snapshot.get("chapter", 1)))
 	var saved_instances: Array = snapshot.get("building_instances", [])
 	if saved_instances.is_empty():
@@ -1586,6 +1626,7 @@ func reset_game() -> void:
 	era_progress = 0
 	resources = era_definition.initial_resources.duplicate(true)
 	buildings = era_definition.initial_buildings.duplicate(true)
+	defense_level = int(buildings.get("wall", 0))
 	chapter = 1
 	_seed_instances_from_buildings()
 	units = era_definition.initial_units.duplicate(true)

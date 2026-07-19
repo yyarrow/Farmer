@@ -44,7 +44,7 @@ func _run() -> void:
 		farms.append({"id": "farm_%02d" % index, "type": "farm", "grid_origin": CityLayout.encode_origin(origin)})
 
 	var current: Dictionary = state.get_snapshot()
-	_check(SaveValidator.is_valid(current, state._save_validation_context()), "v8 visual-grid snapshot passes cross-field validation")
+	_check(SaveValidator.is_valid(current, state._save_validation_context()), "v9 infrastructure snapshot passes cross-field validation")
 	var overlap: Dictionary = current.duplicate(true)
 	if overlap.building_instances.size() >= 2:
 		overlap.building_instances[1].grid_origin = overlap.building_instances[0].grid_origin.duplicate()
@@ -61,7 +61,7 @@ func _run() -> void:
 		v5.building_instances[index].erase("grid_origin")
 		v5.building_instances[index].slot_id = "slot_%02d" % (index + 1)
 	var migrated: Dictionary = state._upgrade_snapshot(v5)
-	_check(int(migrated.format_version) == 8, "v5 sockets migrate through the v8 visual-layout format")
+	_check(int(migrated.format_version) == 9, "v5 sockets migrate through the v9 infrastructure format")
 	_check(SaveValidator.is_valid(migrated, state._save_validation_context()), "migrated grid snapshot remains valid")
 
 	var v6: Dictionary = current.duplicate(true)
@@ -87,7 +87,7 @@ func _run() -> void:
 			"slot_id": CityLayout.cell_id(broken_origins[index]),
 		})
 	var repaired_v6: Dictionary = state._upgrade_snapshot(v6)
-	_check(SaveValidator.is_valid(repaired_v6, state._save_validation_context()), "already-damaged v6 autosave repairs into a valid v8 snapshot")
+	_check(SaveValidator.is_valid(repaired_v6, state._save_validation_context()), "already-damaged v6 autosave repairs into a valid v9 snapshot")
 	_check(repaired_v6.resources == preserved_resources and repaired_v6.units == preserved_units and int(repaired_v6.current_day) == preserved_day, "v8 repair preserves resources, army and progression")
 	for index in repaired_v6.building_instances.size():
 		var repaired_instance: Dictionary = repaired_v6.building_instances[index]
