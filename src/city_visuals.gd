@@ -609,29 +609,12 @@ func _draw() -> void:
 				draw_line(effect.pos + Vector2(-half, -half * 0.20), effect.pos + Vector2(half, half * 0.32), Color(color.lightened(0.18), alpha * 0.78), 2.0)
 
 func _draw_plot_sockets() -> void:
-	var identity: Dictionary = State.era_definition.visual.get("identity", {})
-	var earth: Color = identity.get("earth", Color(0.42, 0.32, 0.22, 0.72))
-	# These exact avenue cells are rejected by placement validation. Render the
-	# union as one worn-earth ribbon, not twelve board-game tiles.
-	var road_polygon := CityLayout.grid_rect_polygon(Vector2i(CityLayout.ROAD_COLUMN, 0), Vector2i(1, CityLayout.GRID_SIZE.y))
-	var road_tint := Color("#cbb98f").lerp(earth.lightened(0.28), 0.24)
-	road_tint.a = 0.46
-	draw_colored_polygon(road_polygon, road_tint)
-	var edge_tint := Color(earth.darkened(0.16), 0.27)
-	draw_line(road_polygon[0], road_polygon[3], edge_tint, 1.15, true)
-	draw_line(road_polygon[1], road_polygon[2], edge_tint, 1.15, true)
-	for y in range(1, CityLayout.GRID_SIZE.y, 2):
-		var center := CityLayout.grid_to_screen(Vector2i(CityLayout.ROAD_COLUMN, y))
-		draw_line(center + Vector2(-6, -3), center + Vector2(6, 3), Color(earth.darkened(0.10), 0.09), 0.8, true)
-
 	var placement_active := not move_instance_id.is_empty() or selected_cell != CityLayout.INVALID_ORIGIN
 	if placement_active:
 		var region := CityLayout.unlocked_region(State.get_building_slot_count())
 		for y in range(region.position.y, region.end.y):
 			for x in range(region.position.x, region.end.x):
 				var cell := Vector2i(x, y)
-				if CityLayout.is_road(cell):
-					continue
 				var polygon := CityLayout.cell_polygon(cell)
 				var closed := PackedVector2Array(polygon)
 				closed.append(polygon[0])

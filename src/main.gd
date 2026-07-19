@@ -4,6 +4,7 @@ const UiFont = preload("res://src/ui_font.gd")
 const LicenseNotice = preload("res://src/license_notice.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
 const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
+const TerrainOnlyCatalog = preload("res://src/data/terrain_only_catalog.gd")
 const UiComponents = preload("res://src/ui/component_factory.gd")
 const UiPresentation = preload("res://src/ui/presentation_formatter.gd")
 const OpeningAdvisor = preload("res://src/ui/opening_advisor.gd")
@@ -39,6 +40,7 @@ var _modal_back_action: Callable
 var _toast_tween: Tween
 var city_world: Control
 var city_background: TextureRect
+var city_road_layer: Node2D
 var city_visual_layer: Control
 var city_pan_hint: Label
 var _displayed_season := ""
@@ -142,6 +144,12 @@ func _build_scene() -> void:
 	ambient.set_script(load("res://src/ambient_layer.gd"))
 	ambient.z_index = 1
 	city_world.add_child(ambient)
+
+	city_road_layer = Node2D.new()
+	city_road_layer.name = "DerivedRoads"
+	city_road_layer.set_script(load("res://src/city_road_visuals.gd"))
+	city_road_layer.z_index = 2
+	city_world.add_child(city_road_layer)
 
 	city_visual_layer = Control.new()
 	city_visual_layer.name = "CityVisuals"
@@ -509,6 +517,7 @@ func _refresh_dynamic() -> void:
 	var calendar := State.get_calendar()
 	day_label.text = "%d年·%s%d日·%s" % [calendar.year, calendar.season_name, calendar.day, time_text]
 	_apply_season_tone(str(calendar.season))
+	_refresh_infrastructure_visuals()
 	_apply_city_view()
 	day_bar.value = State.day_progress * 100.0
 	for speed in time_buttons:
@@ -551,7 +560,7 @@ func _apply_season_tone(season: String) -> void:
 	_displayed_season = season
 	_displayed_era = State.era_id
 	if era_changed:
-		var background_path := State.get_city_background_path()
+		var background_path := TerrainOnlyCatalog.path_for(State.era_id, State.get_city_background_path())
 		if ResourceLoader.exists(background_path):
 			city_background.texture = load(background_path)
 	Audio.set_music_season(season)
@@ -563,6 +572,21 @@ func _apply_season_tone(season: String) -> void:
 	}
 	var tween := get_tree().create_tween()
 	tween.tween_property(city_background, "modulate", tones.get(season, Color.WHITE) * State.get_era_tint(), 0.8)
+
+func _refresh_infrastructure_visuals() -> void:
+	if not city_road_layer:
+		return
+	var identity: Dictionary = State.era_definition.visual.get("identity", {})
+	var earth: Color = identity.get("earth", Color("#8a704d"))
+	city_road_layer.configure(
+		CityLayout.infrastructure_network(State.get_building_instances(), State.get_building_slot_count()),
+		{
+			"surface": earth.lightened(0.30),
+			"edge": earth.darkened(0.22),
+			"rut": earth.darkened(0.10),
+			"stone": earth.lightened(0.48),
+		}
+	)
 
 func _update_tab_buttons() -> void:
 	var tab_specs := [["build_tab", "城建", "筑"], ["trade_tab", "市易", "易"], ["military_tab", "军务", "戈"], ["governance_tab", "政事", "策"]]
