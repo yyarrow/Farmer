@@ -27,7 +27,7 @@ const ENTRANCE_RULES := {
 	"wall": {"side": "north", "offset": 0.50},
 }
 
-static func build(buildings: Array, unlocked_count: int, root := INVALID_CELL) -> Dictionary:
+static func build(buildings: Array, unlocked_count: int, root: Vector2i = INVALID_CELL) -> Dictionary:
 	var region := micro_region(unlocked_count)
 	var root_cell: Vector2i = default_gate(unlocked_count) if root == INVALID_CELL else root
 	if not region.has_point(root_cell):
@@ -88,7 +88,7 @@ static func evaluate_access(
 	buildings: Array,
 	unlocked_count: int,
 	ignore_instance_id := "",
-	root := INVALID_CELL
+	root: Vector2i = INVALID_CELL
 ) -> Dictionary:
 	var candidates := []
 	for raw in buildings:
@@ -114,6 +114,26 @@ static func micro_region(unlocked_count: int) -> Rect2i:
 static func default_gate(unlocked_count: int) -> Vector2i:
 	var region := micro_region(unlocked_count)
 	return Vector2i(region.position.x + floori(float(region.size.x) / 2.0), region.end.y - 1)
+
+static func micro_to_screen(cell: Vector2i) -> Vector2:
+	# A macro cell at (x, y) owns micro cells (2x, 2y)..(2x+1, 2y+1).
+	# The half-cell offset makes their four diamonds tile the macro diamond.
+	var macro_position := (
+		(Vector2(cell) + Vector2.ONE * 0.5) / float(MICRO_SCALE)
+		- Vector2.ONE * 0.5
+	)
+	return PlacementEngine.GRID_ORIGIN + Vector2(
+		(macro_position.x - macro_position.y) * PlacementEngine.CELL_SIZE.x * 0.5,
+		(macro_position.x + macro_position.y) * PlacementEngine.CELL_SIZE.y * 0.5
+	)
+
+static func micro_cell_polygon(cell: Vector2i) -> PackedVector2Array:
+	var center := micro_to_screen(cell)
+	var half := PlacementEngine.CELL_SIZE * (0.5 / float(MICRO_SCALE))
+	return PackedVector2Array([
+		center + Vector2(0, -half.y), center + Vector2(half.x, 0),
+		center + Vector2(0, half.y), center + Vector2(-half.x, 0),
+	])
 
 static func footprint_cells(origin: Vector2i, building_type: String) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
@@ -181,10 +201,9 @@ static func _route(start: Vector2i, goals: Dictionary, occupied: Dictionary, reg
 		"turns": 0,
 		"length": 0,
 	}
-	initial["score"] = _route_score(initial.new_cells, initial.turns, initial.length)
 	var heap := [initial]
 	var initial_key := _state_key(start, Vector2i.ZERO)
-	var best := {initial_key: int(initial.score)}
+	var best := {initial_key: _state_cost(initial)}
 	var previous := {initial_key: ""}
 	var states := {initial_key: initial}
 	var goal_key := ""
@@ -192,7 +211,7 @@ static func _route(start: Vector2i, goals: Dictionary, occupied: Dictionary, reg
 	while not heap.is_empty():
 		var current: Dictionary = _heap_pop(heap)
 		var current_key := _state_key(current.cell, current.direction)
-		if int(best.get(current_key, 9223372036854775807)) != int(current.score):
+		if not best.has(current_key) or Vector3i(best[current_key]) != _state_cost(current):
 			continue
 		if goals.has(current.cell):
 			goal_key = current_key
@@ -206,19 +225,18 @@ static func _route(start: Vector2i, goals: Dictionary, occupied: Dictionary, reg
 				next_turns += 1
 			var next_new := int(current.new_cells) + (0 if goals.has(next_cell) else 1)
 			var next_length := int(current.length) + 1
-			var next_score := _route_score(next_new, next_turns, next_length)
 			var next_key := _state_key(next_cell, direction)
-			if next_score >= int(best.get(next_key, 9223372036854775807)):
-				continue
 			var next := {
 				"cell": next_cell,
 				"direction": direction,
 				"new_cells": next_new,
 				"turns": next_turns,
 				"length": next_length,
-				"score": next_score,
 			}
-			best[next_key] = next_score
+			var next_cost := _state_cost(next)
+			if best.has(next_key) and not _cost_before(next_cost, Vector3i(best[next_key])):
+				continue
+			best[next_key] = next_cost
 			previous[next_key] = current_key
 			states[next_key] = next
 			_heap_push(heap, next)
@@ -232,10 +250,6 @@ static func _route(start: Vector2i, goals: Dictionary, occupied: Dictionary, reg
 		cursor = str(previous[cursor])
 	reversed.reverse()
 	return reversed
-
-static func _route_score(new_cells: int, turns: int, length: int) -> int:
-	# Lexicographic priorities in one integer: reuse, then turns, then length.
-	return new_cells * 100000 + turns * 1000 + length
 
 static func _heap_push(heap: Array, value: Dictionary) -> void:
 	heap.append(value)
@@ -270,11 +284,23 @@ static func _heap_pop(heap: Array) -> Dictionary:
 	return result
 
 static func _state_before(first: Dictionary, second: Dictionary) -> bool:
-	if int(first.score) != int(second.score):
-		return int(first.score) < int(second.score)
+	var first_cost := _state_cost(first)
+	var second_cost := _state_cost(second)
+	if first_cost != second_cost:
+		return _cost_before(first_cost, second_cost)
 	if first.cell != second.cell:
 		return _cell_before(first.cell, second.cell)
 	return _cell_before(first.direction, second.direction)
+
+static func _state_cost(state: Dictionary) -> Vector3i:
+	return Vector3i(int(state.new_cells), int(state.turns), int(state.length))
+
+static func _cost_before(first: Vector3i, second: Vector3i) -> bool:
+	if first.x != second.x:
+		return first.x < second.x
+	if first.y != second.y:
+		return first.y < second.y
+	return first.z < second.z
 
 static func _state_key(cell: Vector2i, direction: Vector2i) -> String:
 	return "%d:%d:%d:%d" % [cell.x, cell.y, direction.x, direction.y]

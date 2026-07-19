@@ -15,6 +15,7 @@ func _run() -> void:
 		RoadNetwork.micro_region(12).size == PlacementEngine.unlocked_region(12).size * 2,
 		"unlocked macro region maps to micro cells without migrating placement coordinates"
 	)
+	_validate_micro_subdivision(Vector2i(4, 6))
 
 	var placed := [
 		{"id": "farm_a", "type": "farm", "grid_origin": [2, 1]},
@@ -136,6 +137,49 @@ func _can_reach(start: Vector2i, goal: Vector2i, roads: Dictionary) -> bool:
 				visited[next] = true
 				pending.append(next)
 	return false
+
+func _validate_micro_subdivision(macro_cell: Vector2i) -> void:
+	var macro_polygon := PlacementEngine.cell_polygon(macro_cell)
+	var child_polygons: Array[PackedVector2Array] = []
+	var all_points := PackedVector2Array()
+	var center_sum := Vector2.ZERO
+	for y in RoadNetwork.MICRO_SCALE:
+		for x in RoadNetwork.MICRO_SCALE:
+			var micro_cell := macro_cell * RoadNetwork.MICRO_SCALE + Vector2i(x, y)
+			var polygon := RoadNetwork.micro_cell_polygon(micro_cell)
+			child_polygons.append(polygon)
+			center_sum += RoadNetwork.micro_to_screen(micro_cell)
+			all_points.append_array(polygon)
+	_check(
+		center_sum / float(child_polygons.size()) == PlacementEngine.grid_to_screen(macro_cell),
+		"four micro-cell centers balance exactly on the macro-cell center"
+	)
+	var child_area := 0.0
+	for index in child_polygons.size():
+		child_area += absf(_polygon_area(child_polygons[index]))
+		for other_index in range(index + 1, child_polygons.size()):
+			var overlap_area := 0.0
+			for overlap in Geometry2D.intersect_polygons(child_polygons[index], child_polygons[other_index]):
+				overlap_area += absf(_polygon_area(overlap))
+			_check(is_zero_approx(overlap_area), "micro-cell polygons have no overlapping interior")
+	var macro_area := absf(_polygon_area(macro_polygon))
+	var hull_area := absf(_polygon_area(Geometry2D.convex_hull(all_points)))
+	_check(is_equal_approx(child_area, macro_area), "four micro-cell areas exactly equal one macro cell")
+	_check(is_equal_approx(hull_area, macro_area), "four micro-cell polygons leave no gap inside the macro diamond")
+	for macro_corner in macro_polygon:
+		var found := false
+		for point in all_points:
+			if point == macro_corner:
+				found = true
+				break
+		_check(found, "micro-cell outer vertices preserve every macro-cell corner exactly")
+
+func _polygon_area(polygon: PackedVector2Array) -> float:
+	var area := 0.0
+	for index in polygon.size():
+		var next := (index + 1) % polygon.size()
+		area += polygon[index].x * polygon[next].y - polygon[next].x * polygon[index].y
+	return area * 0.5
 
 func _check(condition: bool, label: String) -> void:
 	if not condition:
