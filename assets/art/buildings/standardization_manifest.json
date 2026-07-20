@@ -2258,6 +2258,97 @@
 						]
 					}
 				]
+			},
+			"farm": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							244,
+							117,
+							1275,
+							669
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2541,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							245,
+							97,
+							1274,
+							689
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2543,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							244,
+							90,
+							1275,
+							696
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2541,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							223,
+							87,
+							1328,
+							711
+						],
+						"component_count": 1,
+						"uniform_scale": 0.244,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"three_kingdoms": {
