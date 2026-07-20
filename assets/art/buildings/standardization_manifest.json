@@ -6547,6 +6547,97 @@
 						]
 					}
 				]
+			},
+			"farm": {
+				"footprint": [
+					3.0,
+					3.0
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1.0,
+						"source_bounds": [
+							121.0,
+							139.0,
+							1317.0,
+							749.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.246,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2.0,
+						"source_bounds": [
+							137.0,
+							127.0,
+							1279.0,
+							757.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2533,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3.0,
+						"source_bounds": [
+							108.0,
+							128.0,
+							1348.0,
+							785.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2404,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4.0,
+						"source_bounds": [
+							98.0,
+							108.0,
+							1353.0,
+							826.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2395,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"song": {
