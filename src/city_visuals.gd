@@ -5,6 +5,7 @@ const CityLayout = preload("res://src/data/city_layout.gd")
 const BuildingProfiles = preload("res://src/city_placement/building_profiles.gd")
 const ArtAlignment = preload("res://src/city_placement/art_alignment.gd")
 const FootprintTemplates = preload("res://src/city_placement/footprint_templates.gd")
+const BuildingAssetResolver = preload("res://src/city_placement/building_asset_resolver.gd")
 const POSITIONS := CityLayout.BUILDING_POSITIONS
 const SIZES := CityLayout.BUILDING_SIZES
 const EFFECT_POSITIONS := CityLayout.EFFECT_POSITIONS
@@ -310,16 +311,17 @@ func _stage_for_level(level: int) -> int:
 	return 3
 
 func _source_texture_for(id: String) -> Texture2D:
-	if _uses_standardized_art(id):
-		return load("res://assets/art/buildings/eras/warring_states/%s_stages_standardized.png" % id)
-	var era_path := "res://assets/art/buildings/eras/%s/%s_stages.png" % [State.era_id, id]
-	return load(era_path) if ResourceLoader.exists(era_path) else load("res://assets/art/buildings/%s_stages.png" % id)
+	return load(str(_asset_resolution_for(id).path))
 
 func _uses_standardized_art(id: String) -> bool:
-	return (
-		standardized_art_pilot_enabled
-		and State.era_id == "warring_states"
-		and ResourceLoader.exists("res://assets/art/buildings/eras/warring_states/%s_stages_standardized.png" % id)
+	return bool(_asset_resolution_for(id).standardized)
+
+func _asset_resolution_for(id: String) -> Dictionary:
+	return BuildingAssetResolver.resolve(
+		State.era_id,
+		id,
+		standardized_art_pilot_enabled,
+		func(path: String): return ResourceLoader.exists(path)
 	)
 
 func _atlas_for(id: String, stage: int) -> AtlasTexture:
