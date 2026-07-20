@@ -9558,6 +9558,97 @@
 						]
 					}
 				]
+			},
+			"warehouse": {
+				"footprint": [
+					3,
+					2
+				],
+				"canonical_quad": [
+					[
+						159.6,
+						188.0
+					],
+					[
+						354.0,
+						285.2
+					],
+					[
+						224.4,
+						350.0
+					],
+					[
+						30.0,
+						252.8
+					]
+				],
+				"socket": [
+					224.4,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							505,
+							66,
+							884,
+							731
+						],
+						"component_count": 1,
+						"uniform_scale": 0.313,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							435,
+							37,
+							920,
+							788
+						],
+						"component_count": 1,
+						"uniform_scale": 0.3522,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							327,
+							50,
+							1104,
+							799
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2935,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							507,
+							203,
+							745,
+							549
+						],
+						"component_count": 1,
+						"uniform_scale": 0.4349,
+						"socket": [
+							224.4,
+							350.0
+						]
+					}
+				]
 			}
 		}
 	}
