@@ -19,10 +19,10 @@ contact against the canonical socket without changing aspect ratio or adding a
 second artificial base. `standardization_manifest.json` records the footprint,
 socket and method for every era/type pair.
 
-The eight files directly under `assets/art/buildings/` are deprecated legacy
-fallbacks. Release code must resolve an explicit era asset through the manifest;
-these files are retained temporarily only for migration comparison and should
-be moved to a non-exported archive once all consumers use the manifest.
+The eight files directly under `assets/art/buildings/` and the unstandardized
+era sheets are deprecated legacy fallbacks. They remain in the repository for
+authoring comparison, but every Android export excludes them. All 112 release
+atlases resolve through the era-specific standardized paths and manifest.
 
 QA contacts are generated under `.qa/building_standardization/` and are not
 shipped. Run the asset contract with:

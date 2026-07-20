@@ -28,7 +28,7 @@
 - 总音量、背景音乐、操作音效、静音和触觉反馈设置，设置写入带损坏恢复且拖动时不反复刷盘
 - 八类建筑六级可辨外观，卡片逐项显示本季产出、仓容、军籍、训练或减伤的当前值与下一阶真实值；建造、升级、买卖、征兵、政令、巡剿、日结、事件和战斗都有对应城景反馈，水利、军民、伤营与近敌状态会持续留在地图上
 - 阵令切换有独立军令鼓点，兵营旗色与士卒队形会持续映射当前守城部署
-- 十四时代各有八类建筑的四阶段透明素材，共 112 张时代化成长图；战国农田及七类建筑另使用统一 384×384 阶段框、2×2/3×2/3×3/4×2 标准菱形基座与显式入口锚点，屋制、地面透视和自动道路方向保持一致
+- 十四时代各有八类建筑的四阶段透明素材，共 112 张时代化成长图；全部使用统一 384×384 阶段框、2×2/3×2/3×3/4×2 标准菱形基座与显式入口锚点，仅做等比缩放和平移，屋制、地面透视和自动道路方向保持一致
 - 自动存档、三个手动存档槽及载入、覆盖、删除、重新开始确认；写入采用临时文件与上一版备份，截断、结构损坏或跨字段状态矛盾时自动恢复
 - 完全本地的操作埋点、异常退出检测、引擎日志与诊断报告复制导出
 
@@ -57,6 +57,7 @@ HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_road_visuals.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/city_defense_layout.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/standardized_building_assets.gd
+HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/all_era_building_assets.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/terrain_only_catalog.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_progression.gd
 HOME="$PWD/.home" ./tools/godot/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/era_battle_balance.gd
