@@ -4542,6 +4542,645 @@
 					}
 				]
 			}
+		},
+		"tang": {
+			"woodcut": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							63,
+							154,
+							254,
+							178
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8804,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							386,
+							63,
+							322,
+							285
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8804,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							24,
+							392,
+							335,
+							304
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8804,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							372,
+							374,
+							368,
+							338
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8804,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
+			},
+			"quarry": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							41,
+							124,
+							337,
+							210
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9419,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							389,
+							71,
+							337,
+							268
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9419,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							42,
+							381,
+							328,
+							292
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9419,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							388,
+							386,
+							344,
+							303
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9419,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
+			},
+			"house": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							107,
+							95,
+							173,
+							221
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8182,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							409,
+							47,
+							278,
+							283
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8182,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							45,
+							396,
+							272,
+							290
+						],
+						"component_count": 3,
+						"uniform_scale": 0.8182,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							361,
+							373,
+							396,
+							373
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8182,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
+			},
+			"market": {
+				"footprint": [
+					3,
+					2
+				],
+				"canonical_quad": [
+					[
+						159.6,
+						188.0
+					],
+					[
+						354.0,
+						285.2
+					],
+					[
+						224.4,
+						350.0
+					],
+					[
+						30.0,
+						252.8
+					]
+				],
+				"socket": [
+					224.4,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							134,
+							109,
+							184,
+							199
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8265,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							399,
+							57,
+							303,
+							281
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8265,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							52,
+							403,
+							281,
+							269
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8265,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							381,
+							390,
+							348,
+							295
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8265,
+						"socket": [
+							224.4,
+							350.0
+						]
+					}
+				]
+			},
+			"warehouse": {
+				"footprint": [
+					3,
+					2
+				],
+				"canonical_quad": [
+					[
+						159.6,
+						188.0
+					],
+					[
+						354.0,
+						285.2
+					],
+					[
+						224.4,
+						350.0
+					],
+					[
+						30.0,
+						252.8
+					]
+				],
+				"socket": [
+					224.4,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							138,
+							130,
+							161,
+							208
+						],
+						"component_count": 3,
+						"uniform_scale": 0.6958,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							423,
+							70,
+							224,
+							283
+						],
+						"component_count": 2,
+						"uniform_scale": 0.6958,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							91,
+							426,
+							237,
+							282
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6958,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							374,
+							382,
+							350,
+							336
+						],
+						"component_count": 3,
+						"uniform_scale": 0.6958,
+						"socket": [
+							224.4,
+							350.0
+						]
+					}
+				]
+			},
+			"barracks": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							102,
+							103,
+							189,
+							196
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9288,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							445,
+							84,
+							231,
+							233
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9288,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							76,
+							414,
+							241,
+							263
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9288,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							414,
+							376,
+							320,
+							351
+						],
+						"component_count": 1,
+						"uniform_scale": 0.9288,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
+			},
+			"wall": {
+				"footprint": [
+					4,
+					2
+				],
+				"canonical_quad": [
+					[
+						138.0,
+						188.0
+					],
+					[
+						354.0,
+						296.0
+					],
+					[
+						246.0,
+						350.0
+					],
+					[
+						30.0,
+						242.0
+					]
+				],
+				"socket": [
+					246.0,
+					350.0
+				],
+				"method": "deterministic_relayout",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							49,
+							138,
+							313,
+							206
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							405,
+							69,
+							307,
+							279
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							40,
+							435,
+							323,
+							266
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							395,
+							421,
+							335,
+							295
+						],
+						"component_count": 1,
+						"uniform_scale": 0.8,
+						"socket": [
+							246.0,
+							350.0
+						]
+					}
+				]
+			}
 		}
 	}
 }
