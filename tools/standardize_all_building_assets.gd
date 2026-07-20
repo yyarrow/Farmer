@@ -64,14 +64,17 @@ func _initialize() -> void:
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(QA_DIR))
 	var selected_eras := _selected_eras()
+	var selected_buildings := _selected_buildings()
+	if selected_eras.is_empty() or selected_buildings.is_empty():
+		return
 	for era_id in selected_eras:
-		if not _standardize_era(era_id):
+		if not _standardize_era(era_id, selected_buildings):
 			return
 	if not _save_manifest():
 		return
 	print("ALL_ERA_BUILDING_STANDARDIZATION_OK eras=%d atlases=%d stages=%d" % [
-		selected_eras.size(), selected_eras.size() * BUILDINGS.size(),
-		selected_eras.size() * BUILDINGS.size() * 4,
+		selected_eras.size(), selected_eras.size() * selected_buildings.size(),
+		selected_eras.size() * selected_buildings.size() * 4,
 	])
 	quit(0)
 
@@ -90,12 +93,29 @@ func _selected_eras() -> Array[String]:
 		return []
 	return [requested]
 
-func _standardize_era(era_id: String) -> bool:
-	var contact := Image.create(FRAME_SIZE.x * 2, FRAME_SIZE.y * 4, false, Image.FORMAT_RGBA8)
+func _selected_buildings() -> Array[String]:
+	var requested := "all"
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--buildings="):
+			requested = argument.trim_prefix("--buildings=")
+	var result: Array[String] = []
+	if requested == "all":
+		for building_type in BUILDINGS:
+			result.append(building_type)
+		return result
+	for building_type in requested.split(",", false):
+		if not BUILDINGS.has(building_type):
+			_fail("unknown building type: %s" % building_type)
+			return []
+		result.append(building_type)
+	return result
+
+func _standardize_era(era_id: String, building_types: Array[String]) -> bool:
+	var contact := Image.create(FRAME_SIZE.x * 2, FRAME_SIZE.y / 2 * building_types.size(), false, Image.FORMAT_RGBA8)
 	contact.fill(Color(0.08, 0.075, 0.06, 1.0))
 	var era_assets := {}
-	for building_index in BUILDINGS.size():
-		var building_type: String = BUILDINGS.keys()[building_index]
+	for building_index in building_types.size():
+		var building_type: String = building_types[building_index]
 		var footprint: Vector2i = BUILDINGS[building_type]
 		var directory := "res://assets/art/buildings/eras/%s" % era_id
 		var source_path := "%s/%s_stages.png" % [directory, building_type]
@@ -163,7 +183,7 @@ func _standardize_era(era_id: String) -> bool:
 	var contact_path := "%s/%s_contact.png" % [QA_DIR, era_id]
 	if contact.save_png(contact_path) != OK:
 		return _fail("cannot save %s" % contact_path)
-	print("STANDARDIZED_ERA_OK era=%s atlases=%d stages=%d contact=%s" % [era_id, BUILDINGS.size(), BUILDINGS.size() * 4, contact_path])
+	print("STANDARDIZED_ERA_OK era=%s atlases=%d stages=%d contact=%s" % [era_id, building_types.size(), building_types.size() * 4, contact_path])
 	return true
 
 func _existing_asset_record(era_id: String, building_type: String) -> Dictionary:
@@ -349,7 +369,11 @@ func _save_manifest() -> bool:
 		for era_id in existing.assets:
 			merged_assets[era_id] = existing.assets[era_id]
 	for era_id in selected_assets:
-		merged_assets[era_id] = selected_assets[era_id]
+		var merged_era: Dictionary = merged_assets.get(era_id, {})
+		var selected_era: Dictionary = selected_assets[era_id]
+		for building_type in selected_era:
+			merged_era[building_type] = selected_era[building_type]
+		merged_assets[era_id] = merged_era
 	_manifest.assets = merged_assets
 	_normalize_manifest_integers()
 	var file := FileAccess.open(manifest_path, FileAccess.WRITE)
