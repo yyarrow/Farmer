@@ -8189,6 +8189,97 @@
 						]
 					}
 				]
+			},
+			"wall": {
+				"footprint": [
+					4,
+					2
+				],
+				"canonical_quad": [
+					[
+						138.0,
+						188.0
+					],
+					[
+						354.0,
+						296.0
+					],
+					[
+						246.0,
+						350.0
+					],
+					[
+						30.0,
+						242.0
+					]
+				],
+				"socket": [
+					246.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							68,
+							230,
+							1274,
+							792
+						],
+						"component_count": 1,
+						"uniform_scale": 0.1945,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							16,
+							188,
+							1286,
+							995
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2177,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							37,
+							251,
+							1224,
+							877
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2647,
+						"socket": [
+							246.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							20,
+							109,
+							1239,
+							1082
+						],
+						"component_count": 1,
+						"uniform_scale": 0.1813,
+						"socket": [
+							246.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"ming": {
