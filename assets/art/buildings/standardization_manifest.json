@@ -7825,6 +7825,97 @@
 						]
 					}
 				]
+			},
+			"farm": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							235,
+							111,
+							1304,
+							692
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2485,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							226,
+							102,
+							1314,
+							693
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2466,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							92,
+							90,
+							1565,
+							751
+						],
+						"component_count": 1,
+						"uniform_scale": 0.207,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							166,
+							59,
+							1434,
+							772
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2259,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"ming": {
