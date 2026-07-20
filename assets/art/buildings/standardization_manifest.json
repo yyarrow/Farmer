@@ -7186,6 +7186,97 @@
 						]
 					}
 				]
+			},
+			"farm": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							248,
+							98,
+							1278,
+							664
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2535,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							201,
+							98,
+							1367,
+							689
+						],
+						"component_count": 1,
+						"uniform_scale": 0.237,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							180,
+							96,
+							1404,
+							710
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2308,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							194,
+							106,
+							1377,
+							696
+						],
+						"component_count": 1,
+						"uniform_scale": 0.2353,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"yuan": {
