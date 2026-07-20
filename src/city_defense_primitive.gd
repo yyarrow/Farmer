@@ -19,6 +19,7 @@ func configure_segment(segment: Dictionary, style: Dictionary, colors: Dictionar
 		"to": to - position,
 		"tier": int(style.wall_tier),
 		"id": str(segment.id),
+		"render_bounds": segment_render_bounds(segment, int(style.wall_tier)),
 	}
 	queue_redraw()
 
@@ -28,7 +29,10 @@ func configure_tower(tower: Dictionary, colors: Dictionary) -> void:
 	palette = colors.duplicate()
 	position = Vector2(tower.screen)
 	z_index = int(tower.sort_depth)
-	data = {"tier": int(tower.tier)}
+	data = {
+		"tier": int(tower.tier),
+		"render_bounds": tower_render_bounds(tower),
+	}
 	queue_redraw()
 
 func configure_gate(
@@ -52,6 +56,7 @@ func configure_gate(
 		"frame_rect": Rect2(Vector2.ZERO, frame_rect.size),
 		"ground_anchor": ground_anchor - position,
 		"level": level,
+		"render_bounds": frame_rect,
 	}
 	queue_redraw()
 
@@ -63,6 +68,18 @@ static func segment_render_bounds(segment: Dictionary, wall_tier: int) -> Rect2:
 	for point in [to, from - Vector2(0, height), to - Vector2(0, height)]:
 		result = result.expand(point)
 	return result.grow(3.0 + float(wall_tier) * 0.2)
+
+static func tower_render_bounds(tower: Dictionary) -> Rect2:
+	var tier := int(tower.tier)
+	var size := 4.0 + float(tier) * 1.2
+	var height := 4.0 + float(tier) * 2.0
+	return Rect2(
+		Vector2(tower.screen) - Vector2(size + 1.5, height + size * 0.5 + 1.5),
+		Vector2((size + 1.5) * 2.0, height + size + 3.0)
+	)
+
+func render_bounds() -> Rect2:
+	return Rect2(data.get("render_bounds", Rect2()))
 
 func _draw() -> void:
 	match kind:

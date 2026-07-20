@@ -130,6 +130,8 @@ func _build_scene() -> void:
 
 	city_background = TextureRect.new()
 	city_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	city_background.offset_right = CityViewTransform.CANVAS_SIZE.x - 540.0
+	city_background.offset_bottom = CityViewTransform.CANVAS_SIZE.y - 960.0
 	city_background.texture = load("res://assets/art/city_spring.png")
 	city_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	city_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -138,6 +140,8 @@ func _build_scene() -> void:
 
 	var warm_wash := ColorRect.new()
 	warm_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	warm_wash.offset_right = CityViewTransform.CANVAS_SIZE.x - 540.0
+	warm_wash.offset_bottom = CityViewTransform.CANVAS_SIZE.y - 960.0
 	warm_wash.color = Color(0.96, 0.82, 0.48, 0.055)
 	warm_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	city_world.add_child(warm_wash)
@@ -551,10 +555,15 @@ func _apply_city_view(recenter_on_change := true) -> void:
 		return
 	var view_scale := CityViewTransform.scale_for_capacity(State.get_building_slot_count(), State.get_city_view_scale())
 	var viewport_width := size.x if size.x > 1.0 else 540.0
-	var pan_bounds := CityViewTransform.horizontal_bounds(viewport_width, view_scale)
+	var content_bounds := Rect2(0.0, 0.0, CityViewTransform.CANVAS_SIZE.x, 1.0)
+	if city_defense_layer and city_defense_layer.has_method("visual_bounds"):
+		var defense_bounds := Rect2(city_defense_layer.visual_bounds())
+		if defense_bounds.size.x > 0.0:
+			content_bounds = content_bounds.merge(defense_bounds)
+	var pan_bounds := CityViewTransform.horizontal_bounds(viewport_width, view_scale, content_bounds)
 	if recenter_on_change and not is_equal_approx(_displayed_city_scale, view_scale):
 		_displayed_city_scale = view_scale
-		_city_pan_x = CityViewTransform.centered_pan(viewport_width, view_scale)
+		_city_pan_x = CityViewTransform.centered_pan(viewport_width, view_scale, content_bounds)
 	_city_pan_x = clampf(_city_pan_x, pan_bounds.x, pan_bounds.y)
 	city_world.scale = Vector2.ONE * view_scale
 	city_world.position = CityViewTransform.world_position(_city_pan_x, view_scale)

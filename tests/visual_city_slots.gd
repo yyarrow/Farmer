@@ -2,6 +2,7 @@ extends SceneTree
 
 const EraRegistry = preload("res://src/data/era_registry.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
+const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
 
 var failures: Array[String] = []
 var showcase_types := ["farm", "woodcut", "quarry", "house", "market", "warehouse", "barracks", "farm", "house", "warehouse", "barracks", "market"]
@@ -54,6 +55,20 @@ func _run() -> void:
 				failures.append("invalid %s %s frame" % [era_id, suffix])
 			elif image.save_png(path) != OK:
 				failures.append("cannot save %s" % path)
+			if era_id == "warring_states" and density == 12:
+				var scale := CityViewTransform.scale_for_capacity(12, state.get_city_view_scale())
+				var content_bounds := Rect2(0, 0, CityViewTransform.CANVAS_SIZE.x, 1).merge(ui.city_defense_layer.visual_bounds())
+				var pan_bounds := CityViewTransform.horizontal_bounds(540.0, scale, content_bounds)
+				ui._city_pan_x = pan_bounds.y
+				ui._apply_city_view(false)
+				await process_frame
+				_save_frame("res://.qa/slots_warring_states_full_left_edge.png")
+				ui._city_pan_x = pan_bounds.x
+				ui._apply_city_view(false)
+				await process_frame
+				_save_frame("res://.qa/slots_warring_states_full_right_edge.png")
+				ui._city_pan_x = CityViewTransform.centered_pan(540.0, scale, content_bounds)
+				ui._apply_city_view(false)
 
 	state._configure_era("warring_states")
 	state.chapter = 2

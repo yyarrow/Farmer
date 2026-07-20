@@ -84,6 +84,19 @@ func gate_render_layout() -> Dictionary:
 		"standardized": _uses_standardized_gate(),
 	}
 
+func visual_bounds() -> Rect2:
+	var result := Rect2()
+	var initialized := false
+	for child in get_children():
+		if child.is_queued_for_deletion() or not child.has_method("render_bounds"):
+			continue
+		var bounds := Rect2(child.render_bounds())
+		if bounds.size == Vector2.ZERO:
+			continue
+		result = bounds if not initialized else result.merge(bounds)
+		initialized = true
+	return result
+
 static func gate_source_rect(stage: int) -> Rect2:
 	var safe_stage := clampi(stage, 0, 3)
 	return Rect2(Vector2(safe_stage % 2, int(safe_stage / 2)) * FRAME_SIZE, FRAME_SIZE)

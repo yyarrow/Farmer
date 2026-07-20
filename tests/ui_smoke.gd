@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CityLayout = preload("res://src/data/city_layout.gd")
+const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
 
 var failures: Array[String] = []
 
@@ -104,7 +105,12 @@ func _run() -> void:
 	drag.position = Vector2(200, 320)
 	drag.relative = Vector2(-18, 0)
 	ui._unhandled_input(drag)
-	_check(ui._city_pan_x < pan_before, "horizontal drag moves the expanded city map")
+	var viewport_width: float = float(ui.size.x) if ui.size.x > 1.0 else 540.0
+	var canvas_fits: bool = CityViewTransform.CANVAS_SIZE.x * ui.city_world.scale.x <= viewport_width
+	_check(
+		is_equal_approx(ui._city_pan_x, pan_before) if canvas_fits else ui._city_pan_x < pan_before,
+		"horizontal drag moves a cropped city map or keeps a fully visible wide canvas centered"
+	)
 	state.chapter = 3
 	state.era_progress = state.get_era_progress_target()
 	_check(state.advance_era(), "UI fixture advances into Warring States")

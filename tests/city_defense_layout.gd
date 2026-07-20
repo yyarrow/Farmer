@@ -5,6 +5,7 @@ const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 const DefenseVisuals = preload("res://src/city_defense_visuals.gd")
 const DefensePrimitive = preload("res://src/city_defense_primitive.gd")
+const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
 
 var failures: Array[String] = []
 var south_overlap_pairs := 0
@@ -104,6 +105,13 @@ func _run() -> void:
 	var foreground_primitives := defense_visual.get_children().filter(func(child): return child.semantic_layer == DefenseLayout.LAYER_FOREGROUND)
 	_check(not background_primitives.is_empty() and background_primitives.all(func(child): return child.z_index == DefenseLayout.BACKGROUND_Z), "production rear wall stays above terrain at the explicit background z")
 	_check(not foreground_primitives.is_empty() and foreground_primitives.all(func(child): return child.z_index >= DefenseLayout.FOREGROUND_Z_BASE), "production south wall and gate use the explicit foreground layer")
+	var defense_bounds := defense_visual.visual_bounds()
+	var content_bounds := Rect2(0, 0, CityViewTransform.CANVAS_SIZE.x, 1).merge(defense_bounds)
+	var pan_bounds := CityViewTransform.horizontal_bounds(540.0, 1.08, content_bounds)
+	print("DEFENSE_CANVAS_METRICS bounds=", defense_bounds, " pan=", pan_bounds)
+	_check(defense_bounds.position.x * 1.08 + pan_bounds.y >= -0.01, "rightmost pan reveals the expanded defense's left edge without clipping")
+	_check(defense_bounds.end.x * 1.08 + pan_bounds.x <= 540.01, "leftmost pan reveals the expanded defense's right edge without clipping")
+	_check(CityViewTransform.CANVAS_SIZE.x >= defense_bounds.end.x, "terrain canvas covers the expanded defense at maximum tier")
 	defense_visual.free()
 
 	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(2, 4), 6), "expanded shell preserves edge lots and full city capacity")
