@@ -75,9 +75,12 @@ func _check_era(era_id: String, manifest_assets: Dictionary, selected_buildings:
 			continue
 		var footprint: Vector2i = BUILDINGS[building_type]
 		var path := "res://assets/art/buildings/eras/%s/%s_stages_standardized.png" % [era_id, building_type]
+		if not FileAccess.file_exists(path):
+			_check(false, "%s exists" % path)
+			continue
 		var atlas := Image.load_from_file(ProjectSettings.globalize_path(path))
-		_check(not atlas.is_empty(), "%s loads" % path)
-		if atlas.is_empty():
+		_check(atlas != null and not atlas.is_empty(), "%s loads" % path)
+		if atlas == null or atlas.is_empty():
 			continue
 		_check(atlas.get_size() == FRAME_SIZE * 2, "%s is a 2x2 384px atlas" % path)
 		var record: Dictionary = era_manifest.get(building_type, {})
