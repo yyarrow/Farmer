@@ -5087,6 +5087,97 @@
 						]
 					}
 				]
+			},
+			"barracks": {
+				"footprint": [
+					3.0,
+					3.0
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1.0,
+						"source_bounds": [
+							367.0,
+							78.0,
+							1055.0,
+							750.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.3071,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2.0,
+						"source_bounds": [
+							372.0,
+							101.0,
+							1029.0,
+							677.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.3149,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3.0,
+						"source_bounds": [
+							327.0,
+							33.0,
+							1149.0,
+							792.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.282,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4.0,
+						"source_bounds": [
+							278.0,
+							23.0,
+							1208.0,
+							851.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2203,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"tang": {
