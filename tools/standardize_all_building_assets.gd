@@ -65,10 +65,11 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(QA_DIR))
 	var selected_eras := _selected_eras()
 	var selected_buildings := _selected_buildings()
+	var accept_existing := "--accept-existing" in OS.get_cmdline_user_args()
 	if selected_eras.is_empty() or selected_buildings.is_empty():
 		return
 	for era_id in selected_eras:
-		if not _standardize_era(era_id, selected_buildings):
+		if not _standardize_era(era_id, selected_buildings, accept_existing):
 			return
 	if not _save_manifest():
 		return
@@ -110,7 +111,7 @@ func _selected_buildings() -> Array[String]:
 		result.append(building_type)
 	return result
 
-func _standardize_era(era_id: String, building_types: Array[String]) -> bool:
+func _standardize_era(era_id: String, building_types: Array[String], accept_existing: bool) -> bool:
 	var contact := Image.create(FRAME_SIZE.x * 2, FRAME_SIZE.y / 2 * building_types.size(), false, Image.FORMAT_RGBA8)
 	contact.fill(Color(0.08, 0.075, 0.06, 1.0))
 	var era_assets := {}
@@ -120,6 +121,13 @@ func _standardize_era(era_id: String, building_types: Array[String]) -> bool:
 		var directory := "res://assets/art/buildings/eras/%s" % era_id
 		var source_path := "%s/%s_stages.png" % [directory, building_type]
 		var output_path := "%s/%s%s" % [directory, building_type, OUTPUT_SUFFIX]
+		if accept_existing:
+			var approved := Image.load_from_file(ProjectSettings.globalize_path(output_path))
+			if approved.is_empty() or approved.get_size() != ATLAS_SIZE:
+				return _fail("%s must be an approved %sx%s standardized atlas" % [output_path, ATLAS_SIZE.x, ATLAS_SIZE.y])
+			era_assets[building_type] = _manifest_entry(footprint, "authoritative", [])
+			_blit_contact_row(contact, approved, building_index)
+			continue
 		var source := Image.load_from_file(ProjectSettings.globalize_path(source_path))
 		if source.is_empty() or source.get_size() != ATLAS_SIZE:
 			return _fail("%s must be a readable %sx%s source atlas" % [source_path, ATLAS_SIZE.x, ATLAS_SIZE.y])
