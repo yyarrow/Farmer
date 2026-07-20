@@ -17,6 +17,25 @@ func _run() -> void:
 	_check(DefenseLayout.micro_vertex_to_grid(Vector2i.ZERO) == Vector2(-0.5, -0.5), "outer vertex zero is half a macro cell outside")
 	for cell in [Vector2i.ZERO, Vector2i(15, 22), Vector2i(29, 23), Vector2i(4, 2)]:
 		_check(DefenseLayout.micro_cell_to_screen(cell) == RoadNetwork.micro_to_screen(cell), "defense cell %s exactly matches RoadNetwork" % cell)
+	for building_type in PlacementEngine.BUILDING_FOOTPRINTS:
+		if building_type == "wall":
+			continue
+		var origin := Vector2i(4, 3)
+		var contact := PlacementEngine.front_contact_grid(origin, building_type)
+		_check(
+			PlacementEngine.grid_point_to_screen(contact) == PlacementEngine.art_anchor(origin, building_type),
+			"%s z-depth contact is the real front art socket" % building_type
+		)
+		_check(
+			PlacementEngine.depth(origin, building_type) == PlacementEngine.depth_at_grid_point(contact),
+			"%s depth is derived from its front contact" % building_type
+		)
+		var size := PlacementEngine.footprint(building_type)
+		var legacy_depth := (origin.x + size.x + origin.y + size.y) * 10 + origin.x
+		_check(
+			legacy_depth - PlacementEngine.depth(origin, building_type) in [7, 8, 9],
+			"%s removes the legacy +7..9 depth drift" % building_type
+		)
 
 	var expected_segments := {6: 80, 9: 96, 12: 104}
 	for capacity in [6, 9, 12]:

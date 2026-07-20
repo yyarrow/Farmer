@@ -38,10 +38,7 @@ static func micro_vertex_to_grid(vertex: Vector2i) -> Vector2:
 	return Vector2(vertex) / float(MICRO_SCALE) - Vector2.ONE * 0.5
 
 static func grid_point_to_screen(point: Vector2) -> Vector2:
-	return PlacementEngine.GRID_ORIGIN + Vector2(
-		(point.x - point.y) * PlacementEngine.CELL_SIZE.x * 0.5,
-		(point.x + point.y) * PlacementEngine.CELL_SIZE.y * 0.5
-	)
+	return PlacementEngine.grid_point_to_screen(point)
 
 static func micro_cell_to_screen(cell: Vector2i) -> Vector2:
 	return RoadNetwork.micro_to_screen(cell)
@@ -270,7 +267,7 @@ static func _append_side_segments(
 		})
 
 static func _grid_depth(point: Vector2) -> int:
-	return 20 + roundi((point.x + point.y) * 10.0 + point.x)
+	return 20 + PlacementEngine.depth_at_grid_point(point)
 
 static func _append_unique_cell(result: Array[Vector2i], seen: Dictionary, cell: Vector2i) -> void:
 	if not seen.has(cell):

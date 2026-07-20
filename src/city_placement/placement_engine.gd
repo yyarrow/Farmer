@@ -36,9 +36,12 @@ static func footprint(building_type: String) -> Vector2i:
 	return BUILDING_FOOTPRINTS.get(building_type, Vector2i(2, 2))
 
 static func grid_to_screen(cell: Vector2i) -> Vector2:
+	return grid_point_to_screen(Vector2(cell))
+
+static func grid_point_to_screen(point: Vector2) -> Vector2:
 	return GRID_ORIGIN + Vector2(
-		float(cell.x - cell.y) * CELL_SIZE.x * 0.5,
-		float(cell.x + cell.y) * CELL_SIZE.y * 0.5
+		(point.x - point.y) * CELL_SIZE.x * 0.5,
+		(point.x + point.y) * CELL_SIZE.y * 0.5
 	)
 
 static func screen_to_grid(point: Vector2) -> Vector2i:
@@ -70,9 +73,16 @@ static func grid_rect_polygon(origin: Vector2i, size: Vector2i) -> PackedVector2
 static func art_anchor(origin: Vector2i, building_type: String) -> Vector2:
 	return footprint_polygon(origin, building_type)[2]
 
+static func front_contact_grid(origin: Vector2i, building_type: String) -> Vector2:
+	# The standardized art socket is the front vertex of the occupied diamond,
+	# halfway beyond the centers of the footprint's last row and column.
+	return Vector2(origin + footprint(building_type)) - Vector2.ONE * 0.5
+
+static func depth_at_grid_point(point: Vector2) -> int:
+	return roundi((point.x + point.y) * 10.0 + point.x)
+
 static func depth(origin: Vector2i, building_type: String) -> int:
-	var size := footprint(building_type)
-	return (origin.x + size.x + origin.y + size.y) * 10 + origin.x
+	return depth_at_grid_point(front_contact_grid(origin, building_type))
 
 static func art_scale(building_type: String) -> float:
 	var size := footprint(building_type)

@@ -81,6 +81,9 @@ static func grid_rect_polygon(origin: Vector2i, size: Vector2i) -> PackedVector2
 static func art_anchor(origin: Vector2i, building_type: String) -> Vector2:
 	return PlacementEngine.art_anchor(origin, building_type)
 
+static func front_contact_grid(origin: Vector2i, building_type: String) -> Vector2:
+	return PlacementEngine.front_contact_grid(origin, building_type)
+
 static func depth(origin: Vector2i, building_type: String) -> int:
 	return PlacementEngine.depth(origin, building_type)
 
