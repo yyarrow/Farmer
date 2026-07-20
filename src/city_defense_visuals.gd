@@ -49,7 +49,7 @@ func _rebuild_primitives() -> void:
 	var gate := DefensePrimitive.new()
 	gate.configure_gate(
 		_gate_texture, layout.source_rect, layout.frame_rect, layout.ground_anchor,
-		defense_level, palette, int(layout.sort_depth)
+		defense_level, palette, str(layout.layer), int(layout.sort_depth)
 	)
 	add_child(gate)
 
@@ -79,6 +79,7 @@ func gate_render_layout() -> Dictionary:
 		"frame_rect": frame_layout.frame_rect,
 		"ground_anchor": anchor,
 		"ground_socket": frame_layout.ground_socket,
+		"layer": str(gate.layer),
 		"sort_depth": int(gate.sort_depth),
 		"standardized": _uses_standardized_gate(),
 	}

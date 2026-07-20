@@ -217,7 +217,10 @@ static func repair_instance_layout(raw_instances: Array, unlocked_count: int) ->
 	return DefenseLayout.arrange_ordinary(raw_instances, unlocked_count)
 
 static func infrastructure_network(instances: Array, unlocked_count: int) -> Dictionary:
-	return RoadNetwork.build(instances, unlocked_count, DefenseLayout.primary_gate(unlocked_count).road_root)
+	var network := RoadNetwork.build(instances, unlocked_count, DefenseLayout.primary_gate(unlocked_count).road_root)
+	network["gate_approach_cells"] = DefenseLayout.gate_approach_micro_cells(unlocked_count) \
+		if bool(network.get("success", false)) else []
+	return network
 
 static func _infrastructure_allows(
 	building_type: String,

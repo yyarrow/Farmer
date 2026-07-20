@@ -4,8 +4,10 @@ const PlacementEngine = preload("res://src/city_placement/placement_engine.gd")
 const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 const DefenseVisuals = preload("res://src/city_defense_visuals.gd")
+const DefensePrimitive = preload("res://src/city_defense_primitive.gd")
 
 var failures: Array[String] = []
+var south_overlap_pairs := 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -37,20 +39,36 @@ func _run() -> void:
 			"%s removes the legacy +7..9 depth drift" % building_type
 		)
 
-	var expected_segments := {6: 80, 9: 96, 12: 104}
+	var expected_segments := {6: 88, 9: 104, 12: 112}
 	for capacity in [6, 9, 12]:
 		var region := DefenseLayout.micro_region(capacity)
+		var perimeter := DefenseLayout.perimeter_region(capacity)
 		var gate: Dictionary = DefenseLayout.primary_gate(capacity)
 		_check(region == RoadNetwork.micro_region(capacity), "%d-lot perimeter uses RoadNetwork's unlocked region" % capacity)
+		_check(perimeter.position == region.position - Vector2i.ONE, "%d-lot wall expands one micro cell beyond the road grid" % capacity)
+		_check(perimeter.end == region.end + Vector2i.ONE, "%d-lot expanded wall is symmetric on all four sides" % capacity)
 		_check(region.has_point(gate.road_root), "%d-lot gate root stays inside the road region" % capacity)
 		_check(gate.road_root == RoadNetwork.default_gate(capacity), "%d-lot gate is the road network default root" % capacity)
 		_check(gate.boundary_cell == gate.road_root, "%d-lot gate root occupies its open boundary cell" % capacity)
 		_check(not region.has_point(gate.outside_cell), "%d-lot gate exposes an exterior continuation" % capacity)
+		_check(gate.outside_cell.y == perimeter.end.y, "%d-lot gate anchor moves with the expanded south perimeter" % capacity)
+		_check(gate.layer == DefenseLayout.LAYER_FOREGROUND, "%d-lot gate explicitly belongs to the foreground layer" % capacity)
+		var approach: Array = gate.approach_cells
+		_check(approach.size() == 1 and approach[0] == gate.road_root + Vector2i.DOWN, "%d-lot road extends exactly one micro cell to the moved gate" % capacity)
+		var root_polygon := RoadNetwork.micro_cell_polygon(gate.road_root)
+		var approach_polygon := RoadNetwork.micro_cell_polygon(approach[0])
+		_check(root_polygon[2] == approach_polygon[1] and root_polygon[3] == approach_polygon[0], "%d-lot interior road and exterior approach share an exact edge" % capacity)
+		_check(approach_polygon[2] == gate.screen_anchor, "%d-lot exterior approach lands exactly on the gate socket" % capacity)
 		_check(DefenseLayout.wall_micro_cells(0, capacity).is_empty(), "%d-lot unbuilt defense is visually empty" % capacity)
 
 		var road_cells := {}
 		for cell in DefenseLayout.gate_road_micro_cells(capacity):
 			road_cells[cell] = true
+		var clearance := DefenseLayout.defense_clearance_micro_cells(capacity)
+		_check(not clearance.is_empty(), "%d-lot defense owns an inner micro-grid safety ribbon" % capacity)
+		_check(clearance.all(func(cell): return perimeter.has_point(cell) and not region.has_point(cell)), "%d-lot safety ribbon lies between the road grid and expanded wall" % capacity)
+		for macro_cell in DefenseLayout.reserved_ordinary_cells(capacity):
+			_check(PlacementEngine.unlocked_region(capacity).has_point(macro_cell), "%d-lot reserved building cell stays in the unlocked city" % capacity)
 		for level in range(1, DefenseLayout.MAX_LEVEL + 1):
 			var wall_cells := DefenseLayout.wall_micro_cells(level, capacity)
 			_check(not wall_cells.is_empty(), "%d-lot wall level %d owns edge micro-cells" % [capacity, level])
@@ -67,6 +85,9 @@ func _run() -> void:
 		var segments := DefenseLayout.wall_segments(5, capacity)
 		var north_depths := segments.filter(func(segment): return segment.side == "north").map(func(segment): return int(segment.sort_depth))
 		var south_depths := segments.filter(func(segment): return segment.side == "south").map(func(segment): return int(segment.sort_depth))
+		_check(segments.filter(func(segment): return segment.side == "north").all(func(segment): return segment.layer == DefenseLayout.LAYER_BACKGROUND), "%d-lot north wall is explicitly background" % capacity)
+		_check(segments.filter(func(segment): return segment.side == "south").all(func(segment): return segment.layer == DefenseLayout.LAYER_FOREGROUND), "%d-lot south wall is explicitly foreground" % capacity)
+		_check(segments.filter(func(segment): return segment.side in ["east", "west"]).all(func(segment): return segment.layer == DefenseLayout.LAYER_DEPTH), "%d-lot side walls retain contact-point depth sorting" % capacity)
 		_check(south_depths.max() > north_depths.max(), "%d-lot front wall sorts in front of the rear wall" % capacity)
 		_validate_capacity(capacity)
 
@@ -79,9 +100,13 @@ func _run() -> void:
 	var primitive_depths := defense_visual.get_children().map(func(child): return int(child.z_index))
 	_check(defense_visual.get_child_count() == expected_segments[12] + 7 + 1, "production defense creates one depth-sorted primitive per segment, tower and gate")
 	_check(primitive_depths.max() > primitive_depths.min(), "production defense interleaves rear and front primitives by city depth")
+	var background_primitives := defense_visual.get_children().filter(func(child): return child.semantic_layer == DefenseLayout.LAYER_BACKGROUND)
+	var foreground_primitives := defense_visual.get_children().filter(func(child): return child.semantic_layer == DefenseLayout.LAYER_FOREGROUND)
+	_check(not background_primitives.is_empty() and background_primitives.all(func(child): return child.z_index == DefenseLayout.BACKGROUND_Z), "production rear wall stays above terrain at the explicit background z")
+	_check(not foreground_primitives.is_empty() and foreground_primitives.all(func(child): return child.z_index >= DefenseLayout.FOREGROUND_Z_BASE), "production south wall and gate use the explicit foreground layer")
 	defense_visual.free()
 
-	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(2, 4), 6), "edge lots may touch the exterior defense shell")
+	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(2, 4), 6), "expanded shell preserves edge lots and full city capacity")
 	_check(DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(7, 9), 12), "ordinary building cannot block the full-city gate approach")
 	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(3, 4), 12), "interior ordinary building remains legal")
 
@@ -96,7 +121,7 @@ func _run() -> void:
 	_check(DefenseLayout.conflicting_instance_ids(legacy, 12).is_empty(), "legacy wall itself is not treated as an ordinary conflict")
 
 	if failures.is_empty():
-		print("CITY_DEFENSE_LAYOUT_OK capacities=6/9/12 gate12=%s" % DefenseLayout.primary_gate(12).road_root)
+		print("CITY_DEFENSE_LAYOUT_OK capacities=6/9/12 gate12=%s south_overlaps=%d" % [DefenseLayout.primary_gate(12).road_root, south_overlap_pairs])
 		quit(0)
 		return
 	for failure in failures:
@@ -117,8 +142,46 @@ func _validate_capacity(capacity: int) -> void:
 			not DefenseLayout.ordinary_conflicts_with_defense(str(instance.type), PlacementEngine.instance_origin(instance), capacity),
 			"%d-lot solver keeps %s outside the defense easement" % [capacity, instance.id]
 		)
+		var footprint_micro := RoadNetwork.footprint_cells(
+			PlacementEngine.instance_origin(instance), str(instance.type)
+		)
+		for safety_cell in DefenseLayout.defense_clearance_micro_cells(capacity):
+			_check(not footprint_micro.has(safety_cell), "%d-lot %s never enters the wall setback" % [capacity, instance.id])
 	var road := RoadNetwork.build(arranged, capacity, DefenseLayout.primary_gate(capacity).road_root)
 	_check(bool(road.success), "%d ordinary buildings retain a gate-connected road network (%s)" % [capacity, road.code])
+	_validate_wall_occlusion(arranged, capacity)
+
+func _validate_wall_occlusion(arranged: Array, capacity: int) -> void:
+	var building_depths := []
+	var south_overlaps := 0
+	var north_overlaps := 0
+	var south_buildings := {}
+	for instance in arranged:
+		var building_type := str(instance.type)
+		var origin := PlacementEngine.instance_origin(instance)
+		var building_depth := 20 + PlacementEngine.depth(origin, building_type)
+		building_depths.append(building_depth)
+		var building_rect := PlacementEngine.visual_rect(origin, building_type, 5)
+		for segment in DefenseLayout.wall_segments(5, capacity):
+			var wall_rect := DefensePrimitive.segment_render_bounds(segment, int(DefenseLayout.level_style(5).wall_tier))
+			if not building_rect.intersects(wall_rect):
+				continue
+			if segment.side == "south":
+				south_overlaps += 1
+				south_buildings[str(instance.id)] = true
+				_check(int(segment.sort_depth) > building_depth, "%d-lot south wall occludes overlapping %s" % [capacity, instance.id])
+			elif segment.side == "north":
+				north_overlaps += 1
+				_check(int(segment.sort_depth) < building_depth, "%d-lot north wall stays behind overlapping %s" % [capacity, instance.id])
+	var side_depths := DefenseLayout.wall_segments(5, capacity) \
+		.filter(func(segment): return segment.side in ["east", "west"]) \
+		.map(func(segment): return int(segment.sort_depth))
+	_check(side_depths.min() < building_depths.max() and side_depths.max() > building_depths.min(), "%d-lot side walls interleave across building contact depths" % capacity)
+	if capacity == 12:
+		south_overlap_pairs = south_overlaps
+		print("DEFENSE_OCCLUSION_METRICS south_pairs=", south_overlaps, " south_buildings=", south_buildings.size(), " north_pairs=", north_overlaps)
+		_check(south_overlaps > 0, "twelve-lot fixture exercises real south-wall/building geometry overlap")
+		_check(south_buildings.size() <= 7, "expanded twelve-lot perimeter does not increase the seven-building south-wall baseline")
 
 func _check(condition: bool, label: String) -> void:
 	if not condition:

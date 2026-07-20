@@ -12,6 +12,12 @@ const MAX_LEVEL := 5
 const GATE_SIDE := "south"
 const GATE_WIDTH := 4
 const PRIMARY_GATE_ID := "south_gate"
+const PERIMETER_OUTSET_MICRO := 1
+const LAYER_BACKGROUND := "background"
+const LAYER_DEPTH := "depth"
+const LAYER_FOREGROUND := "foreground"
+const BACKGROUND_Z := 8
+const FOREGROUND_Z_BASE := 1000
 
 const LEVEL_STYLES := {
 	0: {"id": "open_ground", "wall_tier": 0, "tower_tier": 0},
@@ -27,6 +33,11 @@ static func level_style(level: int) -> Dictionary:
 
 static func micro_region(unlocked_count: int) -> Rect2i:
 	return RoadNetwork.micro_region(unlocked_count)
+
+static func perimeter_region(unlocked_count: int) -> Rect2i:
+	var region := micro_region(unlocked_count)
+	var outset := Vector2i.ONE * PERIMETER_OUTSET_MICRO
+	return Rect2i(region.position - outset, region.size + outset * 2)
 
 static func micro_cell_to_grid(cell: Vector2i) -> Vector2:
 	# Must remain identical to RoadNetwork.micro_to_screen's macro position.
@@ -48,19 +59,31 @@ static func micro_vertex_to_screen(vertex: Vector2i) -> Vector2:
 
 static func primary_gate(unlocked_count: int) -> Dictionary:
 	var region := micro_region(unlocked_count)
+	var perimeter := perimeter_region(unlocked_count)
 	var road_root := RoadNetwork.default_gate(unlocked_count)
-	var gate_start := road_root.x - GATE_WIDTH / 2
-	var outside := Vector2i(road_root.x, region.end.y)
+	var gate_vertex_x := road_root.x + 1
+	var gate_start := gate_vertex_x - GATE_WIDTH / 2
+	var outside := Vector2i(gate_vertex_x, perimeter.end.y)
+	var layer := LAYER_FOREGROUND
 	return {
 		"id": PRIMARY_GATE_ID,
 		"side": GATE_SIDE,
-		"opening": Rect2i(gate_start, region.end.y, GATE_WIDTH, 1),
+		"layer": layer,
+		"opening": Rect2i(gate_start, perimeter.end.y, GATE_WIDTH, 1),
 		"road_root": road_root,
 		"boundary_cell": road_root,
 		"outside_cell": outside,
+		"approach_cells": gate_approach_micro_cells(unlocked_count),
 		"screen_anchor": micro_vertex_to_screen(outside),
-		"sort_depth": _grid_depth(micro_vertex_to_grid(outside)),
+		"sort_depth": _layer_depth(layer, micro_vertex_to_grid(outside)),
 	}
+
+static func gate_approach_micro_cells(unlocked_count: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var root := RoadNetwork.default_gate(unlocked_count)
+	for offset in range(1, PERIMETER_OUTSET_MICRO + 1):
+		result.append(root + Vector2i.DOWN * offset)
+	return result
 
 static func gate_road_micro_cells(unlocked_count: int) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
@@ -76,7 +99,7 @@ static func wall_micro_cells(level: int, unlocked_count: int) -> Array[Vector2i]
 	var result: Array[Vector2i] = []
 	if level <= 0:
 		return result
-	var region := micro_region(unlocked_count)
+	var region := perimeter_region(unlocked_count)
 	var opening: Rect2i = primary_gate(unlocked_count).opening
 	# The fortification shell occupies the micro-cell ring immediately outside
 	# the buildable region. Edge lots may touch a wall, but can never replace it.
@@ -94,7 +117,7 @@ static func wall_segments(level: int, unlocked_count: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if level <= 0:
 		return result
-	var region := micro_region(unlocked_count)
+	var region := perimeter_region(unlocked_count)
 	var top_left := region.position
 	var top_right := Vector2i(region.end.x, region.position.y)
 	var bottom_right := region.end
@@ -110,7 +133,7 @@ static func tower_nodes(level: int, unlocked_count: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if level < 2:
 		return result
-	var region := micro_region(unlocked_count)
+	var region := perimeter_region(unlocked_count)
 	var left := region.position.x
 	var right := region.end.x
 	var top := region.position.y
@@ -129,24 +152,41 @@ static func tower_nodes(level: int, unlocked_count: int) -> Array[Dictionary]:
 	for point in points:
 		if level >= int(point.min_level):
 			var grid_position := micro_vertex_to_grid(point.vertex)
+			var layer := _tower_layer(str(point.id))
 			result.append({
 				"id": point.id,
 				"vertex": point.vertex,
 				"screen": micro_vertex_to_screen(point.vertex),
 				"tier": int(level_style(level).tower_tier),
-				"sort_depth": _grid_depth(grid_position),
+				"layer": layer,
+				"sort_depth": _layer_depth(layer, grid_position),
 			})
 	return result
 
 static func reserved_ordinary_cells(unlocked_count: int) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var seen := {}
-	# The wall itself is outside the ordinary grid. Only the gate mouth is a
-	# permanent construction easement, allowing roads and upgrade animation.
+	# The expanded shell sits outside RoadNetwork's buildable region, preserving
+	# all 6/9/12 lots. Only the interior gate approach remains unbuildable.
 	for micro_cell in gate_road_micro_cells(unlocked_count):
 		_append_unique_cell(result, seen, Vector2i(
 			micro_cell.x / MICRO_SCALE, micro_cell.y / MICRO_SCALE
 		))
+	return result
+
+static func defense_clearance_micro_cells(unlocked_count: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var seen := {}
+	var region := micro_region(unlocked_count)
+	var perimeter := perimeter_region(unlocked_count)
+	for x in range(perimeter.position.x, perimeter.end.x):
+		_append_unique_cell(result, seen, Vector2i(x, perimeter.position.y))
+		_append_unique_cell(result, seen, Vector2i(x, perimeter.end.y - 1))
+	for y in range(perimeter.position.y, perimeter.end.y):
+		_append_unique_cell(result, seen, Vector2i(perimeter.position.x, y))
+		_append_unique_cell(result, seen, Vector2i(perimeter.end.x - 1, y))
+	# Clearance is the one-micro-cell ribbon outside the placement region.
+	result = result.filter(func(cell): return not region.has_point(cell))
 	return result
 
 static func ordinary_conflicts_with_defense(building_type: String, origin: Vector2i, unlocked_count: int) -> bool:
@@ -256,6 +296,7 @@ static func _append_side_segments(
 		if skip_start >= 0 and axis_position >= skip_start and axis_position < skip_end:
 			continue
 		var midpoint := (micro_vertex_to_grid(from) + micro_vertex_to_grid(to)) * 0.5
+		var layer := _side_layer(side)
 		result.append({
 			"id": "%s_%02d" % [side, index],
 			"side": side,
@@ -263,11 +304,37 @@ static func _append_side_segments(
 			"to": to,
 			"screen_from": micro_vertex_to_screen(from),
 			"screen_to": micro_vertex_to_screen(to),
-			"sort_depth": _grid_depth(midpoint),
+			"layer": layer,
+			"sort_depth": _layer_depth(layer, midpoint),
 		})
 
 static func _grid_depth(point: Vector2) -> int:
 	return 20 + PlacementEngine.depth_at_grid_point(point)
+
+static func _layer_depth(layer: String, point: Vector2) -> int:
+	var depth := _grid_depth(point)
+	if layer == LAYER_BACKGROUND:
+		# Defense is parented above the painted terrain. A small non-negative
+		# child z keeps the rear wall visible while staying below buildings,
+		# whose production z contract starts at 20 + contact depth.
+		return BACKGROUND_Z
+	if layer == LAYER_FOREGROUND:
+		return FOREGROUND_Z_BASE + depth
+	return depth
+
+static func _side_layer(side: String) -> String:
+	if side == "north":
+		return LAYER_BACKGROUND
+	if side == "south":
+		return LAYER_FOREGROUND
+	return LAYER_DEPTH
+
+static func _tower_layer(id: String) -> String:
+	if id.begins_with("north_"):
+		return LAYER_BACKGROUND
+	if id.begins_with("south_"):
+		return LAYER_FOREGROUND
+	return LAYER_DEPTH
 
 static func _append_unique_cell(result: Array[Vector2i], seen: Dictionary, cell: Vector2i) -> void:
 	if not seen.has(cell):

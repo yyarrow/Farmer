@@ -25,8 +25,8 @@ func _draw() -> void:
 		return
 	if Dictionary(network.get("entrances", {})).is_empty():
 		return
-	var masks: Dictionary = network.get("connectivity_masks", {})
-	for cell in network.get("road_cells", []):
+	var masks := visual_connectivity_masks()
+	for cell in visual_cells():
 		var micro_cell := Vector2i(cell)
 		var polygon := RoadNetwork.micro_cell_polygon(micro_cell)
 		draw_colored_polygon(polygon, Color(palette.surface))
@@ -34,6 +34,31 @@ func _draw() -> void:
 		_draw_exposed_edges(polygon, mask)
 		_draw_ruts(polygon, mask)
 		_draw_surface_detail(micro_cell, polygon)
+
+func visual_cells() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var seen := {}
+	for source in [network.get("road_cells", []), network.get("gate_approach_cells", [])]:
+		for raw in source:
+			var cell := Vector2i(raw)
+			if not seen.has(cell):
+				seen[cell] = true
+				result.append(cell)
+	return result
+
+func visual_connectivity_masks() -> Dictionary:
+	var cells := visual_cells()
+	var occupied := {}
+	for cell in cells:
+		occupied[cell] = true
+	var result := {}
+	for cell in cells:
+		var mask := 0
+		for index in RoadNetwork.DIRECTIONS.size():
+			if occupied.has(cell + RoadNetwork.DIRECTIONS[index]):
+				mask |= int(RoadNetwork.DIRECTION_MASKS[index])
+		result[cell] = mask
+	return result
 
 func _draw_exposed_edges(polygon: PackedVector2Array, mask: int) -> void:
 	for direction_index in RoadNetwork.DIRECTIONS.size():

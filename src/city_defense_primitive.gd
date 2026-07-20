@@ -4,9 +4,11 @@ var kind := ""
 var data := {}
 var palette := {}
 var texture: Texture2D
+var semantic_layer := ""
 
 func configure_segment(segment: Dictionary, style: Dictionary, colors: Dictionary) -> void:
 	kind = "segment"
+	semantic_layer = str(segment.layer)
 	palette = colors.duplicate()
 	var from: Vector2 = segment.screen_from
 	var to: Vector2 = segment.screen_to
@@ -22,6 +24,7 @@ func configure_segment(segment: Dictionary, style: Dictionary, colors: Dictionar
 
 func configure_tower(tower: Dictionary, colors: Dictionary) -> void:
 	kind = "tower"
+	semantic_layer = str(tower.layer)
 	palette = colors.duplicate()
 	position = Vector2(tower.screen)
 	z_index = int(tower.sort_depth)
@@ -35,9 +38,11 @@ func configure_gate(
 	ground_anchor: Vector2,
 	level: int,
 	colors: Dictionary,
+	layer: String,
 	sort_depth: int
 ) -> void:
 	kind = "gate"
+	semantic_layer = layer
 	texture = gate_texture
 	palette = colors.duplicate()
 	position = frame_rect.position
@@ -49,6 +54,15 @@ func configure_gate(
 		"level": level,
 	}
 	queue_redraw()
+
+static func segment_render_bounds(segment: Dictionary, wall_tier: int) -> Rect2:
+	var from := Vector2(segment.screen_from)
+	var to := Vector2(segment.screen_to)
+	var height := 2.2 + float(wall_tier) * 1.65
+	var result := Rect2(from, Vector2.ZERO)
+	for point in [to, from - Vector2(0, height), to - Vector2(0, height)]:
+		result = result.expand(point)
+	return result.grow(3.0 + float(wall_tier) * 0.2)
 
 func _draw() -> void:
 	match kind:
