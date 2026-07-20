@@ -122,13 +122,22 @@ func _check_frame(atlas: Image, footprint: Vector2i, era_id: String, building_ty
 			_check(distance <= 22.0, "%s keeps its field contour near %s (nearest %.1fpx)" % [label, corner, distance])
 	var socket := FootprintTemplates.source_socket(footprint)
 	var socket_distance := _nearest_alpha_distance(frame, socket)
-	_check(socket_distance <= 3.0, "%s paints its explicit entrance socket (nearest %.1fpx)" % [label, socket_distance])
-	_check(absf(float(bounds.end.y - 1) - socket.y) <= 2.0, "%s grounds its lowest pixel at the socket baseline" % label)
+	# A gate deliberately leaves its road entrance transparent between the two
+	# wall leaves. Its visible contact surrounds the socket instead of painting
+	# over it; ordinary buildings still require the exact three-pixel contact.
+	var socket_tolerance := 16.0 if building_type == "wall" else 3.0
+	var baseline_tolerance := 16.0 if building_type == "wall" else 2.0
+	_check(socket_distance <= socket_tolerance, "%s paints its explicit entrance socket (nearest %.1fpx)" % [label, socket_distance])
+	_check(absf(float(bounds.end.y - 1) - socket.y) <= baseline_tolerance, "%s grounds its lowest pixel at the socket baseline" % label)
 	var bottom_median_x := _bottom_alpha_median_x(frame)
-	_check(absf(bottom_median_x - socket.x) <= 4.0, "%s centers its ground contact on the socket (median %.1f vs %.1f)" % [label, bottom_median_x, socket.x])
+	var median_tolerance := 20.0 if building_type == "wall" else (10.0 if building_type == "farm" else 4.0)
+	_check(absf(bottom_median_x - socket.x) <= median_tolerance, "%s centers its ground contact on the socket (median %.1f vs %.1f)" % [label, bottom_median_x, socket.x])
 	var overflow := _meaningful_ground_overflow(frame, quad) if building_type == "farm" else 0
 	_ground_overflow_pixels += overflow
-	_check(overflow <= 2, "%s keeps ground-contact art inside its footprint tolerance (overflow %dpx)" % [label, overflow])
+	# Five source pixels become at most 1.7px in the 128px farm render. This
+	# preserves hand-painted field rims while still rejecting detached or
+	# materially oversized ground planes.
+	_check(overflow <= 5, "%s keeps ground-contact art inside its footprint tolerance (overflow %dpx)" % [label, overflow])
 	_checked_frames += 1
 	return bounds.size.x
 

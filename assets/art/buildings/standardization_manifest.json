@@ -195,8 +195,8 @@
 			},
 			"house": {
 				"footprint": [
-					2.0,
-					2.0
+					2,
+					2
 				],
 				"canonical_quad": [
 					[
@@ -223,14 +223,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							507.0,
-							145.0,
-							782.0,
-							652.0
+							507,
+							145,
+							782,
+							652
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.4143,
 						"socket": [
 							192.0,
@@ -238,14 +238,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							375.0,
-							73.0,
-							1023.0,
-							787.0
+							375,
+							73,
+							1023,
+							787
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.3167,
 						"socket": [
 							192.0,
@@ -253,14 +253,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							329.0,
-							46.0,
-							1111.0,
-							810.0
+							329,
+							46,
+							1111,
+							810
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2916,
 						"socket": [
 							192.0,
@@ -268,14 +268,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							282.0,
-							28.0,
-							1209.0,
-							839.0
+							282,
+							28,
+							1209,
+							839
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.268,
 						"socket": [
 							192.0,
@@ -559,8 +559,8 @@
 			},
 			"farm": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -587,14 +587,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							88.0,
-							164.0,
-							1359.0,
-							742.0
+							88,
+							164,
+							1359,
+							742
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2384,
 						"socket": [
 							192.0,
@@ -602,14 +602,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							157.0,
-							136.0,
-							1247.0,
-							805.0
+							157,
+							136,
+							1247,
+							805
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2598,
 						"socket": [
 							192.0,
@@ -617,14 +617,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							104.0,
-							87.0,
-							1341.0,
-							855.0
+							104,
+							87,
+							1341,
+							855
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2416,
 						"socket": [
 							192.0,
@@ -632,14 +632,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							114.0,
-							87.0,
-							1312.0,
-							836.0
+							114,
+							87,
+							1312,
+							836
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.247,
 						"socket": [
 							192.0,
@@ -738,6 +738,248 @@
 						]
 					}
 				]
+			}
+		},
+		"warring_states": {
+			"woodcut": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"quarry": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"house": {
+				"footprint": [
+					2,
+					2
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"market": {
+				"footprint": [
+					3,
+					2
+				],
+				"canonical_quad": [
+					[
+						159.6,
+						188.0
+					],
+					[
+						354.0,
+						285.2
+					],
+					[
+						224.4,
+						350.0
+					],
+					[
+						30.0,
+						252.8
+					]
+				],
+				"socket": [
+					224.4,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"warehouse": {
+				"footprint": [
+					3,
+					2
+				],
+				"canonical_quad": [
+					[
+						159.6,
+						188.0
+					],
+					[
+						354.0,
+						285.2
+					],
+					[
+						224.4,
+						350.0
+					],
+					[
+						30.0,
+						252.8
+					]
+				],
+				"socket": [
+					224.4,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"barracks": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"farm": {
+				"footprint": [
+					3,
+					3
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
+			},
+			"wall": {
+				"footprint": [
+					4,
+					2
+				],
+				"canonical_quad": [
+					[
+						138.0,
+						188.0
+					],
+					[
+						354.0,
+						296.0
+					],
+					[
+						246.0,
+						350.0
+					],
+					[
+						30.0,
+						242.0
+					]
+				],
+				"socket": [
+					246.0,
+					350.0
+				],
+				"method": "authoritative",
+				"stages": []
 			}
 		}
 	}

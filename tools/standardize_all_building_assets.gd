@@ -107,6 +107,12 @@ func _standardize_era(era_id: String) -> bool:
 			var authoritative := Image.load_from_file(ProjectSettings.globalize_path(output_path))
 			if authoritative.is_empty() or authoritative.get_size() != ATLAS_SIZE:
 				return _fail("invalid authoritative atlas %s" % output_path)
+			# These approved sheets predate the common contract. Keep their authored
+			# scale and socket intact, but remove meaningful pixels from the four-pixel
+			# frame safety band so neighboring atlas stages can never bleed together.
+			if _clear_meaningful_frame_edge_bleed(authoritative):
+				if authoritative.save_png(output_path) != OK:
+					return _fail("cannot save %s" % output_path)
 			era_assets[building_type] = _manifest_entry(footprint, "authoritative", [])
 			_blit_contact_row(contact, authoritative, building_index)
 			continue
@@ -305,6 +311,21 @@ func _blit_contact_row(contact: Image, atlas: Image, row: int) -> void:
 		frame.resize(FRAME_SIZE.x / 2, FRAME_SIZE.y / 2, Image.INTERPOLATE_LANCZOS)
 		contact.blend_rect(frame, Rect2i(Vector2i.ZERO, frame.get_size()), Vector2i(stage * frame.get_width(), row * frame.get_height()))
 
+func _clear_meaningful_frame_edge_bleed(atlas: Image) -> bool:
+	var changed := false
+	for stage in 4:
+		var origin := Vector2i((stage % 2) * FRAME_SIZE.x, int(stage / 2) * FRAME_SIZE.y)
+		for y in FRAME_SIZE.y:
+			for x in FRAME_SIZE.x:
+				if x >= 4 and x < FRAME_SIZE.x - 4 and y >= 4 and y < FRAME_SIZE.y - 4:
+					continue
+				var pixel_position := origin + Vector2i(x, y)
+				if atlas.get_pixelv(pixel_position).a < VISIBLE_ALPHA_THRESHOLD:
+					continue
+				atlas.set_pixelv(pixel_position, Color.TRANSPARENT)
+				changed = true
+	return changed
+
 func _manifest_entry(footprint: Vector2i, method: String, stages: Array) -> Dictionary:
 	var quad := FootprintTemplates.source_quad(footprint)
 	return {
@@ -322,15 +343,40 @@ func _save_manifest() -> bool:
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(MANIFEST_PATH))
 		if parsed is Dictionary:
 			existing = parsed
+	var selected_assets: Dictionary = _manifest.assets
+	var merged_assets := {}
 	if existing.has("assets"):
 		for era_id in existing.assets:
-			if not _manifest.assets.has(era_id):
-				_manifest.assets[era_id] = existing.assets[era_id]
+			merged_assets[era_id] = existing.assets[era_id]
+	for era_id in selected_assets:
+		merged_assets[era_id] = selected_assets[era_id]
+	_manifest.assets = merged_assets
+	_normalize_manifest_integers()
 	var file := FileAccess.open(manifest_path, FileAccess.WRITE)
 	if file == null:
 		return _fail("cannot open %s" % MANIFEST_PATH)
 	file.store_string(JSON.stringify(_manifest, "\t", false) + "\n")
 	return true
+
+func _normalize_manifest_integers() -> void:
+	# JSON parses every number as float. Restore schema/count/rectangle fields so
+	# adding one era does not rewrite all previously approved manifest records.
+	for era_id in _manifest.assets:
+		var era_assets: Dictionary = _manifest.assets[era_id]
+		for building_type in era_assets:
+			var record: Dictionary = era_assets[building_type]
+			var footprint: Array = record.get("footprint", [])
+			if footprint.size() == 2:
+				record.footprint = [int(footprint[0]), int(footprint[1])]
+			var stages: Array = record.get("stages", [])
+			for stage_record in stages:
+				if not stage_record is Dictionary:
+					continue
+				stage_record.stage = int(stage_record.get("stage", 0))
+				stage_record.component_count = int(stage_record.get("component_count", 0))
+				var bounds: Array = stage_record.get("source_bounds", [])
+				if bounds.size() == 4:
+					stage_record.source_bounds = [int(bounds[0]), int(bounds[1]), int(bounds[2]), int(bounds[3])]
 
 func _quadrant_for(x: int, y: int) -> int:
 	return int(x >= FRAME_SIZE.x) + int(y >= FRAME_SIZE.y) * 2
