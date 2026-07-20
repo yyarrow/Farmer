@@ -18,6 +18,10 @@ const CINNABAR := UiComponents.CINNABAR
 const GOLD := UiComponents.GOLD
 const SHADOW := UiComponents.SHADOW
 const RESOURCE_META := UiPresentation.RESOURCE_META
+# South-wall primitives reserve the 1000+ depth band; modal UI must remain
+# above every world-space child while leaving the final slots for toasts.
+const MODAL_Z_INDEX := 4000
+const TOAST_Z_INDEX := 4090
 
 var resource_labels := {}
 var tab_buttons: Array[Button] = []
@@ -501,7 +505,7 @@ func _build_toast() -> void:
 	toast_panel.anchor_bottom = 0.485
 	toast_panel.offset_bottom = 48
 	toast_panel.add_theme_stylebox_override("panel", _style(Color(0.10, 0.14, 0.11, 0.94), 15, 1, Color(0.93, 0.80, 0.49, 0.36), 12))
-	toast_panel.z_index = 300
+	toast_panel.z_index = TOAST_Z_INDEX
 	toast_panel.visible = false
 	toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast_panel)
@@ -1251,7 +1255,7 @@ func _show_start_menu() -> void:
 		modal_layer.queue_free()
 	modal_layer = Control.new()
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_layer.z_index = 220
+	modal_layer.z_index = MODAL_Z_INDEX
 	add_child(modal_layer)
 	_modal_back_action = _show_start_exit_confirmation
 	var shade := ColorRect.new()
@@ -1405,7 +1409,7 @@ func _show_settings() -> void:
 		modal_layer.queue_free()
 	modal_layer = Control.new()
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_layer.z_index = 210
+	modal_layer.z_index = MODAL_Z_INDEX
 	add_child(modal_layer)
 	_modal_back_action = _close_settings
 	var shade := ColorRect.new()
@@ -1541,7 +1545,7 @@ func _show_licenses() -> void:
 		modal_layer.queue_free()
 	modal_layer = Control.new()
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_layer.z_index = 215
+	modal_layer.z_index = MODAL_Z_INDEX
 	add_child(modal_layer)
 	_modal_back_action = _show_settings
 	var shade := ColorRect.new()
@@ -1806,7 +1810,7 @@ func _show_modal(title: String, body: String, buttons: Array, accent: Color, bac
 		modal_layer.queue_free()
 	modal_layer = Control.new()
 	modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_layer.z_index = 200
+	modal_layer.z_index = MODAL_Z_INDEX
 	add_child(modal_layer)
 	_modal_back_action = back_action
 	var shade := ColorRect.new()

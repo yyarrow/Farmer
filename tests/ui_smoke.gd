@@ -2,6 +2,7 @@ extends SceneTree
 
 const CityLayout = preload("res://src/data/city_layout.gd")
 const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
+const DefenseLayout = preload("res://src/city_placement/defense_layout.gd")
 
 var failures: Array[String] = []
 
@@ -37,6 +38,7 @@ func _run() -> void:
 	_check(missing_glyphs.is_empty(), "bundled UI font covers every source glyph: %s" % str(missing_glyphs.keys()))
 	await process_frame
 	_check(ui._startup_pending and ui.modal_layer != null and _has_label_containing(ui.modal_layer, "选择本次进入的城邑进度"), "startup opens the save-selection home instead of entering gameplay")
+	_check(ui.modal_layer.z_index > DefenseLayout.FOREGROUND_Z_BASE + 500 and ui.toast_panel.z_index > ui.modal_layer.z_index, "modal and toast layers stay above every world-space defense primitive")
 	_check(_has_button(ui.modal_layer, "继续当前城邑") and _has_button(ui.modal_layer, "载入") and _has_button(ui.modal_layer, "新建城邑") and _has_button(ui.modal_layer, "声音与设置"), "startup exposes autosave, manual save, new game and settings")
 	_check(not state.game_session_active, "startup selection keeps simulation and autosave inactive")
 	ui._show_settings()
