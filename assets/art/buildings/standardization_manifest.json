@@ -4905,6 +4905,97 @@
 						]
 					}
 				]
+			},
+			"farm": {
+				"footprint": [
+					3.0,
+					3.0
+				],
+				"canonical_quad": [
+					[
+						192.0,
+						188.0
+					],
+					[
+						354.0,
+						269.0
+					],
+					[
+						192.0,
+						350.0
+					],
+					[
+						30.0,
+						269.0
+					]
+				],
+				"socket": [
+					192.0,
+					350.0
+				],
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1.0,
+						"source_bounds": [
+							132.0,
+							115.0,
+							1271.0,
+							783.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2549,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2.0,
+						"source_bounds": [
+							107.0,
+							119.0,
+							1328.0,
+							817.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.244,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3.0,
+						"source_bounds": [
+							149.0,
+							25.0,
+							1495.0,
+							845.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2167,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4.0,
+						"source_bounds": [
+							63.0,
+							45.0,
+							1424.0,
+							920.0
+						],
+						"component_count": 1.0,
+						"uniform_scale": 0.2275,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"tang": {
