@@ -9,9 +9,9 @@ const RoadNetwork = preload("res://src/city_placement/road_network.gd")
 # rebuilds a larger shell without changing the saved defense level.
 const MICRO_SCALE := RoadNetwork.MICRO_SCALE
 const MAX_LEVEL := 5
-const GATE_SIDE := "south"
+const GATE_SIDE := "front"
 const GATE_WIDTH := 4
-const PRIMARY_GATE_ID := "south_gate"
+const PRIMARY_GATE_ID := "front_gate"
 const PERIMETER_OUTSET_MICRO := 1
 const LAYER_BACKGROUND := "background"
 const LAYER_DEPTH := "depth"
@@ -58,18 +58,17 @@ static func micro_vertex_to_screen(vertex: Vector2i) -> Vector2:
 	return grid_point_to_screen(micro_vertex_to_grid(vertex))
 
 static func primary_gate(unlocked_count: int) -> Dictionary:
-	var region := micro_region(unlocked_count)
 	var perimeter := perimeter_region(unlocked_count)
 	var road_root := RoadNetwork.default_gate(unlocked_count)
-	var gate_vertex_x := road_root.x + 1
-	var gate_start := gate_vertex_x - GATE_WIDTH / 2
-	var outside := Vector2i(gate_vertex_x, perimeter.end.y)
+	var outside := perimeter.end
+	var half_width := GATE_WIDTH / 2
 	var layer := LAYER_FOREGROUND
 	return {
 		"id": PRIMARY_GATE_ID,
 		"side": GATE_SIDE,
 		"layer": layer,
-		"opening": Rect2i(gate_start, perimeter.end.y, GATE_WIDTH, 1),
+		"east_opening": Vector2i(perimeter.size.y - half_width, perimeter.size.y),
+		"south_opening": Vector2i(0, half_width),
 		"road_root": road_root,
 		"boundary_cell": road_root,
 		"outside_cell": outside,
@@ -79,19 +78,18 @@ static func primary_gate(unlocked_count: int) -> Dictionary:
 	}
 
 static func gate_approach_micro_cells(unlocked_count: int) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
 	var root := RoadNetwork.default_gate(unlocked_count)
-	for offset in range(1, PERIMETER_OUTSET_MICRO + 1):
-		result.append(root + Vector2i.DOWN * offset)
-	return result
+	# Cardinal micro-cells form an L-shaped continuation from the interior root
+	# to the front vertex. The last cell's bottom point is the gate socket.
+	return [root + Vector2i.RIGHT, root + Vector2i.RIGHT + Vector2i.DOWN]
 
 static func gate_road_micro_cells(unlocked_count: int) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var region := micro_region(unlocked_count)
-	var gate: Dictionary = primary_gate(unlocked_count)
-	var opening: Rect2i = gate.opening
-	for y in range(maxi(region.position.y, region.end.y - 4), region.end.y):
-		for x in range(opening.position.x, opening.end.x):
+	# Reserve the inner 2x2 macro-cell court behind the front gate. This keeps
+	# placement away from the road throat without reducing total city capacity.
+	for y in range(maxi(region.position.y, region.end.y - GATE_WIDTH), region.end.y):
+		for x in range(maxi(region.position.x, region.end.x - GATE_WIDTH), region.end.x):
 			result.append(Vector2i(x, y))
 	return result
 
@@ -100,17 +98,22 @@ static func wall_micro_cells(level: int, unlocked_count: int) -> Array[Vector2i]
 	if level <= 0:
 		return result
 	var region := perimeter_region(unlocked_count)
-	var opening: Rect2i = primary_gate(unlocked_count).opening
+	var gate: Dictionary = primary_gate(unlocked_count)
+	var east_opening: Vector2i = gate.east_opening
+	var south_opening: Vector2i = gate.south_opening
 	# The fortification shell occupies the micro-cell ring immediately outside
 	# the buildable region. Edge lots may touch a wall, but can never replace it.
 	for x in range(region.position.x, region.end.x):
 		result.append(Vector2i(x, region.position.y - 1))
 		var south_cell := Vector2i(x, region.end.y)
-		if not opening.has_point(south_cell):
+		var south_index := region.end.x - 1 - x
+		if south_index < south_opening.x or south_index >= south_opening.y:
 			result.append(south_cell)
 	for y in range(region.position.y, region.end.y):
 		result.append(Vector2i(region.position.x - 1, y))
-		result.append(Vector2i(region.end.x, y))
+		var east_index := y - region.position.y
+		if east_index < east_opening.x or east_index >= east_opening.y:
+			result.append(Vector2i(region.end.x, y))
 	return result
 
 static func wall_segments(level: int, unlocked_count: int) -> Array[Dictionary]:
@@ -122,10 +125,12 @@ static func wall_segments(level: int, unlocked_count: int) -> Array[Dictionary]:
 	var top_right := Vector2i(region.end.x, region.position.y)
 	var bottom_right := region.end
 	var bottom_left := Vector2i(region.position.x, region.end.y)
-	var opening: Rect2i = primary_gate(unlocked_count).opening
+	var gate: Dictionary = primary_gate(unlocked_count)
+	var east_opening: Vector2i = gate.east_opening
+	var south_opening: Vector2i = gate.south_opening
 	_append_side_segments(result, "north", top_left, top_right, -1, -1)
-	_append_side_segments(result, "east", top_right, bottom_right, -1, -1)
-	_append_side_segments(result, "south", bottom_right, bottom_left, opening.position.x, opening.end.x)
+	_append_side_segments(result, "east", top_right, bottom_right, east_opening.x, east_opening.y)
+	_append_side_segments(result, "south", bottom_right, bottom_left, south_opening.x, south_opening.y)
 	_append_side_segments(result, "west", bottom_left, top_left, -1, -1)
 	return result
 
@@ -292,8 +297,7 @@ static func _append_side_segments(
 	for index in length:
 		var from := start + step * index
 		var to := from + step
-		var axis_position := mini(from.x, to.x) if side == "south" else index
-		if skip_start >= 0 and axis_position >= skip_start and axis_position < skip_end:
+		if skip_start >= 0 and index >= skip_start and index < skip_end:
 			continue
 		var midpoint := (micro_vertex_to_grid(from) + micro_vertex_to_grid(to)) * 0.5
 		var layer := _side_layer(side)

@@ -50,16 +50,18 @@ func _run() -> void:
 		_check(perimeter.end == region.end + Vector2i.ONE, "%d-lot expanded wall is symmetric on all four sides" % capacity)
 		_check(region.has_point(gate.road_root), "%d-lot gate root stays inside the road region" % capacity)
 		_check(gate.road_root == RoadNetwork.default_gate(capacity), "%d-lot gate is the road network default root" % capacity)
-		_check(gate.boundary_cell == gate.road_root, "%d-lot gate root occupies its open boundary cell" % capacity)
+		_check(gate.boundary_cell == gate.road_root, "%d-lot gate root occupies its interior boundary cell" % capacity)
 		_check(not region.has_point(gate.outside_cell), "%d-lot gate exposes an exterior continuation" % capacity)
-		_check(gate.outside_cell.y == perimeter.end.y, "%d-lot gate anchor moves with the expanded south perimeter" % capacity)
+		_check(gate.outside_cell == perimeter.end, "%d-lot gate anchor is the isometric front vertex" % capacity)
 		_check(gate.layer == DefenseLayout.LAYER_FOREGROUND, "%d-lot gate explicitly belongs to the foreground layer" % capacity)
 		var approach: Array = gate.approach_cells
-		_check(approach.size() == 1 and approach[0] == gate.road_root + Vector2i.DOWN, "%d-lot road extends exactly one micro cell to the moved gate" % capacity)
+		_check(approach == [gate.road_root + Vector2i.RIGHT, gate.road_root + Vector2i.RIGHT + Vector2i.DOWN], "%d-lot road bends through two micro cells to the front gate" % capacity)
 		var root_polygon := RoadNetwork.micro_cell_polygon(gate.road_root)
 		var approach_polygon := RoadNetwork.micro_cell_polygon(approach[0])
-		_check(root_polygon[2] == approach_polygon[1] and root_polygon[3] == approach_polygon[0], "%d-lot interior road and exterior approach share an exact edge" % capacity)
-		_check(approach_polygon[2] == gate.screen_anchor, "%d-lot exterior approach lands exactly on the gate socket" % capacity)
+		var final_polygon := RoadNetwork.micro_cell_polygon(approach[1])
+		_check(root_polygon[1] == approach_polygon[0] and root_polygon[2] == approach_polygon[3], "%d-lot interior road and first approach share an exact edge" % capacity)
+		_check(approach_polygon[2] == final_polygon[1] and approach_polygon[3] == final_polygon[0], "%d-lot two approach cells share an exact edge" % capacity)
+		_check(final_polygon[2] == gate.screen_anchor, "%d-lot exterior approach lands exactly on the gate socket" % capacity)
 		_check(DefenseLayout.wall_micro_cells(0, capacity).is_empty(), "%d-lot unbuilt defense is visually empty" % capacity)
 
 		var road_cells := {}
@@ -76,7 +78,9 @@ func _run() -> void:
 			for cell in wall_cells:
 				_check(not road_cells.has(cell), "%d-lot wall level %d never blocks the gate road" % [capacity, level])
 			var segments := DefenseLayout.wall_segments(level, capacity)
-			_check(segments.size() == int(expected_segments[capacity]), "%d-lot wall leaves one four-cell gate opening" % capacity)
+			_check(segments.size() == int(expected_segments[capacity]), "%d-lot converging front walls leave one four-cell gate opening" % capacity)
+			_check(not segments.filter(func(segment): return segment.side == "east").any(func(segment): return segment.from.y >= perimeter.end.y - DefenseLayout.GATE_WIDTH / 2), "%d-lot east wall stops at the gate opening" % capacity)
+			_check(not segments.filter(func(segment): return segment.side == "south").any(func(segment): return segment.from.x > perimeter.end.x - DefenseLayout.GATE_WIDTH / 2), "%d-lot south wall stops at the gate opening" % capacity)
 			_check(segments.all(func(segment): return segment.has("sort_depth")), "%d-lot wall segments expose interleave depth" % capacity)
 		_check(DefenseLayout.tower_nodes(1, capacity).is_empty(), "%d-lot first palisade has no premature towers" % capacity)
 		_check(DefenseLayout.tower_nodes(2, capacity).size() == 2, "%d-lot level two marks two forward corners" % capacity)
@@ -116,7 +120,7 @@ func _run() -> void:
 	defense_visual.free()
 
 	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(2, 4), 6), "expanded shell preserves edge lots and full city capacity")
-	_check(DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(7, 9), 12), "ordinary building cannot block the full-city gate approach")
+	_check(DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(13, 10), 12), "ordinary building cannot block the full-city gate approach")
 	_check(not DefenseLayout.ordinary_conflicts_with_defense("house", Vector2i(3, 4), 12), "interior ordinary building remains legal")
 
 	var legacy := [

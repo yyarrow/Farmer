@@ -113,7 +113,10 @@ static func micro_region(unlocked_count: int) -> Rect2i:
 
 static func default_gate(unlocked_count: int) -> Vector2i:
 	var region := micro_region(unlocked_count)
-	return Vector2i(region.position.x + floori(float(region.size.x) / 2.0), region.end.y - 1)
+	# In an isometric grid the visual front of the city is the bottom vertex,
+	# where the east and south axes meet. Keep the road root in the last
+	# buildable micro-cell so the derived network terminates at that vertex.
+	return region.end - Vector2i.ONE
 
 static func micro_to_screen(cell: Vector2i) -> Vector2:
 	# A macro cell at (x, y) owns micro cells (2x, 2y)..(2x+1, 2y+1).
