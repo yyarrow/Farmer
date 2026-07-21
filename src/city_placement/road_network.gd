@@ -197,116 +197,36 @@ static func _normalized_buildings(buildings: Array) -> Dictionary:
 static func _route(start: Vector2i, goals: Dictionary, occupied: Dictionary, region: Rect2i) -> Array[Vector2i]:
 	if goals.has(start):
 		return [start]
-	var initial := {
-		"cell": start,
-		"direction": Vector2i.ZERO,
-		"new_cells": 0 if goals.has(start) else 1,
-		"turns": 0,
-		"length": 0,
-	}
-	var heap := [initial]
-	var initial_key := _state_key(start, Vector2i.ZERO)
-	var best := {initial_key: _state_cost(initial)}
-	var previous := {initial_key: ""}
-	var states := {initial_key: initial}
-	var goal_key := ""
-
-	while not heap.is_empty():
-		var current: Dictionary = _heap_pop(heap)
-		var current_key := _state_key(current.cell, current.direction)
-		if not best.has(current_key) or Vector3i(best[current_key]) != _state_cost(current):
-			continue
-		if goals.has(current.cell):
-			goal_key = current_key
-			break
+	# Every traversable non-road cell has the same cost. A breadth-first search
+	# therefore finds the same minimum-new-road objective as the old heap-based
+	# search, without multiplying every cell by four direction states.
+	var pending: Array[Vector2i] = [start]
+	var cursor := 0
+	var previous := {start: INVALID_CELL}
+	var goal := INVALID_CELL
+	while cursor < pending.size():
+		var current := pending[cursor]
+		cursor += 1
 		for direction in DIRECTIONS:
-			var next_cell: Vector2i = current.cell + direction
-			if not region.has_point(next_cell) or occupied.has(next_cell):
+			var next_cell := current + direction
+			if not region.has_point(next_cell) or occupied.has(next_cell) or previous.has(next_cell):
 				continue
-			var next_turns := int(current.turns)
-			if current.direction != Vector2i.ZERO and current.direction != direction:
-				next_turns += 1
-			var next_new := int(current.new_cells) + (0 if goals.has(next_cell) else 1)
-			var next_length := int(current.length) + 1
-			var next_key := _state_key(next_cell, direction)
-			var next := {
-				"cell": next_cell,
-				"direction": direction,
-				"new_cells": next_new,
-				"turns": next_turns,
-				"length": next_length,
-			}
-			var next_cost := _state_cost(next)
-			if best.has(next_key) and not _cost_before(next_cost, Vector3i(best[next_key])):
-				continue
-			best[next_key] = next_cost
-			previous[next_key] = current_key
-			states[next_key] = next
-			_heap_push(heap, next)
-
-	if goal_key.is_empty():
+			previous[next_cell] = current
+			if goals.has(next_cell):
+				goal = next_cell
+				break
+			pending.append(next_cell)
+		if goal != INVALID_CELL:
+			break
+	if goal == INVALID_CELL:
 		return []
 	var reversed: Array[Vector2i] = []
-	var cursor := goal_key
-	while not cursor.is_empty():
-		reversed.append(states[cursor].cell)
-		cursor = str(previous[cursor])
+	var cell := goal
+	while cell != INVALID_CELL:
+		reversed.append(cell)
+		cell = previous[cell]
 	reversed.reverse()
 	return reversed
-
-static func _heap_push(heap: Array, value: Dictionary) -> void:
-	heap.append(value)
-	var index := heap.size() - 1
-	while index > 0:
-		var parent := floori(float(index - 1) / 2.0)
-		if not _state_before(value, heap[parent]):
-			break
-		heap[index] = heap[parent]
-		index = parent
-	heap[index] = value
-
-static func _heap_pop(heap: Array) -> Dictionary:
-	var result: Dictionary = heap[0]
-	var tail: Dictionary = heap.pop_back()
-	if heap.is_empty():
-		return result
-	var index := 0
-	while true:
-		var left := index * 2 + 1
-		if left >= heap.size():
-			break
-		var right := left + 1
-		var child := left
-		if right < heap.size() and _state_before(heap[right], heap[left]):
-			child = right
-		if not _state_before(heap[child], tail):
-			break
-		heap[index] = heap[child]
-		index = child
-	heap[index] = tail
-	return result
-
-static func _state_before(first: Dictionary, second: Dictionary) -> bool:
-	var first_cost := _state_cost(first)
-	var second_cost := _state_cost(second)
-	if first_cost != second_cost:
-		return _cost_before(first_cost, second_cost)
-	if first.cell != second.cell:
-		return _cell_before(first.cell, second.cell)
-	return _cell_before(first.direction, second.direction)
-
-static func _state_cost(state: Dictionary) -> Vector3i:
-	return Vector3i(int(state.new_cells), int(state.turns), int(state.length))
-
-static func _cost_before(first: Vector3i, second: Vector3i) -> bool:
-	if first.x != second.x:
-		return first.x < second.x
-	if first.y != second.y:
-		return first.y < second.y
-	return first.z < second.z
-
-static func _state_key(cell: Vector2i, direction: Vector2i) -> String:
-	return "%d:%d:%d:%d" % [cell.x, cell.y, direction.x, direction.y]
 
 static func _connectivity_masks(cells: Array[Vector2i]) -> Dictionary:
 	var present := {}

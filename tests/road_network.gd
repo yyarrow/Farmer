@@ -80,6 +80,11 @@ func _run() -> void:
 	if bool(twelve_network.success):
 		_check(twelve_network.entrances.size() == 12, "twelve-building network exposes twelve entrances")
 		_validate_network(twelve_network, arranged_twelve, "twelve-building placement")
+	var performance_started := Time.get_ticks_msec()
+	for unused in 500:
+		RoadNetwork.build(arranged_twelve, 12)
+	var performance_ms := Time.get_ticks_msec() - performance_started
+	_check(performance_ms < 4000, "automatic road rebuilding remains interactive (%d ms / 500)" % performance_ms)
 
 	var access := RoadNetwork.evaluate_access(
 		"house", Vector2i(2, 2),
@@ -100,7 +105,7 @@ func _run() -> void:
 	_check(str(unreachable.code) == "unreachable", "unreachable placement returns a placement-consumable result")
 
 	if failures.is_empty():
-		print("ROAD_NETWORK_OK roads=%d buildings=12 masks=%d" % [twelve_network.road_cells.size(), twelve_network.connectivity_masks.size()])
+		print("ROAD_NETWORK_OK roads=%d buildings=12 masks=%d perf500=%dms" % [twelve_network.road_cells.size(), twelve_network.connectivity_masks.size(), performance_ms])
 		quit(0)
 		return
 	for failure in failures:
