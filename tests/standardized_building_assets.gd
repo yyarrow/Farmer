@@ -36,10 +36,18 @@ func _check_asset(building_type: String, footprint: Vector2i) -> void:
 		var horizontal_padding := 2 if building_type == "wall" else 4
 		_check(bounds.position.x >= horizontal_padding and bounds.end.x <= FRAME_SIZE.x - horizontal_padding, "%s stage %d keeps horizontal render padding" % [building_type, stage + 1])
 		_check(bounds.position.y >= 4 and bounds.end.y <= FRAME_SIZE.y - 4, "%s stage %d keeps vertical render padding" % [building_type, stage + 1])
+		# Wall atlases are rendered only as the independent front gate. They no
+		# longer occupy a 4x2 building lot, so forcing a painted foundation into
+		# all four lot corners would recreate the obsolete diagonal ramp asset.
+		if building_type == "wall":
+			var gate_socket := Vector2(FRAME_SIZE.x * 0.5, 350.0)
+			_check(bounds.position.x < gate_socket.x and bounds.end.x > gate_socket.x, "wall stage %d straddles the gate centreline" % (stage + 1))
+			_check(absf(float(bounds.end.y - 1) - gate_socket.y) <= 16.0, "wall stage %d lands on the front gate baseline" % (stage + 1))
+			continue
 		for corner_index in expected_quad.size():
 			var corner := expected_quad[corner_index]
 			var distance := _nearest_alpha_distance(frame, corner)
-			var tolerance := 15.0 if corner_index == 0 or building_type == "wall" else 5.0
+			var tolerance := 15.0 if corner_index == 0 else 5.0
 			_check(distance <= tolerance, "%s stage %d paints canonical corner %s (nearest %.1fpx)" % [building_type, stage + 1, corner, distance])
 
 func _alpha_bounds(image: Image) -> Rect2i:
@@ -71,8 +79,8 @@ func _check(condition: bool, message: String) -> void:
 
 func _finish() -> void:
 	if failures.is_empty():
-		print("STANDARDIZED_BUILDING_ASSETS_OK buildings=%d stages=%d corners=%d" % [
-			BUILDINGS.size(), BUILDINGS.size() * 4, BUILDINGS.size() * 16,
+		print("STANDARDIZED_BUILDING_ASSETS_OK buildings=%d stages=%d lot_corners=%d gate_stages=4" % [
+			BUILDINGS.size(), BUILDINGS.size() * 4, (BUILDINGS.size() - 1) * 16,
 		])
 		quit(0)
 		return
