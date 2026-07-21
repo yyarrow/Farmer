@@ -47,10 +47,17 @@ func _run() -> void:
 		state._normalize_building_instances(existing)
 	_check(state.place_building("farm", duplicate_origin), "repeatable building types can occupy a second footprint")
 	_check(int(state.buildings.farm) == 2 and state.get_built_building_count() == 8, "duplicate farm contributes its own level and consumes one lot")
-	var duplicate_farm: Dictionary = state.get_building_at_origin(duplicate_origin)
-	var move_origin := CityLayout.best_visual_origin(state.building_instances, state.get_building_slot_count(), "farm", CityLayout.INVALID_ORIGIN, str(duplicate_farm.id))
-	_check(state.move_building_instance(str(duplicate_farm.id), move_origin), "placed building can move between valid open footprints")
-	_check(state.get_building_at_origin(duplicate_origin).is_empty() and str(state.get_building_at_origin(move_origin).id) == str(duplicate_farm.id), "moving preserves identity and frees the old footprint")
+	var moving_farm := {}
+	var move_origin := CityLayout.INVALID_ORIGIN
+	for candidate_farm in state.get_building_instances_of_type("farm"):
+		var candidate_origin := CityLayout.best_visual_origin(state.building_instances, state.get_building_slot_count(), "farm", CityLayout.INVALID_ORIGIN, str(candidate_farm.id))
+		if candidate_origin != CityLayout.INVALID_ORIGIN:
+			moving_farm = candidate_farm
+			move_origin = candidate_origin
+			break
+	var previous_origin := CityLayout.instance_origin(moving_farm)
+	_check(not moving_farm.is_empty() and state.move_building_instance(str(moving_farm.id), move_origin), "placed building can move between valid open footprints")
+	_check(state.get_building_at_origin(previous_origin).is_empty() and str(state.get_building_at_origin(move_origin).id) == str(moving_farm.id), "moving preserves identity and frees the old footprint")
 	_check(not state.place_building("wall", duplicate_origin), "unique city wall cannot be placed twice")
 
 	var progress_before_day := int(state.era_progress)
