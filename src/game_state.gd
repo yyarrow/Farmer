@@ -1443,8 +1443,9 @@ func _apply_snapshot(data: Dictionary, apply_offline: bool) -> bool:
 	if not _is_valid_save_data(data):
 		Telemetry.track_error("save_snapshot_rejected", "存档结构或数值范围无效")
 		return false
+	var needs_migration := int(data.get("format_version", 1)) < FORMAT_VERSION
 	var snapshot := _upgrade_snapshot(data)
-	if not _is_valid_save_data(snapshot):
+	if needs_migration and not _is_valid_save_data(snapshot):
 		Telemetry.track_error("save_migration_rejected", "迁移后的存档状态不一致")
 		return false
 	_configure_era(str(snapshot.get("era_id", EraRegistry.DEFAULT_ID)))
