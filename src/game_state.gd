@@ -288,7 +288,7 @@ func _normalize_building_instances(raw_instances: Array) -> void:
 			continue
 		var preferred: Variant = raw.get("grid_origin", raw.get("slot_id", ""))
 		var origin := CityLayout.origin_from_value(preferred)
-		if not CityLayout.can_place(building_type, origin, building_instances, get_building_slot_count()):
+		if not CityLayout.can_place_geometry(building_type, origin, building_instances, get_building_slot_count()):
 			origin = CityLayout.first_open_origin(building_instances, get_building_slot_count(), building_type, preferred)
 		if origin == CityLayout.INVALID_ORIGIN:
 			continue

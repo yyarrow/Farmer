@@ -139,6 +139,35 @@ static func can_place_visually(
 		return false
 	return _infrastructure_allows(building_type, origin, instances, unlocked_count, ignore_instance_id)
 
+static func can_place_geometry(
+	building_type: String,
+	origin: Vector2i,
+	instances: Array,
+	unlocked_count: int,
+	require_visual := false,
+	ignore_instance_id := ""
+) -> bool:
+	var geometry_valid := PlacementEngine.can_place_visually(
+		building_type, origin, instances, unlocked_count, ignore_instance_id
+	) if require_visual else PlacementEngine.can_place(
+		building_type, origin, instances, unlocked_count, ignore_instance_id
+	)
+	return geometry_valid and not DefenseLayout.ordinary_conflicts_with_defense(
+		building_type, origin, unlocked_count
+	)
+
+static func is_valid_layout(instances: Array, unlocked_count: int, require_visual := true) -> bool:
+	var placed: Array = []
+	for raw in instances:
+		if raw is not Dictionary:
+			return false
+		var building_type := str(raw.get("type", ""))
+		var origin := instance_origin(raw)
+		if not can_place_geometry(building_type, origin, placed, unlocked_count, require_visual):
+			return false
+		placed.append(raw)
+	return bool(infrastructure_network(placed, unlocked_count).success)
+
 static func placement_reason(
 	building_type: String,
 	origin: Vector2i,

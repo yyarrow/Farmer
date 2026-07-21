@@ -54,14 +54,6 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 			if instance_id.is_empty() or instance_ids.has(instance_id):
 				return false
 			if int(data.get("format_version", 1)) >= 6:
-				var origin := CityLayout.origin_from_value(instance.get("grid_origin", []))
-				var placement_valid := (
-					CityLayout.can_place_visually(building_type, origin, placed, unlocked_slots)
-					if int(data.get("format_version", 1)) >= 8
-					else CityLayout.can_place(building_type, origin, placed, unlocked_slots)
-				)
-				if not placement_valid:
-					return false
 				placed.append(instance)
 			else:
 				var slot_id := str(instance.get("slot_id", ""))
@@ -78,6 +70,10 @@ static func is_consistent_current(data: Dictionary, context: Dictionary) -> bool
 			instance_ids[instance_id] = true
 			unique_types[building_type] = true
 			totals[building_type] += int(instance.level)
+		if int(data.get("format_version", 1)) >= 6 and not CityLayout.is_valid_layout(
+			placed, unlocked_slots, int(data.get("format_version", 1)) >= 8
+		):
+			return false
 		built_count = instance_ids.size()
 		for id in totals:
 			if int(saved_buildings[id]) != int(totals[id]):
