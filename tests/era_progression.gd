@@ -217,7 +217,7 @@ func _check_era_definitions() -> void:
 		_check(era.initial_buildings.keys() == era.buildings.keys(), "%s building defaults match catalog" % era_id)
 		_check(era.initial_units.keys() == era.units.keys() and era.empty_units.keys() == era.units.keys(), "%s unit rosters match catalog" % era_id)
 		_check(ResourceLoader.exists(str(era.visual.background)), "%s era background exists" % era_id)
-		_check(str(era.visual.background).contains("_terrain.png"), "%s uses a road-free terrain background" % era_id)
+		_check(str(era.visual.background).contains("/terrain_only/") and str(era.visual.background).ends_with("_terrain_only.png"), "%s directly configures a reviewed terrain-only background" % era_id)
 		var anchors := {}
 		for slot_definition in CityLayout.SLOTS:
 			var slot: Dictionary = CityLayout.slot(str(slot_definition.id), era_id)

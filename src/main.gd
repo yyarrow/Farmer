@@ -4,7 +4,6 @@ const UiFont = preload("res://src/ui_font.gd")
 const LicenseNotice = preload("res://src/license_notice.gd")
 const CityLayout = preload("res://src/data/city_layout.gd")
 const CityViewTransform = preload("res://src/city_placement/city_view_transform.gd")
-const TerrainOnlyCatalog = preload("res://src/data/terrain_only_catalog.gd")
 const UiComponents = preload("res://src/ui/component_factory.gd")
 const UiPresentation = preload("res://src/ui/presentation_formatter.gd")
 const OpeningAdvisor = preload("res://src/ui/opening_advisor.gd")
@@ -136,7 +135,7 @@ func _build_scene() -> void:
 	city_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	city_background.offset_right = CityViewTransform.CANVAS_SIZE.x - 540.0
 	city_background.offset_bottom = CityViewTransform.CANVAS_SIZE.y - 960.0
-	city_background.texture = load("res://assets/art/city_spring.png")
+	city_background.texture = load(State.get_city_background_path())
 	city_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	city_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	city_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -581,7 +580,7 @@ func _apply_season_tone(season: String) -> void:
 	_displayed_season = season
 	_displayed_era = State.era_id
 	if era_changed:
-		var background_path := TerrainOnlyCatalog.path_for(State.era_id, State.get_city_background_path())
+		var background_path := State.get_city_background_path()
 		if ResourceLoader.exists(background_path):
 			city_background.texture = load(background_path)
 	Audio.set_music_season(season)

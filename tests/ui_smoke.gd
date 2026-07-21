@@ -27,6 +27,7 @@ func _run() -> void:
 	root.add_child(ui)
 	await process_frame
 	_check(ui.theme != null and ui.theme.default_font != null, "bundled UI font is active")
+	_check(str(ui.city_background.texture.resource_path).contains("/terrain_only/") and str(ui.city_background.texture.resource_path).ends_with("_terrain_only.png"), "startup renders the configured terrain-only background without a legacy painted city")
 	for glyph in "敌军稳定伤亡粮木石币":
 		_check(ui.theme.default_font.has_char(glyph.unicode_at(0)), "bundled UI font covers %s" % glyph)
 	var missing_glyphs := {}

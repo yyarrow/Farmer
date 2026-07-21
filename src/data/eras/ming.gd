@@ -16,7 +16,7 @@ const CITY_LEVELS := [
 
 const ERA_GROWTH := {"target": 3050, "minimum_city_level": 5, "daily": 16, "building_base": 39, "city_level": 212, "battle_victory": 154, "patrol_victory": 34}
 const BATTLE_PACING := {"attack_interval_bonus": 2, "post_defeat_bonus": 3}
-const VISUAL := {"tint": Color("#dce2e8"), "background": "res://assets/art/city_ming_terrain.png", "map_hint": "明代卫城以砖垣相护，可左右拖动巡视军屯、里甲街巷、漕仓、卫所与神机敌台", "identity": {"earth": Color(0.34, 0.36, 0.40, 0.76), "standard": Color("#8c3435"), "motif": "brick_bastion"}}
+const VISUAL := {"tint": Color("#dce2e8"), "background": "res://assets/art/terrain_only/city_ming_terrain_only.png", "map_hint": "明代卫城以砖垣相护，可左右拖动巡视军屯、里甲街巷、漕仓、卫所与神机敌台", "identity": {"earth": Color(0.34, 0.36, 0.40, 0.76), "standard": Color("#8c3435"), "motif": "brick_bastion"}}
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {
