@@ -7,6 +7,11 @@ const DefensePrimitive = preload("res://src/city_defense_primitive.gd")
 
 const FRAME_SIZE := Vector2(384, 384)
 const GATE_FOOTPRINT := Vector2i(4, 2)
+# A gate connects by the centre of its passage, not by the front vertex of the
+# 4x2 authoring diamond used by ordinary buildings. Keeping this socket
+# explicit makes the wall opening, gate artwork and road centreline share one
+# world-space point.
+const GATE_SOURCE_SOCKET := Vector2(FRAME_SIZE.x * 0.5, FootprintTemplates.FRONT_Y)
 const DEFAULT_PALETTE := {
 	"shadow": Color("#49382b"),
 	"body": Color("#806442"),
@@ -103,13 +108,12 @@ static func gate_source_rect(stage: int) -> Rect2:
 
 static func standardized_gate_layout(stage: int, ground_anchor: Vector2) -> Dictionary:
 	var display_size := FootprintTemplates.frame_display_size(GATE_FOOTPRINT)
-	var source_socket := FootprintTemplates.source_socket(GATE_FOOTPRINT)
 	var scale := Vector2(display_size.x / FRAME_SIZE.x, display_size.y / FRAME_SIZE.y)
 	return {
 		"stage": clampi(stage, 0, 3),
 		"source_rect": gate_source_rect(stage),
-		"frame_rect": Rect2(ground_anchor - source_socket * scale, display_size),
-		"ground_socket": source_socket * scale,
+		"frame_rect": Rect2(ground_anchor - GATE_SOURCE_SOCKET * scale, display_size),
+		"ground_socket": GATE_SOURCE_SOCKET * scale,
 		"visible_contact": ground_anchor,
 	}
 

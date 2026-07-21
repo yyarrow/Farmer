@@ -95,6 +95,7 @@ func _run() -> void:
 	var gate_anchor := Vector2(240, 420)
 	var standardized_gate := DefenseVisuals.standardized_gate_layout(3, gate_anchor)
 	_check(standardized_gate.source_rect.position == Vector2(384, 384), "fourth atlas stage uses integer row one")
+	_check(DefenseVisuals.GATE_SOURCE_SOCKET.x == DefenseVisuals.FRAME_SIZE.x * 0.5, "gate passage socket stays on the atlas centreline")
 	_check(standardized_gate.frame_rect.position + standardized_gate.ground_socket == gate_anchor, "standardized 4x2 gate socket pins exactly to the perimeter")
 	var defense_visual := DefenseVisuals.new()
 	defense_visual.configure(5, "warring_states", {}, 12)
