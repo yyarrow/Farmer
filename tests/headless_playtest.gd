@@ -14,6 +14,8 @@ const POLICY_NAMES := {
 var state: Node
 var current_battles: Array[Dictionary] = []
 var invariant_failures: Array[String] = []
+var infrastructure_signature := ""
+var cached_infrastructure := {}
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -88,6 +90,8 @@ func _run_policy(policy: String, runs: int, target_day: int, base_seed: int) -> 
 
 func _run_once(policy: String, seed: int, target_day: int) -> Dictionary:
 	state.reset_game()
+	infrastructure_signature = ""
+	cached_infrastructure = {}
 	state.rng.seed = seed
 	state.tutorial_seen = true
 	current_battles.clear()
@@ -273,9 +277,7 @@ func _collect_invariants(policy: String, seed: int, errors: Array[String]) -> vo
 		_append_unique(errors, "independent defense level diverged from battle aggregate")
 	if state.get_building_instances().any(func(instance): return str(instance.get("type", "")) == "wall"):
 		_append_unique(errors, "city defense leaked back into ordinary building lots")
-	var infrastructure := CityLayout.infrastructure_network(
-		state.get_building_instances(), state.get_building_slot_count()
-	)
+	var infrastructure := _current_infrastructure()
 	if not bool(infrastructure.success):
 		_append_unique(errors, "building layout lost gate access: %s" % infrastructure.code)
 	var queued := {"militia": 0, "archer": 0, "chariot": 0}
@@ -293,6 +295,16 @@ func _collect_invariants(policy: String, seed: int, errors: Array[String]) -> vo
 			_append_unique(errors, "negative enemy personnel in %s" % id)
 	if errors.size() > 20:
 		_append_unique(invariant_failures, "%s seed=%d produced too many invariant errors" % [policy, seed], 100)
+
+func _current_infrastructure() -> Dictionary:
+	var instances: Array = state.get_building_instances()
+	var signature: String = JSON.stringify([state.get_building_slot_count(), instances])
+	if signature != infrastructure_signature:
+		infrastructure_signature = signature
+		cached_infrastructure = CityLayout.infrastructure_network(
+			instances, state.get_building_slot_count()
+		)
+	return cached_infrastructure
 
 func _check_snapshot_roundtrip(errors: Array[String]) -> void:
 	var before: Dictionary = state.get_snapshot()
