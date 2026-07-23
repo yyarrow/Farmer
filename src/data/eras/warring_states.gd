@@ -28,10 +28,10 @@ const VISUAL := {"tint": Color("#fff4e4"), "background": "res://assets/art/terra
 const SEASONS := SpringAutumn.SEASONS
 
 const RESOURCE_UNITS := {
-	"grain": {"name": "军粮", "short": "粮", "unit": "石", "glyph": "粟"},
+	"grain": {"name": "军粮", "short": "粟", "unit": "石", "glyph": "粟"},
 	"wood": {"name": "材木", "short": "木", "unit": "车", "glyph": "木"},
-	"stone": {"name": "版筑料", "short": "筑", "unit": "方", "glyph": "石"},
-	"coins": {"name": "刀布财", "short": "币", "unit": "枚", "glyph": "布"},
+	"stone": {"name": "版筑料", "short": "石", "unit": "方", "glyph": "石"},
+	"coins": {"name": "刀布财", "short": "布", "unit": "枚", "glyph": "布"},
 }
 
 const BUILDINGS := {

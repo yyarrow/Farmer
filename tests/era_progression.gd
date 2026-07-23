@@ -78,6 +78,12 @@ func _run() -> void:
 	_check(state.era_id == "warring_states" and state.get_era_name() == "战国", "Warring States configuration becomes active")
 	_check(state.UNITS.militia.name == "甲士" and state.UNITS.archer.name == "劲弩士" and state.UNITS.chariot.name == "轻骑", "unit catalog is era-configured")
 	_check(state.BUILDINGS.barracks.name == "武备营" and state.RESOURCE_UNITS.stone.name == "版筑料", "building and resource labels are era-configured")
+	_check(
+		["grain", "wood", "stone", "coins"].all(
+			func(id): return state.RESOURCE_UNITS[id].short == state.RESOURCE_UNITS[id].glyph
+		),
+		"Warring States resource captions stay identical across the HUD, costs, events, and trade"
+	)
 	_check(state.population == population_before and state.units == army_before and state.chapter == city_before, "era transition preserves residents, army, and city level")
 	_check(state.get_building_slot_count() == 12 and state.get_open_building_slots() == 4, "era transition never relocks occupied city lots")
 	_check(state.era_progress == 0 and state.get_max_city_level() == 5 and is_equal_approx(state.get_city_view_scale(), 1.16), "new era resets its track and extends city growth")
