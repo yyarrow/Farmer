@@ -123,7 +123,11 @@ func _check_frame(atlas: Image, footprint: Vector2i, era_id: String, building_ty
 		for corner in quad:
 			var distance := _nearest_alpha_distance(frame, corner)
 			_check(distance <= 22.0, "%s keeps its field contour near %s (nearest %.1fpx)" % [label, corner, distance])
-	var socket := FootprintTemplates.source_socket(footprint)
+	var socket := (
+		Vector2(FRAME_SIZE.x * 0.5, FootprintTemplates.FRONT_Y)
+		if building_type == "wall"
+		else FootprintTemplates.source_socket(footprint)
+	)
 	var socket_distance := _nearest_alpha_distance(frame, socket)
 	# A gate deliberately leaves its road entrance transparent between the two
 	# wall leaves. Its visible contact surrounds the socket instead of painting

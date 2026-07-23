@@ -125,7 +125,7 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 			var approved := Image.load_from_file(ProjectSettings.globalize_path(output_path))
 			if approved.is_empty() or approved.get_size() != ATLAS_SIZE:
 				return _fail("%s must be an approved %sx%s standardized atlas" % [output_path, ATLAS_SIZE.x, ATLAS_SIZE.y])
-			era_assets[building_type] = _manifest_entry(footprint, "authoritative", [])
+			era_assets[building_type] = _manifest_entry(building_type, footprint, "authoritative", [])
 			_blit_contact_row(contact, approved, building_index)
 			continue
 		var source := Image.load_from_file(ProjectSettings.globalize_path(source_path))
@@ -142,7 +142,7 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 			if _clear_meaningful_frame_edge_bleed(authoritative):
 				if authoritative.save_png(output_path) != OK:
 					return _fail("cannot save %s" % output_path)
-			era_assets[building_type] = _manifest_entry(footprint, "authoritative", [])
+			era_assets[building_type] = _manifest_entry(building_type, footprint, "authoritative", [])
 			_blit_contact_row(contact, authoritative, building_index)
 			continue
 		var existing_record := _existing_asset_record(era_id, building_type)
@@ -164,13 +164,13 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 		# Connected stages from one legacy atlas share one source camera scale.
 		# Independently generated stages instead normalize their natural ground
 		# contour to the same canonical footprint width.
-		var shared_scale := -1.0 if production_method == "imagegen_regenerated" else _shared_stage_scale(extracted, footprint)
+		var shared_scale := -1.0 if production_method == "imagegen_regenerated" else _shared_stage_scale(extracted, building_type, footprint)
 		var output := Image.create(ATLAS_SIZE.x, ATLAS_SIZE.y, false, Image.FORMAT_RGBA8)
 		output.fill(Color.TRANSPARENT)
 		var stage_records: Array[Dictionary] = []
 		for stage in 4:
 			var stage_data: Dictionary = extracted[stage]
-			var composed := _compose_frame(stage_data.image, footprint, shared_scale)
+			var composed := _compose_frame(stage_data.image, building_type, footprint, shared_scale)
 			var standardized: Image = composed.image
 			if standardized.is_empty():
 				return _fail("%s stage %d could not be standardized" % [source_path, stage + 1])
@@ -181,11 +181,11 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 				"source_bounds": _rect_array(stage_data.bounds),
 				"component_count": stage_data.component_count,
 				"uniform_scale": snappedf(float(composed.scale), 0.0001),
-				"socket": _vector_array(FootprintTemplates.source_socket(footprint)),
+				"socket": _vector_array(_source_socket(building_type, footprint)),
 			})
 		if output.save_png(output_path) != OK:
 			return _fail("cannot save %s" % output_path)
-		era_assets[building_type] = _manifest_entry(footprint, production_method, stage_records)
+		era_assets[building_type] = _manifest_entry(building_type, footprint, production_method, stage_records)
 		_blit_contact_row(contact, output, building_index)
 	_manifest.assets[era_id] = era_assets
 	var contact_path := "%s/%s_contact.png" % [QA_DIR, era_id]
@@ -290,18 +290,18 @@ func _load_imagegen_stages(era_id: String, building_type: String) -> Array[Dicti
 		})
 	return result
 
-func _shared_stage_scale(stages: Array[Dictionary], footprint: Vector2i) -> float:
+func _shared_stage_scale(stages: Array[Dictionary], building_type: String, footprint: Vector2i) -> float:
 	var scale := 1.0
 	for stage_data in stages:
 		var image: Image = stage_data.image
-		scale = minf(scale, _fit_scale(image, footprint))
+		scale = minf(scale, _fit_scale(image, building_type, footprint))
 	return scale
 
-func _fit_scale(source: Image, footprint: Vector2i) -> float:
+func _fit_scale(source: Image, building_type: String, footprint: Vector2i) -> float:
 	var width := float(maxi(1, source.get_width()))
 	var height := float(maxi(1, source.get_height()))
 	var contact_x := clampf(_bottom_alpha_median_x(source), 0.0, width - 1.0)
-	var socket := FootprintTemplates.source_socket(footprint)
+	var socket := _source_socket(building_type, footprint)
 	var scale := minf(1.0, minf(float(MAX_SUBJECT_WIDTH) / width, float(MAX_SUBJECT_HEIGHT) / height))
 	# Non-square lots place the road socket away from frame centre. Fit both sides
 	# around that real contact before translating, instead of clamping afterwards
@@ -315,17 +315,17 @@ func _fit_scale(source: Image, footprint: Vector2i) -> float:
 		scale = minf(scale, (socket.y - SAFE_MARGIN) / (height - 1.0))
 	return maxf(scale, 0.001)
 
-func _compose_frame(source: Image, footprint: Vector2i, scale: float) -> Dictionary:
+func _compose_frame(source: Image, building_type: String, footprint: Vector2i, scale: float) -> Dictionary:
 	var frame := Image.create(FRAME_SIZE.x, FRAME_SIZE.y, false, Image.FORMAT_RGBA8)
 	frame.fill(Color.TRANSPARENT)
 	if scale <= 0.0:
-		scale = _fit_scale(source, footprint)
+		scale = _fit_scale(source, building_type, footprint)
 	var scaled_size := Vector2i(maxi(1, roundi(source.get_width() * scale)), maxi(1, roundi(source.get_height() * scale)))
 	var scaled := source.duplicate()
 	if scaled.get_size() != scaled_size:
 		scaled.resize(scaled_size.x, scaled_size.y, Image.INTERPOLATE_LANCZOS)
 	var bottom_x := _bottom_alpha_median_x(scaled)
-	var socket := FootprintTemplates.source_socket(footprint)
+	var socket := _source_socket(building_type, footprint)
 	var destination := Vector2i(roundi(socket.x - bottom_x), roundi(socket.y - scaled.get_height() + 1))
 	destination.x = clampi(destination.x, SAFE_MARGIN, FRAME_SIZE.x - SAFE_MARGIN - scaled.get_width())
 	destination.y = clampi(destination.y, SAFE_MARGIN, FRAME_SIZE.y - SAFE_MARGIN - scaled.get_height())
@@ -354,15 +354,20 @@ func _clear_meaningful_frame_edge_bleed(atlas: Image) -> bool:
 				changed = true
 	return changed
 
-func _manifest_entry(footprint: Vector2i, method: String, stages: Array) -> Dictionary:
+func _manifest_entry(building_type: String, footprint: Vector2i, method: String, stages: Array) -> Dictionary:
 	var quad := FootprintTemplates.source_quad(footprint)
 	return {
 		"footprint": [footprint.x, footprint.y],
 		"canonical_quad": [_vector_array(quad[0]), _vector_array(quad[1]), _vector_array(quad[2]), _vector_array(quad[3])],
-		"socket": _vector_array(FootprintTemplates.source_socket(footprint)),
+		"socket": _vector_array(_source_socket(building_type, footprint)),
 		"method": method,
 		"stages": stages,
 	}
+
+func _source_socket(building_type: String, footprint: Vector2i) -> Vector2:
+	if building_type == "wall":
+		return Vector2(FRAME_SIZE.x * 0.5, FootprintTemplates.FRONT_Y)
+	return FootprintTemplates.source_socket(footprint)
 
 func _save_manifest() -> bool:
 	var manifest_path := ProjectSettings.globalize_path(MANIFEST_PATH)

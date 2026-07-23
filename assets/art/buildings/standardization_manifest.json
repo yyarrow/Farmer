@@ -1036,11 +1036,72 @@
 					]
 				],
 				"socket": [
-					246.0,
+					192.0,
 					350.0
 				],
-				"method": "authoritative",
-				"stages": []
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							96,
+							212,
+							489,
+							368
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6594,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							40,
+							110,
+							492,
+							470
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6341,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							9,
+							9,
+							477,
+							511
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6319,
+						"socket": [
+							192.0,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							41,
+							18,
+							490,
+							529
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6087,
+						"socket": [
+							192.0,
+							350.0
+						]
+					}
+				]
 			}
 		},
 		"qin": {
