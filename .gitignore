@@ -13,3 +13,4 @@ android/build/
 android/.build_version
 store/**/*.import
 assets/art/buildings/source/
+tmp/imagegen/

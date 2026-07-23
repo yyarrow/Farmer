@@ -858,8 +858,69 @@
 					224.4,
 					350.0
 				],
-				"method": "authoritative",
-				"stages": []
+				"method": "imagegen_regenerated",
+				"stages": [
+					{
+						"stage": 1,
+						"source_bounds": [
+							63,
+							121,
+							538,
+							422
+						],
+						"component_count": 1,
+						"uniform_scale": 0.6022,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 2,
+						"source_bounds": [
+							35,
+							115,
+							557,
+							432
+						],
+						"component_count": 1,
+						"uniform_scale": 0.5817,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 3,
+						"source_bounds": [
+							34,
+							48,
+							572,
+							489
+						],
+						"component_count": 1,
+						"uniform_scale": 0.5664,
+						"socket": [
+							224.4,
+							350.0
+						]
+					},
+					{
+						"stage": 4,
+						"source_bounds": [
+							2,
+							89,
+							588,
+							450
+						],
+						"component_count": 1,
+						"uniform_scale": 0.551,
+						"socket": [
+							224.4,
+							350.0
+						]
+					}
+				]
 			},
 			"warehouse": {
 				"footprint": [
@@ -4542,8 +4603,8 @@
 			},
 			"farm": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -4570,14 +4631,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							169.0,
-							37.0,
-							1442.0,
-							806.0
+							169,
+							37,
+							1442,
+							806
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2247,
 						"socket": [
 							192.0,
@@ -4585,14 +4646,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							234.0,
-							65.0,
-							1305.0,
-							756.0
+							234,
+							65,
+							1305,
+							756
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2483,
 						"socket": [
 							192.0,
@@ -4600,14 +4661,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							192.0,
-							104.0,
-							1389.0,
-							735.0
+							192,
+							104,
+							1389,
+							735
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2333,
 						"socket": [
 							192.0,
@@ -4615,14 +4676,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							55.0,
-							92.0,
-							1425.0,
-							836.0
+							55,
+							92,
+							1425,
+							836
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2274,
 						"socket": [
 							192.0,
@@ -5181,8 +5242,8 @@
 			},
 			"farm": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -5209,14 +5270,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							132.0,
-							115.0,
-							1271.0,
-							783.0
+							132,
+							115,
+							1271,
+							783
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2549,
 						"socket": [
 							192.0,
@@ -5224,14 +5285,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							107.0,
-							119.0,
-							1328.0,
-							817.0
+							107,
+							119,
+							1328,
+							817
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.244,
 						"socket": [
 							192.0,
@@ -5239,14 +5300,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							149.0,
-							25.0,
-							1495.0,
-							845.0
+							149,
+							25,
+							1495,
+							845
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2167,
 						"socket": [
 							192.0,
@@ -5254,14 +5315,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							63.0,
-							45.0,
-							1424.0,
-							920.0
+							63,
+							45,
+							1424,
+							920
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2275,
 						"socket": [
 							192.0,
@@ -5272,8 +5333,8 @@
 			},
 			"barracks": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -5300,14 +5361,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							367.0,
-							78.0,
-							1055.0,
-							750.0
+							367,
+							78,
+							1055,
+							750
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.3071,
 						"socket": [
 							192.0,
@@ -5315,14 +5376,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							372.0,
-							101.0,
-							1029.0,
-							677.0
+							372,
+							101,
+							1029,
+							677
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.3149,
 						"socket": [
 							192.0,
@@ -5330,14 +5391,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							327.0,
-							33.0,
-							1149.0,
-							792.0
+							327,
+							33,
+							1149,
+							792
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.282,
 						"socket": [
 							192.0,
@@ -5345,14 +5406,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							278.0,
-							23.0,
-							1208.0,
-							851.0
+							278,
+							23,
+							1208,
+							851
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2203,
 						"socket": [
 							192.0,
@@ -6002,8 +6063,8 @@
 			},
 			"farm": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -6030,14 +6091,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							118.0,
-							103.0,
-							1305.0,
-							811.0
+							118,
+							103,
+							1305,
+							811
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2483,
 						"socket": [
 							192.0,
@@ -6045,14 +6106,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							168.0,
-							40.0,
-							1439.0,
-							820.0
+							168,
+							40,
+							1439,
+							820
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2252,
 						"socket": [
 							192.0,
@@ -6060,14 +6121,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							89.0,
-							111.0,
-							1347.0,
-							823.0
+							89,
+							111,
+							1347,
+							823
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2405,
 						"socket": [
 							192.0,
@@ -6075,14 +6136,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							111.0,
-							88.0,
-							1312.0,
-							827.0
+							111,
+							88,
+							1312,
+							827
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.247,
 						"socket": [
 							192.0,
@@ -6732,8 +6793,8 @@
 			},
 			"farm": {
 				"footprint": [
-					3.0,
-					3.0
+					3,
+					3
 				],
 				"canonical_quad": [
 					[
@@ -6760,14 +6821,14 @@
 				"method": "imagegen_regenerated",
 				"stages": [
 					{
-						"stage": 1.0,
+						"stage": 1,
 						"source_bounds": [
-							121.0,
-							139.0,
-							1317.0,
-							749.0
+							121,
+							139,
+							1317,
+							749
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.246,
 						"socket": [
 							192.0,
@@ -6775,14 +6836,14 @@
 						]
 					},
 					{
-						"stage": 2.0,
+						"stage": 2,
 						"source_bounds": [
-							137.0,
-							127.0,
-							1279.0,
-							757.0
+							137,
+							127,
+							1279,
+							757
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2533,
 						"socket": [
 							192.0,
@@ -6790,14 +6851,14 @@
 						]
 					},
 					{
-						"stage": 3.0,
+						"stage": 3,
 						"source_bounds": [
-							108.0,
-							128.0,
-							1348.0,
-							785.0
+							108,
+							128,
+							1348,
+							785
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2404,
 						"socket": [
 							192.0,
@@ -6805,14 +6866,14 @@
 						]
 					},
 					{
-						"stage": 4.0,
+						"stage": 4,
 						"source_bounds": [
-							98.0,
-							108.0,
-							1353.0,
-							826.0
+							98,
+							108,
+							1353,
+							826
 						],
-						"component_count": 1.0,
+						"component_count": 1,
 						"uniform_scale": 0.2395,
 						"socket": [
 							192.0,

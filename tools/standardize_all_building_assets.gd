@@ -131,7 +131,8 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 		var source := Image.load_from_file(ProjectSettings.globalize_path(source_path))
 		if source.is_empty() or source.get_size() != ATLAS_SIZE:
 			return _fail("%s must be a readable %sx%s source atlas" % [source_path, ATLAS_SIZE.x, ATLAS_SIZE.y])
-		if era_id == "warring_states" and FileAccess.file_exists(output_path):
+		var extracted := _load_imagegen_stages(era_id, building_type)
+		if extracted.is_empty() and era_id == "warring_states" and FileAccess.file_exists(output_path):
 			var authoritative := Image.load_from_file(ProjectSettings.globalize_path(output_path))
 			if authoritative.is_empty() or authoritative.get_size() != ATLAS_SIZE:
 				return _fail("invalid authoritative atlas %s" % output_path)
@@ -144,7 +145,6 @@ func _standardize_era(era_id: String, building_types: Array[String], accept_exis
 			era_assets[building_type] = _manifest_entry(footprint, "authoritative", [])
 			_blit_contact_row(contact, authoritative, building_index)
 			continue
-		var extracted := _load_imagegen_stages(era_id, building_type)
 		var existing_record := _existing_asset_record(era_id, building_type)
 		# Generated source layers are authoring-only and intentionally not shipped.
 		# A clean checkout must preserve the approved standardized atlas instead of
