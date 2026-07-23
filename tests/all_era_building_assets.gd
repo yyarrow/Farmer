@@ -125,7 +125,7 @@ func _check_frame(atlas: Image, footprint: Vector2i, era_id: String, building_ty
 			_check(distance <= 22.0, "%s keeps its field contour near %s (nearest %.1fpx)" % [label, corner, distance])
 	var socket := (
 		Vector2(FRAME_SIZE.x * 0.5, FootprintTemplates.FRONT_Y)
-		if building_type == "wall"
+		if era_id == "warring_states" and building_type == "wall"
 		else FootprintTemplates.source_socket(footprint)
 	)
 	var socket_distance := _nearest_alpha_distance(frame, socket)
